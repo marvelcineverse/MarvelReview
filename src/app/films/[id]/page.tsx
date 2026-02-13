@@ -12,7 +12,7 @@ type PageProps = {
 };
 
 type ReviewRow = Pick<Rating, "id" | "rating" | "review" | "created_at" | "user_id"> & {
-  profiles: { username: string; media_name: string; avatar_url: string | null } | null;
+  profiles: { username: string; media_name: string; avatar_url: string | null }[] | null;
 };
 
 export default async function FilmPage({ params, searchParams }: PageProps) {
@@ -168,7 +168,7 @@ export default async function FilmPage({ params, searchParams }: PageProps) {
             <article key={review.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-slate-900">
-                  {review.profiles?.username ?? "Utilisateur"} · {review.profiles?.media_name ?? "Média inconnu"}
+                  {review.profiles?.[0]?.username ?? "Utilisateur"} · {review.profiles?.[0]?.media_name ?? "Média inconnu"}
                 </p>
                 <p className="rounded-full bg-brand-100 px-2 py-1 text-xs font-bold text-brand-700">
                   {formatRating(review.rating)}/10
