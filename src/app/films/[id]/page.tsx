@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 
 type PageProps = {
   params: { id: string };
-  searchParams: { sort?: string };
+  searchParams?: { [key: string]: string | string[] | undefined };
 };
 
 type ReviewRow = Pick<Rating, "id" | "rating" | "review" | "created_at" | "user_id"> & {
@@ -17,7 +17,9 @@ type ReviewRow = Pick<Rating, "id" | "rating" | "review" | "created_at" | "user_
 
 export default async function FilmPage({ params, searchParams }: PageProps) {
   const supabase = createClient();
-  const sort = searchParams.sort === "top" ? "top" : "recent";
+  const sortParam = searchParams?.sort;
+  const sortValue = Array.isArray(sortParam) ? sortParam[0] : sortParam;
+  const sort = sortValue === "top" ? "top" : "recent";
 
   const { data: filmData, error: filmError } = await supabase
     .from("films")

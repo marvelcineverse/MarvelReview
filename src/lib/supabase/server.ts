@@ -12,14 +12,14 @@ export function createClient() {
         get(name: string) {
           return cookieStore.get(name)?.value;
         },
-        set(name: string, value: string, options: Record<string, unknown>) {
+        set(name: string, value: string, options: any) {
           try {
             cookieStore.set({ name, value, ...options });
           } catch {
             // set is only available in Server Actions / Route Handlers
           }
         },
-        remove(name: string, options: Record<string, unknown>) {
+        remove(name: string, options: any) {
           try {
             cookieStore.set({ name, value: "", ...options });
           } catch {
