@@ -81,7 +81,7 @@ export default async function FilmPage({ params, searchParams }: PageProps) {
           {film.poster_url ? (
             <Image src={film.poster_url} alt={film.title} fill className="object-cover" />
           ) : (
-            <div className="flex h-full items-center justify-center text-xs text-slate-500">Pas d'affiche</div>
+            <div className="flex h-full items-center justify-center text-xs text-slate-500">Pas d&apos;affiche</div>
           )}
         </div>
         <div className="space-y-3">
