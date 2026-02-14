@@ -13,6 +13,10 @@ create table if not exists public.profiles (
 create table if not exists public.films (
   id uuid primary key default gen_random_uuid(),
   title text not null,
+  slug text unique,
+  franchise text not null default 'MCU',
+  type text not null default 'Film',
+  phase text,
   release_year int,
   poster_url text,
   synopsis text,
