@@ -1,5 +1,5 @@
 ﻿import { supabase } from "../supabaseClient.js";
-import { escapeHTML, setMessage } from "./utils.js";
+import { escapeHTML, formatDate, setMessage } from "./utils.js";
 
 const state = {
   films: [],
@@ -14,13 +14,13 @@ const listEl = document.querySelector("#films-list");
 const franchiseFilterEl = document.querySelector("#franchise-filter");
 const phaseFilterEl = document.querySelector("#phase-filter");
 const typeFilterEl = document.querySelector("#type-filter");
+const phaseFilterWrapEl = document.querySelector("#phase-filter-wrap");
 
 function sortChronologically(films) {
   return [...films].sort((a, b) => {
-    const yearA = Number.isFinite(Number(a.release_year)) ? Number(a.release_year) : 9999;
-    const yearB = Number.isFinite(Number(b.release_year)) ? Number(b.release_year) : 9999;
-
-    if (yearA !== yearB) return yearA - yearB;
+    const aTs = a.release_date ? new Date(a.release_date).getTime() : Number.POSITIVE_INFINITY;
+    const bTs = b.release_date ? new Date(b.release_date).getTime() : Number.POSITIVE_INFINITY;
+    if (aTs !== bTs) return aTs - bTs;
     return (a.title || "").localeCompare(b.title || "", "fr");
   });
 }
@@ -30,6 +30,16 @@ function fillSelect(selectEl, values, allLabel) {
     `<option value="">${allLabel}</option>`,
     ...values.map((value) => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`)
   ].join("");
+}
+
+function updatePhaseVisibility() {
+  const showPhase = state.filters.franchise === "" || state.filters.franchise === "MCU";
+  phaseFilterWrapEl.style.display = showPhase ? "grid" : "none";
+
+  if (!showPhase) {
+    state.filters.phase = "";
+    phaseFilterEl.value = "";
+  }
 }
 
 function setupFilters() {
@@ -49,14 +59,16 @@ function setupFilters() {
   fillSelect(phaseFilterEl, phases, "Toutes les phases");
   fillSelect(typeFilterEl, types, "Tous les types");
 
-  // Par defaut: afficher uniquement MCU si present.
   if (franchises.includes("MCU")) {
     state.filters.franchise = "MCU";
     franchiseFilterEl.value = "MCU";
   }
 
+  updatePhaseVisibility();
+
   franchiseFilterEl.addEventListener("change", () => {
     state.filters.franchise = franchiseFilterEl.value;
+    updatePhaseVisibility();
     renderFilms();
   });
 
@@ -91,7 +103,7 @@ function renderFilms() {
           <img src="${escapeHTML(film.poster_url || "https://via.placeholder.com/240x360?text=Marvel")}" alt="Affiche de ${escapeHTML(film.title)}" />
           <div>
             <h3>${escapeHTML(film.title)}</h3>
-            <p>Sortie: ${film.release_year || "-"}</p>
+            <p>Sortie: ${formatDate(film.release_date)}</p>
             <p class="film-meta">${escapeHTML(film.franchise || "-")} - ${escapeHTML(film.phase || "-")} - ${escapeHTML(film.type || "-")}</p>
             <a class="button" href="/film.html?id=${film.id}">Voir la page film</a>
           </div>
@@ -105,7 +117,7 @@ async function loadFilms() {
   try {
     const { data, error } = await supabase
       .from("films")
-      .select("id, title, release_year, poster_url, franchise, phase, type");
+      .select("id, title, release_date, poster_url, franchise, phase, type");
 
     if (error) throw error;
 

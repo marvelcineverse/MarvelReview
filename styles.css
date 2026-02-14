@@ -23,6 +23,9 @@ body {
 
 a {
   color: inherit;
+  text-decoration-color: #aab3bd;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
 }
 
 .container {
@@ -63,6 +66,12 @@ a {
   padding: 0.45rem 0.85rem;
   font-size: 0.95rem;
   cursor: pointer;
+  text-decoration: none;
+}
+
+.brand,
+.button {
+  text-decoration: none;
 }
 
 .page-intro {
@@ -229,17 +238,13 @@ textarea {
 
 .ranking-table td:nth-child(1),
 .ranking-table td:nth-child(3),
-.ranking-table td:nth-child(4) {
+.ranking-table td:nth-child(4),
+.ranking-table td:nth-child(5) {
   text-align: center;
 }
 
 .film-link {
   font-weight: 600;
-  text-decoration: none;
-}
-
-.film-link:hover {
-  text-decoration: underline;
 }
 
 .avatar {
@@ -384,5 +389,20 @@ textarea {
   .film-hero {
     display: grid;
     gap: 1rem;
+  }
+}
+
+@media (min-width: 980px) {
+  .film-hero {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 1.1rem;
+    align-items: start;
+  }
+
+  .film-hero-poster {
+    width: 100%;
+    max-width: 300px;
+    margin-left: auto;
   }
 }

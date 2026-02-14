@@ -17,7 +17,7 @@ create table if not exists public.films (
   franchise text not null default 'MCU',
   type text not null default 'Film',
   phase text,
-  release_year int,
+  release_date date,
   poster_url text,
   synopsis text,
   created_at timestamptz not null default timezone('utc', now())
@@ -127,9 +127,9 @@ on public.ratings
 for delete
 using (auth.uid() = user_id);
 
-insert into public.films (title, release_year, poster_url, synopsis)
+insert into public.films (title, release_date, poster_url, synopsis)
 values
-  ('Iron Man', 2008, 'https://image.tmdb.org/t/p/w500/78lPtwv72eTNqFW9COBYI0dWDJa.jpg', 'Le film qui lance le MCU.'),
-  ('The Avengers', 2012, 'https://image.tmdb.org/t/p/w500/RYMX2wcKCBAr24UyPD7xwmjaTn.jpg', 'Reunion des heros face a Loki.'),
-  ('Guardians of the Galaxy', 2014, 'https://image.tmdb.org/t/p/w500/r7vmZjiyZw9rpJMQJdXpjgiCOk9.jpg', 'Une equipe improbable sauve la galaxie.')
+  ('Iron Man', '2008-05-02', 'https://image.tmdb.org/t/p/w500/78lPtwv72eTNqFW9COBYI0dWDJa.jpg', 'Le film qui lance le MCU.'),
+  ('The Avengers', '2012-05-04', 'https://image.tmdb.org/t/p/w500/RYMX2wcKCBAr24UyPD7xwmjaTn.jpg', 'Reunion des heros face a Loki.'),
+  ('Guardians of the Galaxy', '2014-08-01', 'https://image.tmdb.org/t/p/w500/r7vmZjiyZw9rpJMQJdXpjgiCOk9.jpg', 'Une equipe improbable sauve la galaxie.')
 on conflict do nothing;

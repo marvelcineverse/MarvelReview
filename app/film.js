@@ -14,12 +14,12 @@ function renderFilmDetails(film) {
   const container = document.querySelector("#film-details");
   container.innerHTML = `
     <article class="card film-hero">
-      <img src="${escapeHTML(film.poster_url || "https://via.placeholder.com/260x390?text=Marvel")}" alt="Affiche de ${escapeHTML(film.title)}" />
-      <div>
+      <div class="film-hero-content">
         <h1>${escapeHTML(film.title)}</h1>
-        <p>Annee: ${film.release_year || "-"}</p>
+        <p>Date de sortie: ${formatDate(film.release_date)}</p>
         <p>${escapeHTML(film.synopsis || "Aucun synopsis.")}</p>
       </div>
+      <img class="film-hero-poster" src="${escapeHTML(film.poster_url || "https://via.placeholder.com/260x390?text=Marvel")}" alt="Affiche de ${escapeHTML(film.title)}" />
     </article>
   `;
 }
@@ -76,7 +76,7 @@ async function loadFilmPage() {
   try {
     const { data: film, error: filmError } = await supabase
       .from("films")
-      .select("id, title, release_year, poster_url, synopsis")
+      .select("id, title, release_date, poster_url, synopsis")
       .eq("id", filmId)
       .single();
     if (filmError) throw filmError;
