@@ -5,6 +5,8 @@
       <a href="/index.html">Films</a>
       <a href="/ranking.html">Classement</a>
       <a href="/profile.html">Profil</a>
+      <a href="/media.html">Medias</a>
+      <a href="/admin.html" data-auth="logged-in" data-admin-only="true">Admin</a>
       <a href="/login.html" data-auth="logged-out">Connexion</a>
       <a href="/signup.html" data-auth="logged-out">Inscription</a>
       <button id="logout-button" data-auth="logged-in" class="ghost-button">Se deconnecter</button>
@@ -18,6 +20,11 @@ export function injectLayout() {
 }
 
 export function getFilmIdFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("id");
+}
+
+export function getMediaIdFromURL() {
   const params = new URLSearchParams(window.location.search);
   return params.get("id");
 }

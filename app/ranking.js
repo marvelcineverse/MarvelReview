@@ -57,7 +57,7 @@ async function loadRanking() {
 
         const myScoreCell = film.myScore === null
           ? `<span class="score-badge stade-neutre">-</span>`
-          : `<span class="score-badge ${getScoreClass(film.myScore)}">${formatScore(film.myScore)} / 10</span>`;
+          : `<span class="score-badge ta-note-badge ${getScoreClass(film.myScore)}">${formatScore(film.myScore)} / 10</span>`;
 
         return `
           <tr>

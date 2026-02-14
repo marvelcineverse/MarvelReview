@@ -1,0 +1,85 @@
+﻿<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MarvelReview - Admin</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <div id="nav-root"></div>
+
+      <section class="page-intro">
+        <div>
+          <h1>Administration</h1>
+          <p>Gestion des films, des comptes et des rattachements media.</p>
+        </div>
+        <p id="auth-status" class="status"></p>
+      </section>
+
+      <p id="page-message" class="message" aria-live="polite"></p>
+
+      <section id="admin-root" class="grid">
+        <section class="card">
+          <h2>Prendre le controle d'un compte</h2>
+          <label>
+            Compte cible
+            <select id="controlled-user-id"></select>
+          </label>
+          <div class="inline-actions">
+            <button id="set-control" type="button">Activer le controle</button>
+            <button id="clear-control" type="button" class="ghost-button">Desactiver</button>
+          </div>
+          <p id="control-message" class="status"></p>
+        </section>
+
+        <section class="card">
+          <h2>Creer un compte utilisateur</h2>
+          <form id="create-user-form" class="form">
+            <label>
+              Email
+              <input id="new-user-email" type="email" required />
+            </label>
+            <label>
+              Mot de passe temporaire
+              <input id="new-user-password" type="text" minlength="6" required />
+            </label>
+            <label>
+              Username
+              <input id="new-user-username" type="text" minlength="2" maxlength="30" required />
+            </label>
+            <button type="submit">Creer le compte</button>
+            <p id="create-user-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Modifier les films</h2>
+          <form id="film-form" class="form">
+            <input id="film-id" type="hidden" />
+            <label>Titre <input id="film-title" type="text" required /></label>
+            <label>Slug <input id="film-slug" type="text" /></label>
+            <label>Date de sortie <input id="film-release-date" type="date" /></label>
+            <label>Franchise <input id="film-franchise" type="text" value="MCU" /></label>
+            <label>Phase <input id="film-phase" type="text" /></label>
+            <label>Type <input id="film-type" type="text" value="Film" /></label>
+            <label>URL image <input id="film-poster-url" type="url" /></label>
+            <label>Synopsis <textarea id="film-synopsis"></textarea></label>
+            <button type="submit">Enregistrer le film</button>
+            <p id="film-message" class="message" aria-live="polite"></p>
+          </form>
+          <div id="films-admin-list" class="grid"></div>
+        </section>
+
+        <section class="card">
+          <h2>Demandes de rattachement media</h2>
+          <div id="media-requests" class="grid"></div>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="/app/common.js"></script>
+    <script type="module" src="/app/admin.js"></script>
+  </body>
+</html>

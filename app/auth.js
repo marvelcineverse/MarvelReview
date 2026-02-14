@@ -18,6 +18,20 @@ export async function getUser() {
   return user;
 }
 
+export async function getCurrentProfile() {
+  const session = await getSession();
+  if (!session) return null;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, username, media, is_admin")
+    .eq("id", session.user.id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;

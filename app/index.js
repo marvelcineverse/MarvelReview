@@ -104,7 +104,7 @@ function renderFilms() {
           <div>
             <h3>${escapeHTML(film.title)}</h3>
             <p>Sortie: ${formatDate(film.release_date)}</p>
-            <p class="film-meta">${escapeHTML(film.franchise || "-")} - ${escapeHTML(film.phase || "-")} - ${escapeHTML(film.type || "-")}</p>
+            <p class="film-meta">${escapeHTML(film.franchise || "-")} - ${escapeHTML(film.type || "-")}</p>
             <a class="button" href="/film.html?id=${film.id}">Voir la page film</a>
           </div>
         </article>

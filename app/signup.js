@@ -1,8 +1,28 @@
 ﻿import { supabase } from "../supabaseClient.js";
 import { redirectIfLoggedIn } from "./auth.js";
-import { setMessage } from "./utils.js";
+import { escapeHTML, setMessage } from "./utils.js";
 
 redirectIfLoggedIn();
+
+const mediaSelectEl = document.querySelector("#media_outlet_id");
+
+async function loadMediaOutlets() {
+  try {
+    const { data, error } = await supabase
+      .from("media_outlets")
+      .select("id, name")
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+
+    mediaSelectEl.innerHTML = [
+      `<option value="">Aucun media</option>`,
+      ...(data || []).map((item) => `<option value="${item.id}">${escapeHTML(item.name)}</option>`)
+    ].join("");
+  } catch (error) {
+    setMessage("#form-message", error.message || "Impossible de charger les medias.", true);
+  }
+}
 
 document.querySelector("#signup-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -10,10 +30,10 @@ document.querySelector("#signup-form")?.addEventListener("submit", async (event)
   const email = document.querySelector("#email").value.trim();
   const password = document.querySelector("#password").value;
   const username = document.querySelector("#username").value.trim();
-  const media = document.querySelector("#media").value.trim();
+  const mediaOutletId = mediaSelectEl.value || null;
 
-  if (!username || !media) {
-    setMessage("#form-message", "Username et media sont obligatoires.", true);
+  if (!username) {
+    setMessage("#form-message", "Username obligatoire.", true);
     return;
   }
 
@@ -24,7 +44,7 @@ document.querySelector("#signup-form")?.addEventListener("submit", async (event)
       options: {
         data: {
           username,
-          media
+          media_outlet_id: mediaOutletId
         }
       }
     });
@@ -39,3 +59,5 @@ document.querySelector("#signup-form")?.addEventListener("submit", async (event)
     setMessage("#form-message", error.message || "Inscription impossible.", true);
   }
 });
+
+loadMediaOutlets();

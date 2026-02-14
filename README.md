@@ -21,6 +21,8 @@ Mini webapp de notation + mini-critiques de films Marvel.
 - `login.html`: connexion
 - `signup.html`: inscription
 - `profile.html`: edition du profil
+- `media.html`: fiche d'un media + classement de ses notes
+- `admin.html`: outils d'administration (films, comptes, rattachements media)
 - `styles.css`: styles globaux
 - `supabaseClient.js`: creation du client Supabase (CDN)
 - `app/*.js`: logique par page
@@ -81,6 +83,8 @@ Apres execution du SQL, va dans `Database` > `Tables`:
 
 - Auth email/password: signup/login/logout
 - Profil: username + media obligatoires, avatar URL optionnelle
+- Profil: demande de rattachement media soumise a validation
+- Role admin: edition films, creation comptes, controle de compte (notes au nom d'un autre user)
 - 1 note par utilisateur et par film (upsert sur `user_id,film_id`)
 - Page film: moyenne + liste des notes (username, media, score, review, date)
 - Classement: moyenne decroissante

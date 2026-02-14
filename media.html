@@ -1,0 +1,51 @@
+﻿<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MarvelReview - Medias</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <div id="nav-root"></div>
+
+      <section class="page-intro">
+        <div>
+          <h1>Medias</h1>
+          <p>Selectionne un media pour voir sa fiche et son classement.</p>
+        </div>
+        <p id="auth-status" class="status"></p>
+      </section>
+
+      <p id="page-message" class="message" aria-live="polite"></p>
+
+      <section class="card form">
+        <label>
+          Media
+          <select id="media-select"></select>
+        </label>
+      </section>
+
+      <section id="media-details" class="card"></section>
+
+      <section class="table-wrapper card">
+        <h2>Classement du media</h2>
+        <table class="ranking-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Film</th>
+              <th>Moyenne</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="media-ranking-body"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script type="module" src="/app/common.js"></script>
+    <script type="module" src="/app/media.js"></script>
+  </body>
+</html>

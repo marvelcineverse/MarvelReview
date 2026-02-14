@@ -8,7 +8,35 @@ import {
   isQuarterStep,
   setMessage
 } from "./utils.js";
-import { requireAuth, getSession } from "./auth.js";
+import { getCurrentProfile, requireAuth, getSession } from "./auth.js";
+
+let currentProfile = null;
+
+function getActingUserId(session) {
+  if (!currentProfile?.is_admin) return session.user.id;
+
+  const controlledUserId = localStorage.getItem("admin_controlled_user_id");
+  return controlledUserId || session.user.id;
+}
+
+function renderControlStatus(session) {
+  const controlStatusEl = document.querySelector("#control-status");
+  if (!controlStatusEl) return;
+
+  if (!currentProfile?.is_admin) {
+    controlStatusEl.style.display = "none";
+    return;
+  }
+
+  const controlledUserId = localStorage.getItem("admin_controlled_user_id");
+  if (controlledUserId && controlledUserId !== session.user.id) {
+    controlStatusEl.style.display = "block";
+    controlStatusEl.textContent = `Mode admin: controle du compte ${controlledUserId}`;
+  } else {
+    controlStatusEl.style.display = "block";
+    controlStatusEl.textContent = "Mode admin: vous notez avec votre propre compte.";
+  }
+}
 
 function renderFilmDetails(film) {
   const container = document.querySelector("#film-details");
@@ -94,7 +122,11 @@ async function loadFilmPage() {
     renderRatings(ratings || []);
 
     const session = await getSession();
-    if (session) await fillExistingUserRating(filmId, session.user.id);
+    if (session) {
+      currentProfile = await getCurrentProfile();
+      renderControlStatus(session);
+      await fillExistingUserRating(filmId, getActingUserId(session));
+    }
   } catch (error) {
     setMessage("#page-message", error.message || "Erreur de chargement du film.", true);
   }
@@ -121,6 +153,8 @@ async function handleRatingSubmit(event) {
   const session = await requireAuth("/login.html");
   if (!session) return;
 
+  if (!currentProfile) currentProfile = await getCurrentProfile();
+
   const filmId = getFilmIdFromURL();
   const scoreValue = Number(document.querySelector("#score").value);
   const reviewValue = document.querySelector("#review").value.trim();
@@ -131,18 +165,29 @@ async function handleRatingSubmit(event) {
   }
 
   try {
-    const payload = {
-      user_id: session.user.id,
-      film_id: filmId,
-      score: scoreValue,
-      review: reviewValue || null
-    };
+    const targetUserId = getActingUserId(session);
 
-    const { error } = await supabase
-      .from("ratings")
-      .upsert(payload, { onConflict: "user_id,film_id" });
+    if (currentProfile?.is_admin && targetUserId !== session.user.id) {
+      const { error } = await supabase.rpc("admin_upsert_rating_for_user", {
+        p_user_id: targetUserId,
+        p_film_id: filmId,
+        p_score: scoreValue,
+        p_review: reviewValue || null
+      });
+      if (error) throw error;
+    } else {
+      const payload = {
+        user_id: session.user.id,
+        film_id: filmId,
+        score: scoreValue,
+        review: reviewValue || null
+      };
 
-    if (error) throw error;
+      const { error } = await supabase
+        .from("ratings")
+        .upsert(payload, { onConflict: "user_id,film_id" });
+      if (error) throw error;
+    }
 
     setMessage("#form-message", "Note enregistree.");
     await loadFilmPage();

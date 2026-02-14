@@ -1,5 +1,5 @@
 ﻿import { injectLayout, setMessage } from "./utils.js";
-import { bindAuthVisibility, getSession, signOut } from "./auth.js";
+import { bindAuthVisibility, getCurrentProfile, getSession, signOut } from "./auth.js";
 
 async function initCommonLayout() {
   injectLayout();
@@ -12,6 +12,17 @@ async function initCommonLayout() {
 
     if (statusEl) {
       statusEl.textContent = isLoggedIn ? `Connecte: ${session.user.email}` : "Non connecte";
+    }
+
+    if (isLoggedIn) {
+      const profile = await getCurrentProfile();
+      document.querySelectorAll("[data-admin-only='true']").forEach((el) => {
+        el.style.display = profile?.is_admin ? "inline-flex" : "none";
+      });
+    } else {
+      document.querySelectorAll("[data-admin-only='true']").forEach((el) => {
+        el.style.display = "none";
+      });
     }
 
     const logoutButton = document.querySelector("#logout-button");

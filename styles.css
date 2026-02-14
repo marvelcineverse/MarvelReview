@@ -166,6 +166,13 @@ button:hover {
   max-width: 560px;
 }
 
+.inline-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 label {
   display: grid;
   gap: 0.35rem;
@@ -245,6 +252,10 @@ textarea {
 
 .film-link {
   font-weight: 600;
+}
+
+.ta-note-badge {
+  font-weight: 500;
 }
 
 .avatar {
@@ -389,6 +400,12 @@ textarea {
   .film-hero {
     display: grid;
     gap: 1rem;
+  }
+
+  .film-hero-poster {
+    max-width: 50%;
+    display: block;
+    margin-inline: auto;
   }
 }
 
