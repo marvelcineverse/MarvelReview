@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MarvelReview - Utilisateurs</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <div id="nav-root"></div>
+
+      <section class="page-intro">
+        <div>
+          <h1>Utilisateurs</h1>
+          <p>Liste des comptes et envoi de reinitialisation de mot de passe.</p>
+        </div>
+        <p id="auth-status" class="status"></p>
+      </section>
+
+      <p id="page-message" class="message" aria-live="polite"></p>
+
+      <section id="users-root" class="card">
+        <div class="table-wrapper">
+          <table class="ranking-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Pseudo</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/app/common.js"></script>
+    <script type="module" src="/app/users.js"></script>
+  </body>
+</html>

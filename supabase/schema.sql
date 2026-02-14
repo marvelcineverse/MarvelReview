@@ -111,6 +111,32 @@ as $$
   );
 $$;
 
+create or replace function public.admin_list_users()
+returns table (
+  user_id uuid,
+  email text,
+  username text
+)
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+begin
+  if auth.uid() is null or not public.is_admin(auth.uid()) then
+    raise exception 'Admin rights required';
+  end if;
+
+  return query
+  select
+    u.id as user_id,
+    u.email,
+    p.username
+  from auth.users u
+  left join public.profiles p on p.id = u.id
+  order by u.created_at desc;
+end;
+$$;
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
