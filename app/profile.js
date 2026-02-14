@@ -64,7 +64,7 @@ function renderAvatarPreview(url) {
 function renderPersonalRatings(rows) {
   const body = document.querySelector("#personal-ratings-body");
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="5">Aucun film trouve.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="3">Aucun film trouve.</td></tr>`;
     return;
   }
 
@@ -72,7 +72,6 @@ function renderPersonalRatings(rows) {
     .map((row, index) => {
       const rank = row.score === null ? "-" : String(index + 1);
       const scoreText = row.score === null ? "" : String(row.score);
-      const reviewText = row.review || "";
       const badge = row.score === null
         ? `<span class="score-badge stade-neutre">Pas note</span>`
         : `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score)} / 10</span>`;
@@ -83,13 +82,10 @@ function renderPersonalRatings(rows) {
           <td><a href="/film.html?id=${row.film_id}" class="film-link">${escapeHTML(row.title)}</a></td>
           <td>
             ${badge}
-            <input data-field="score" data-film-id="${row.film_id}" type="number" min="0" max="10" step="0.25" value="${scoreText}" placeholder="0 a 10" />
-          </td>
-          <td>
-            <textarea data-field="review" data-film-id="${row.film_id}" maxlength="800" placeholder="Mini-critique...">${escapeHTML(reviewText)}</textarea>
-          </td>
-          <td>
-            <button type="button" class="ghost-button" data-action="save-rating" data-film-id="${row.film_id}">Sauvegarder</button>
+            <div class="inline-actions">
+              <input data-field="score" data-film-id="${row.film_id}" type="number" min="0" max="10" step="0.25" value="${scoreText}" placeholder="0 a 10" />
+              <button type="button" class="ghost-button" data-action="save-rating" data-film-id="${row.film_id}">✅</button>
+            </div>
           </td>
         </tr>
       `;
@@ -141,9 +137,7 @@ async function saveQuickRating(filmId) {
   if (!currentUserId) return;
 
   const scoreInput = document.querySelector(`[data-field="score"][data-film-id="${filmId}"]`);
-  const reviewInput = document.querySelector(`[data-field="review"][data-film-id="${filmId}"]`);
   const scoreRaw = scoreInput?.value.trim() || "";
-  const review = reviewInput?.value.trim() || "";
 
   if (!scoreRaw) {
     setMessage("#ratings-quick-message", "Le score est obligatoire pour sauvegarder.", true);
@@ -160,8 +154,7 @@ async function saveQuickRating(filmId) {
     {
       user_id: currentUserId,
       film_id: filmId,
-      score,
-      review: review || null
+      score
     },
     { onConflict: "user_id,film_id" }
   );
