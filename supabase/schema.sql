@@ -202,7 +202,7 @@ begin
     'authenticated',
     'authenticated',
     lower(trim(p_email)),
-    crypt(p_password, gen_salt('bf')),
+    extensions.crypt(p_password, extensions.gen_salt('bf')),
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
     jsonb_build_object('username', p_username),

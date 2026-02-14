@@ -3,6 +3,7 @@ import { getCurrentProfile, requireAuth } from "./auth.js";
 import { escapeHTML, setMessage } from "./utils.js";
 
 let currentProfile = null;
+const DEFAULT_TEMP_PASSWORD = "Temp1234!";
 
 async function ensureAdmin() {
   const session = await requireAuth("/login.html");
@@ -38,7 +39,7 @@ function bindCreateUser() {
     event.preventDefault();
 
     const email = document.querySelector("#new-user-email").value.trim();
-    const password = document.querySelector("#new-user-password").value;
+    const password = DEFAULT_TEMP_PASSWORD;
     const username = document.querySelector("#new-user-username").value.trim();
 
     try {
@@ -52,6 +53,10 @@ function bindCreateUser() {
 
       document.querySelector("#create-user-message").textContent = `Compte cree: ${data}`;
       document.querySelector("#create-user-form").reset();
+      const passwordInput = document.querySelector("#new-user-password");
+      if (passwordInput) {
+        passwordInput.placeholder = DEFAULT_TEMP_PASSWORD;
+      }
       await loadUsers();
     } catch (error) {
       setMessage("#create-user-message", error.message || "Creation impossible.", true);
