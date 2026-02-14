@@ -1,0 +1,53 @@
+﻿<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MarvelReview - Film</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <div id="nav-root"></div>
+
+      <section class="page-intro">
+        <h1>Page film</h1>
+        <p id="auth-status" class="status"></p>
+      </section>
+
+      <p id="page-message" class="message" aria-live="polite"></p>
+      <section id="film-details"></section>
+
+      <section class="card">
+        <h2>Moyenne</h2>
+        <p id="average-rating"></p>
+      </section>
+
+      <section class="card">
+        <h2>Ta note</h2>
+        <form id="rating-form" class="form">
+          <label>
+            Score (entier 0 a 10)
+            <input id="score" type="number" min="0" max="10" step="1" required />
+          </label>
+
+          <label>
+            Mini-critique (optionnel)
+            <textarea id="review" maxlength="800" placeholder="Ton avis..."></textarea>
+          </label>
+
+          <button type="submit">Enregistrer</button>
+          <p id="form-message" class="message" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section>
+        <h2>Dernieres critiques</h2>
+        <div id="ratings-list" class="grid"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/app/common.js"></script>
+    <script type="module" src="/app/film.js"></script>
+  </body>
+</html>

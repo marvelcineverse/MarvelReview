@@ -1,0 +1,44 @@
+﻿<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MarvelReview - Profil</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <div id="nav-root"></div>
+
+      <h1>Mon profil</h1>
+      <p id="auth-status" class="status"></p>
+
+      <form id="profile-form" class="form card">
+        <p>Email: <strong id="profile-email"></strong></p>
+
+        <label>
+          Username
+          <input id="username" type="text" required minlength="2" maxlength="30" />
+        </label>
+
+        <label>
+          Media
+          <input id="media" type="text" required minlength="2" maxlength="60" />
+        </label>
+
+        <label>
+          Avatar URL (optionnel)
+          <input id="avatar_url" type="url" placeholder="https://..." />
+        </label>
+
+        <div id="avatar-preview" class="card"></div>
+
+        <button type="submit">Sauvegarder</button>
+        <p id="form-message" class="message" aria-live="polite"></p>
+      </form>
+    </main>
+
+    <script type="module" src="/app/common.js"></script>
+    <script type="module" src="/app/profile.js"></script>
+  </body>
+</html>

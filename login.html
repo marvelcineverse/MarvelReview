@@ -1,0 +1,35 @@
+﻿<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MarvelReview - Connexion</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <div id="nav-root"></div>
+
+      <h1>Connexion</h1>
+      <p id="auth-status" class="status"></p>
+
+      <form id="login-form" class="form card">
+        <label>
+          Email
+          <input id="email" type="email" required />
+        </label>
+
+        <label>
+          Mot de passe
+          <input id="password" type="password" required />
+        </label>
+
+        <button type="submit">Se connecter</button>
+        <p id="form-message" class="message" aria-live="polite"></p>
+      </form>
+    </main>
+
+    <script type="module" src="/app/common.js"></script>
+    <script type="module" src="/app/login.js"></script>
+  </body>
+</html>
