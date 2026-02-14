@@ -1,6 +1,8 @@
-﻿import { supabase } from "../supabaseClient.js";
+import { supabase } from "../supabaseClient.js";
 import { requireAuth } from "./auth.js";
-import { escapeHTML, setMessage } from "./utils.js";
+import { escapeHTML, formatScore, getScoreClass, isQuarterStep, setMessage } from "./utils.js";
+
+let currentUserId = null;
 
 async function loadMediaOutlets() {
   const selectEl = document.querySelector("#media_outlet_id");
@@ -49,11 +51,133 @@ async function loadMemberships(userId) {
     .join("<br>");
 }
 
+function renderAvatarPreview(url) {
+  const preview = document.querySelector("#avatar-preview");
+  if (!url) {
+    preview.innerHTML = "<p>Pas d'avatar.</p>";
+    return;
+  }
+
+  preview.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" class="avatar" />`;
+}
+
+function renderPersonalRatings(rows) {
+  const body = document.querySelector("#personal-ratings-body");
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="5">Aucun film trouve.</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = rows
+    .map((row, index) => {
+      const rank = row.score === null ? "-" : String(index + 1);
+      const scoreText = row.score === null ? "" : String(row.score);
+      const reviewText = row.review || "";
+      const badge = row.score === null
+        ? `<span class="score-badge stade-neutre">Pas note</span>`
+        : `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score)} / 10</span>`;
+
+      return `
+        <tr>
+          <td>${rank}</td>
+          <td><a href="/film.html?id=${row.film_id}" class="film-link">${escapeHTML(row.title)}</a></td>
+          <td>
+            ${badge}
+            <input data-field="score" data-film-id="${row.film_id}" type="number" min="0" max="10" step="0.25" value="${scoreText}" placeholder="0 a 10" />
+          </td>
+          <td>
+            <textarea data-field="review" data-film-id="${row.film_id}" maxlength="800" placeholder="Mini-critique...">${escapeHTML(reviewText)}</textarea>
+          </td>
+          <td>
+            <button type="button" class="ghost-button" data-action="save-rating" data-film-id="${row.film_id}">Sauvegarder</button>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+async function loadPersonalRatings(userId) {
+  const [{ data: films, error: filmsError }, { data: ratings, error: ratingsError }] = await Promise.all([
+    supabase
+      .from("films")
+      .select("id, title, release_date")
+      .order("release_date", { ascending: true, nullsFirst: false }),
+    supabase
+      .from("ratings")
+      .select("film_id, score, review")
+      .eq("user_id", userId)
+  ]);
+
+  if (filmsError) throw filmsError;
+  if (ratingsError) throw ratingsError;
+
+  const ratingByFilmId = new Map((ratings || []).map((row) => [row.film_id, row]));
+
+  const merged = (films || []).map((film) => {
+    const rating = ratingByFilmId.get(film.id);
+    return {
+      film_id: film.id,
+      title: film.title,
+      release_date: film.release_date,
+      score: rating ? Number(rating.score) : null,
+      review: rating?.review || ""
+    };
+  });
+
+  merged.sort((a, b) => {
+    const aRated = a.score !== null;
+    const bRated = b.score !== null;
+    if (aRated && bRated) return b.score - a.score || a.title.localeCompare(b.title, "fr");
+    if (aRated) return -1;
+    if (bRated) return 1;
+    return a.title.localeCompare(b.title, "fr");
+  });
+
+  renderPersonalRatings(merged);
+}
+
+async function saveQuickRating(filmId) {
+  if (!currentUserId) return;
+
+  const scoreInput = document.querySelector(`[data-field="score"][data-film-id="${filmId}"]`);
+  const reviewInput = document.querySelector(`[data-field="review"][data-film-id="${filmId}"]`);
+  const scoreRaw = scoreInput?.value.trim() || "";
+  const review = reviewInput?.value.trim() || "";
+
+  if (!scoreRaw) {
+    setMessage("#ratings-quick-message", "Le score est obligatoire pour sauvegarder.", true);
+    return;
+  }
+
+  const score = Number(scoreRaw.replace(",", "."));
+  if (!Number.isFinite(score) || score < 0 || score > 10 || !isQuarterStep(score)) {
+    setMessage("#ratings-quick-message", "Le score doit etre entre 0 et 10, par pas de 0,25.", true);
+    return;
+  }
+
+  const { error } = await supabase.from("ratings").upsert(
+    {
+      user_id: currentUserId,
+      film_id: filmId,
+      score,
+      review: review || null
+    },
+    { onConflict: "user_id,film_id" }
+  );
+
+  if (error) throw error;
+
+  setMessage("#ratings-quick-message", "Note sauvegardee.");
+  await loadPersonalRatings(currentUserId);
+}
+
 async function loadProfile() {
   const session = await requireAuth("/login.html");
   if (!session) return;
 
   const user = session.user;
+  currentUserId = user.id;
 
   try {
     await loadMediaOutlets();
@@ -73,21 +197,11 @@ async function loadProfile() {
       document.querySelector("#admin-badge").textContent = data.is_admin ? "Oui" : "Non";
     }
 
-    await loadMemberships(user.id);
+    await Promise.all([loadMemberships(user.id), loadPersonalRatings(user.id)]);
     document.querySelector("#profile-email").textContent = user.email || "";
   } catch (error) {
     setMessage("#form-message", error.message || "Erreur de chargement profil.", true);
   }
-}
-
-function renderAvatarPreview(url) {
-  const preview = document.querySelector("#avatar-preview");
-  if (!url) {
-    preview.innerHTML = "<p>Pas d'avatar.</p>";
-    return;
-  }
-
-  preview.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" class="avatar" />`;
 }
 
 document.querySelector("#avatar_url")?.addEventListener("input", (event) => {
@@ -138,6 +252,20 @@ document.querySelector("#profile-form")?.addEventListener("submit", async (event
     await loadMemberships(session.user.id);
   } catch (error) {
     setMessage("#form-message", error.message || "Sauvegarde impossible.", true);
+  }
+});
+
+document.querySelector("#personal-ratings-body")?.addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-action='save-rating']");
+  if (!button) return;
+
+  const filmId = button.dataset.filmId;
+  if (!filmId) return;
+
+  try {
+    await saveQuickRating(filmId);
+  } catch (error) {
+    setMessage("#ratings-quick-message", error.message || "Sauvegarde impossible.", true);
   }
 });
 

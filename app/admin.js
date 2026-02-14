@@ -3,7 +3,6 @@ import { getCurrentProfile, requireAuth } from "./auth.js";
 import { escapeHTML, setMessage } from "./utils.js";
 
 let currentProfile = null;
-const DEFAULT_TEMP_PASSWORD = "Temp1234!";
 
 async function ensureAdmin() {
   const session = await requireAuth("/login.html");
@@ -32,36 +31,6 @@ async function loadUsers() {
     `<option value="">Aucun admin pour le moment</option>`,
     ...(data || []).map((user) => `<option value="${user.id}">${escapeHTML(user.username)}</option>`)
   ].join("");
-}
-
-function bindCreateUser() {
-  document.querySelector("#create-user-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    const email = document.querySelector("#new-user-email").value.trim();
-    const password = DEFAULT_TEMP_PASSWORD;
-    const username = document.querySelector("#new-user-username").value.trim();
-
-    try {
-      const { data, error } = await supabase.rpc("admin_create_user_account", {
-        p_email: email,
-        p_password: password,
-        p_username: username
-      });
-
-      if (error) throw error;
-
-      document.querySelector("#create-user-message").textContent = `Compte cree: ${data}`;
-      document.querySelector("#create-user-form").reset();
-      const passwordInput = document.querySelector("#new-user-password");
-      if (passwordInput) {
-        passwordInput.placeholder = DEFAULT_TEMP_PASSWORD;
-      }
-      await loadUsers();
-    } catch (error) {
-      setMessage("#create-user-message", error.message || "Creation impossible.", true);
-    }
-  });
 }
 
 function bindCreateMedia() {
@@ -175,7 +144,6 @@ async function initAdminPage() {
 
   await loadUsers();
 
-  bindCreateUser();
   bindCreateMedia();
   await loadMediaRequests();
 }

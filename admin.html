@@ -13,7 +13,7 @@
       <section class="page-intro">
         <div>
           <h1>Administration</h1>
-          <p>Gestion des comptes, des medias et des rattachements.</p>
+          <p>Gestion des medias et des rattachements.</p>
         </div>
         <p id="auth-status" class="status"></p>
       </section>
@@ -21,33 +21,6 @@
       <p id="page-message" class="message" aria-live="polite"></p>
 
       <section id="admin-root" class="grid">
-        <section class="card">
-          <h2>Creer un compte utilisateur</h2>
-          <form id="create-user-form" class="form">
-            <label>
-              Email
-              <input id="new-user-email" type="email" required />
-            </label>
-            <label>
-              Mot de passe temporaire
-              <input
-                id="new-user-password"
-                type="text"
-                minlength="6"
-                placeholder="Temp1234!"
-                readonly
-                aria-readonly="true"
-              />
-            </label>
-            <label>
-              Username
-              <input id="new-user-username" type="text" minlength="2" maxlength="30" required />
-            </label>
-            <button type="submit">Creer le compte</button>
-            <p id="create-user-message" class="message" aria-live="polite"></p>
-          </form>
-        </section>
-
         <section class="card">
           <h2>Creer un media</h2>
           <form id="create-media-form" class="form">

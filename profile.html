@@ -39,6 +39,26 @@
         <button type="submit">Sauvegarder</button>
         <p id="form-message" class="message" aria-live="polite"></p>
       </form>
+
+      <section class="card">
+        <h2>Mon classement personnel</h2>
+        <p>Note rapidement chaque film sans ouvrir sa page detail.</p>
+        <p id="ratings-quick-message" class="message" aria-live="polite"></p>
+        <div class="table-wrapper">
+          <table class="ranking-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Film</th>
+                <th>Ma note</th>
+                <th>Mini-critique</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="personal-ratings-body"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
 
     <script type="module" src="/app/common.js"></script>
