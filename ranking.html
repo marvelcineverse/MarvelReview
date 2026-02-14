@@ -19,7 +19,20 @@
       </section>
 
       <p id="page-message" class="message" aria-live="polite"></p>
-      <section id="ranking-list" class="grid"></section>
+
+      <section class="table-wrapper card">
+        <table class="ranking-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Film</th>
+              <th>Moyenne</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="ranking-body"></tbody>
+        </table>
+      </section>
     </main>
 
     <script type="module" src="/app/common.js"></script>

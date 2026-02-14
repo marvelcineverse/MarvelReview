@@ -163,8 +163,7 @@ textarea {
   resize: vertical;
 }
 
-.review-card .review-head,
-.ranking-item {
+.review-card .review-head {
   display: flex;
   justify-content: space-between;
   gap: 0.8rem;
@@ -172,11 +171,60 @@ textarea {
   flex-wrap: wrap;
 }
 
-.score {
-  background: #fff2c9;
-  border-radius: 999px;
-  padding: 0.25rem 0.55rem;
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.32rem 0.62rem;
+  border-radius: 9px;
   font-weight: 700;
+  min-width: 96px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.ranking-table th,
+.ranking-table td {
+  border: 1px solid var(--border);
+  padding: 0.65rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.ranking-table th {
+  background: #a0a0a0;
+  color: #fff;
+  font-weight: 700;
+}
+
+.ranking-table td:nth-child(1),
+.ranking-table td:nth-child(3),
+.ranking-table td:nth-child(4) {
+  text-align: center;
+}
+
+.film-link {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.film-link:hover {
+  text-decoration: underline;
 }
 
 .avatar {
@@ -185,6 +233,132 @@ textarea {
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--border);
+}
+
+/* pas encore de note */
+.stade-neutre {
+  background: rgba(147, 147, 147);
+  color: white;
+}
+
+/* Note entre 0 et 0,5 */
+.stade-0-5 {
+  background: #f9766e;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 0,51 et 1 */
+.stade-1 {
+  background: #fa8271;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 1,01 et 1,5 */
+.stade-1-5 {
+  background: #f99072;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 1,51 et 2 */
+.stade-2 {
+  background: #fa9d74;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 2,01 et 2,5 */
+.stade-2-5 {
+  background: #fba977;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 2,51 et 3 */
+.stade-3 {
+  background: #fdb77c;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 3,01 et 3,5 */
+.stade-3-5 {
+  background: #fdc47d;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 3,51 et 4 */
+.stade-4 {
+  background: #fed082;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 4,01 et 4,5 */
+.stade-4-5 {
+  background: #ffde81;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 4,51 et 5 */
+.stade-5 {
+  background: #fdec82;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 5,01 et 5,5 */
+.stade-5-5 {
+  background: #f0e684;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 5,51 et 6 */
+.stade-6 {
+  background: #f0e684;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 6,01 et 6,5 */
+.stade-6-5 {
+  background: #d1de82;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 6,51 et 7 */
+.stade-7 {
+  background: #c2d981;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 7,01 et 7,5 */
+.stade-7-5 {
+  background: #b2d581;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 7,51 et 8 */
+.stade-8 {
+  background: #a3cf80;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 8,01 et 8,5 */
+.stade-8-5 {
+  background: #94ce81;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 8,51 et 9 */
+.stade-9 {
+  background: #83c77a;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 9,01 et 9,5 */
+.stade-9-5 {
+  background: #5ec47bd1;
+  color: rgba(39, 39, 39, 0.81);
+}
+
+/* Note entre 9,51 et 10 */
+.stade-10 {
+  background: #5ec47b;
+  color: rgba(39, 39, 39, 0.81);
 }
 
 @media (max-width: 700px) {

@@ -1,5 +1,13 @@
 ﻿import { supabase } from "../supabaseClient.js";
-import { escapeHTML, formatDate, getFilmIdFromURL, setMessage } from "./utils.js";
+import {
+  escapeHTML,
+  formatDate,
+  formatScore,
+  getFilmIdFromURL,
+  getScoreClass,
+  isQuarterStep,
+  setMessage
+} from "./utils.js";
 import { requireAuth, getSession } from "./auth.js";
 
 function renderFilmDetails(film) {
@@ -19,13 +27,17 @@ function renderFilmDetails(film) {
 function renderAverage(ratings) {
   const avgEl = document.querySelector("#average-rating");
   if (!ratings.length) {
-    avgEl.textContent = "Pas encore de note";
+    avgEl.innerHTML = `<span class="score-badge stade-neutre">Pas encore de note</span>`;
     return;
   }
 
   const total = ratings.reduce((sum, item) => sum + Number(item.score || 0), 0);
-  const average = (total / ratings.length).toFixed(1);
-  avgEl.textContent = `${average}/10 (${ratings.length} note(s))`;
+  const average = total / ratings.length;
+
+  avgEl.innerHTML = `
+    <span class="score-badge ${getScoreClass(average)}">${formatScore(average, 2, 2)} / 10</span>
+    <span>${ratings.length} note(s)</span>
+  `;
 }
 
 function renderRatings(ratings) {
@@ -44,7 +56,7 @@ function renderRatings(ratings) {
           <div class="review-head">
             <strong>${escapeHTML(profile.username || "Utilisateur")}</strong>
             <span>${escapeHTML(profile.media || "Media inconnu")}</span>
-            <span class="score">${Number(rating.score).toFixed(0)}/10</span>
+            <span class="score-badge ${getScoreClass(rating.score)}">${formatScore(rating.score)} / 10</span>
           </div>
           <p>${escapeHTML(rating.review || "(Pas de commentaire)")}</p>
           <small>${formatDate(rating.created_at)}</small>
@@ -113,8 +125,8 @@ async function handleRatingSubmit(event) {
   const scoreValue = Number(document.querySelector("#score").value);
   const reviewValue = document.querySelector("#review").value.trim();
 
-  if (!Number.isInteger(scoreValue) || scoreValue < 0 || scoreValue > 10) {
-    setMessage("#form-message", "Le score doit etre un entier entre 0 et 10.", true);
+  if (!isQuarterStep(scoreValue) || scoreValue < 0 || scoreValue > 10) {
+    setMessage("#form-message", "Le score doit etre entre 0 et 10, par pas de 0,25.", true);
     return;
   }
 

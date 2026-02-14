@@ -1,8 +1,8 @@
 ﻿import { supabase } from "../supabaseClient.js";
-import { escapeHTML, setMessage } from "./utils.js";
+import { escapeHTML, formatScore, getScoreClass, setMessage } from "./utils.js";
 
 async function loadRanking() {
-  const listEl = document.querySelector("#ranking-list");
+  const bodyEl = document.querySelector("#ranking-body");
 
   try {
     const { data: films, error: filmsError } = await supabase
@@ -29,30 +29,37 @@ async function loadRanking() {
     }
 
     const ranked = Array.from(byFilmId.values())
-      .map((film) => ({ ...film, average: film.count ? film.average / film.count : 0 }))
-      .sort((a, b) => (b.average !== a.average ? b.average - a.average : b.count - a.count));
+      .map((film) => ({ ...film, average: film.count ? film.average / film.count : null }))
+      .sort((a, b) => {
+        const aAverage = a.average ?? -1;
+        const bAverage = b.average ?? -1;
+        if (bAverage !== aAverage) return bAverage - aAverage;
+        return b.count - a.count;
+      });
 
     if (!ranked.length) {
-      listEl.innerHTML = "<p>Classement indisponible (aucun film).</p>";
+      bodyEl.innerHTML = `<tr><td colspan="4">Classement indisponible (aucun film).</td></tr>`;
       return;
     }
 
-    listEl.innerHTML = ranked
-      .map(
-        (film, index) => `
-          <article class="card ranking-item">
-            <div>
-              <strong>#${index + 1} ${escapeHTML(film.title)}</strong>
-              <p>${film.release_year || "-"}</p>
-            </div>
-            <div>
-              <strong>${film.count ? film.average.toFixed(1) : "-"}/10</strong>
-              <p>${film.count} note(s)</p>
-              <a class="button" href="/film.html?id=${film.id}">Voir</a>
-            </div>
-          </article>
-        `
-      )
+    bodyEl.innerHTML = ranked
+      .map((film, index) => {
+        const averageCell = film.count
+          ? `<span class="score-badge ${getScoreClass(film.average)}">${formatScore(film.average, 2, 2)} / 10</span>`
+          : `<span class="score-badge stade-neutre">Pas de note</span>`;
+
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td>
+              <a href="/film.html?id=${film.id}" class="film-link">${escapeHTML(film.title)}</a>
+              <small>(${film.release_year || "-"})</small>
+            </td>
+            <td>${averageCell}</td>
+            <td>${film.count}</td>
+          </tr>
+        `;
+      })
       .join("");
   } catch (error) {
     setMessage("#page-message", error.message || "Erreur de chargement du classement.", true);

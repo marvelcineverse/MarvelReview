@@ -27,7 +27,7 @@ create table if not exists public.ratings (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   film_id uuid not null references public.films(id) on delete cascade,
-  score int not null check (score >= 0 and score <= 10),
+  score numeric(4,2) not null check (score >= 0 and score <= 10 and mod((score * 100)::int, 25) = 0),
   review text,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),

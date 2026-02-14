@@ -47,3 +47,50 @@ export function setMessage(targetSelector, message, isError = false) {
   target.textContent = message;
   target.classList.toggle("error", isError);
 }
+
+export function formatScore(value, minimumFractionDigits = 0, maximumFractionDigits = 2) {
+  const score = Number(value);
+  if (!Number.isFinite(score)) return "-";
+  return score.toLocaleString("fr-FR", {
+    minimumFractionDigits,
+    maximumFractionDigits
+  });
+}
+
+export function isQuarterStep(value) {
+  const score = Number(value);
+  if (!Number.isFinite(score)) return false;
+  const rounded = Math.round(score * 4) / 4;
+  return Math.abs(score - rounded) < 0.000001;
+}
+
+export function getScoreClass(value) {
+  const score = Number(value);
+  if (!Number.isFinite(score)) return "stade-neutre";
+  if (score <= 0.5) return "stade-0-5";
+
+  const normalized = Math.min(Math.ceil(score * 2) / 2, 10);
+  const classByStep = {
+    1: "stade-1",
+    1.5: "stade-1-5",
+    2: "stade-2",
+    2.5: "stade-2-5",
+    3: "stade-3",
+    3.5: "stade-3-5",
+    4: "stade-4",
+    4.5: "stade-4-5",
+    5: "stade-5",
+    5.5: "stade-5-5",
+    6: "stade-6",
+    6.5: "stade-6-5",
+    7: "stade-7",
+    7.5: "stade-7-5",
+    8: "stade-8",
+    8.5: "stade-8-5",
+    9: "stade-9",
+    9.5: "stade-9-5",
+    10: "stade-10"
+  };
+
+  return classByStep[normalized] || "stade-neutre";
+}
