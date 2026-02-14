@@ -128,9 +128,9 @@ begin
 
   return query
   select
-    u.id as user_id,
-    u.email,
-    p.username
+    u.id::uuid as user_id,
+    u.email::text as email,
+    p.username::text as username
   from auth.users u
   left join public.profiles p on p.id = u.id
   order by u.created_at desc;
