@@ -55,21 +55,22 @@
         </section>
 
         <section class="card">
-          <h2>Modifier les films</h2>
-          <form id="film-form" class="form">
-            <input id="film-id" type="hidden" />
-            <label>Titre <input id="film-title" type="text" required /></label>
-            <label>Slug <input id="film-slug" type="text" /></label>
-            <label>Date de sortie <input id="film-release-date" type="date" /></label>
-            <label>Franchise <input id="film-franchise" type="text" value="MCU" /></label>
-            <label>Phase <input id="film-phase" type="text" /></label>
-            <label>Type <input id="film-type" type="text" value="Film" /></label>
-            <label>URL image <input id="film-poster-url" type="url" /></label>
-            <label>Synopsis <textarea id="film-synopsis"></textarea></label>
-            <button type="submit">Enregistrer le film</button>
-            <p id="film-message" class="message" aria-live="polite"></p>
+          <h2>Creer un media</h2>
+          <form id="create-media-form" class="form">
+            <label>Nom du media <input id="media-name" type="text" required /></label>
+            <label>Admin du media (optionnel)
+              <select id="media-admin-profile-id">
+                <option value="">Aucun admin pour le moment</option>
+              </select>
+            </label>
+            <label>URL Twitter <input id="media-twitter-url" type="url" /></label>
+            <label>URL Instagram <input id="media-instagram-url" type="url" /></label>
+            <label>URL Youtube <input id="media-youtube-url" type="url" /></label>
+            <label>URL Site web <input id="media-website-url" type="url" /></label>
+            <label>Description <textarea id="media-description"></textarea></label>
+            <button type="submit">Creer le media</button>
+            <p id="create-media-message" class="message" aria-live="polite"></p>
           </form>
-          <div id="films-admin-list" class="grid"></div>
         </section>
 
         <section class="card">

@@ -2,8 +2,6 @@
 import { requireAuth } from "./auth.js";
 import { escapeHTML, setMessage } from "./utils.js";
 
-let profileData = null;
-
 async function loadMediaOutlets() {
   const selectEl = document.querySelector("#media_outlet_id");
 
@@ -22,6 +20,7 @@ async function loadMediaOutlets() {
 
 async function loadMembership(userId) {
   const statusEl = document.querySelector("#media-membership-status");
+  const currentMediaEl = document.querySelector("#current-media");
 
   const { data, error } = await supabase
     .from("profile_media_memberships")
@@ -33,11 +32,13 @@ async function loadMembership(userId) {
 
   if (!data) {
     statusEl.textContent = "Aucune demande de rattachement.";
+    currentMediaEl.textContent = "Independant";
     return;
   }
 
   const mediaName = data.media_outlets?.name || "Media";
   statusEl.textContent = `Demande: ${mediaName} (${data.status})`;
+  currentMediaEl.textContent = data.status === "approved" ? mediaName : "Independant";
 
   if (data.status === "pending") {
     document.querySelector("#media_outlet_id").value = data.media_id;
@@ -55,23 +56,20 @@ async function loadProfile() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, username, media, avatar_url, is_admin")
+      .select("id, username, avatar_url, is_admin")
       .eq("id", user.id)
       .maybeSingle();
 
     if (error) throw error;
-    profileData = data;
 
     if (data) {
       document.querySelector("#username").value = data.username || "";
       document.querySelector("#avatar_url").value = data.avatar_url || "";
       renderAvatarPreview(data.avatar_url);
-      document.querySelector("#current-media").textContent = data.media || "Independant";
       document.querySelector("#admin-badge").textContent = data.is_admin ? "Oui" : "Non";
     }
 
     await loadMembership(user.id);
-
     document.querySelector("#profile-email").textContent = user.email || "";
   } catch (error) {
     setMessage("#form-message", error.message || "Erreur de chargement profil.", true);
@@ -111,7 +109,6 @@ document.querySelector("#profile-form")?.addEventListener("submit", async (event
     const payload = {
       id: session.user.id,
       username,
-      media: profileData?.media || "Independant",
       avatar_url: avatarURL || null
     };
 

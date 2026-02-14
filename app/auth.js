@@ -24,7 +24,7 @@ export async function getCurrentProfile() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, media, is_admin")
+    .select("id, username, is_admin")
     .eq("id", session.user.id)
     .maybeSingle();
 

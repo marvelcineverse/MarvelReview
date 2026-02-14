@@ -11,6 +11,7 @@ import {
 import { getCurrentProfile, requireAuth, getSession } from "./auth.js";
 
 let currentProfile = null;
+let currentFilm = null;
 
 function getActingUserId(session) {
   if (!currentProfile?.is_admin) return session.user.id;
@@ -36,6 +37,27 @@ function renderControlStatus(session) {
     controlStatusEl.style.display = "block";
     controlStatusEl.textContent = "Mode admin: vous notez avec votre propre compte.";
   }
+}
+
+function renderAdminFilmEditor() {
+  const sectionEl = document.querySelector("#admin-film-editor");
+  if (!sectionEl) return;
+
+  if (!currentProfile?.is_admin || !currentFilm) {
+    sectionEl.style.display = "none";
+    return;
+  }
+
+  sectionEl.style.display = "block";
+
+  document.querySelector("#film-title").value = currentFilm.title || "";
+  document.querySelector("#film-slug").value = currentFilm.slug || "";
+  document.querySelector("#film-release-date").value = currentFilm.release_date || "";
+  document.querySelector("#film-franchise").value = currentFilm.franchise || "";
+  document.querySelector("#film-phase").value = currentFilm.phase || "";
+  document.querySelector("#film-type").value = currentFilm.type || "";
+  document.querySelector("#film-poster-url").value = currentFilm.poster_url || "";
+  document.querySelector("#film-synopsis").value = currentFilm.synopsis || "";
 }
 
 function renderFilmDetails(film) {
@@ -68,6 +90,12 @@ function renderAverage(ratings) {
   `;
 }
 
+function getMediaDisplayName(rating) {
+  const memberships = rating.profiles?.profile_media_memberships || [];
+  const approved = memberships.find((item) => item.status === "approved");
+  return approved?.media_outlets?.name || "Independant";
+}
+
 function renderRatings(ratings) {
   const listEl = document.querySelector("#ratings-list");
 
@@ -79,11 +107,12 @@ function renderRatings(ratings) {
   listEl.innerHTML = ratings
     .map((rating) => {
       const profile = rating.profiles || {};
+      const mediaName = getMediaDisplayName(rating);
       return `
         <article class="card review-card">
           <div class="review-head">
             <strong>${escapeHTML(profile.username || "Utilisateur")}</strong>
-            <span>${escapeHTML(profile.media || "Media inconnu")}</span>
+            <span>${escapeHTML(mediaName)}</span>
             <span class="score-badge ${getScoreClass(rating.score)}">${formatScore(rating.score)} / 10</span>
           </div>
           <p>${escapeHTML(rating.review || "(Pas de commentaire)")}</p>
@@ -104,16 +133,17 @@ async function loadFilmPage() {
   try {
     const { data: film, error: filmError } = await supabase
       .from("films")
-      .select("id, title, release_date, poster_url, synopsis")
+      .select("id, title, slug, release_date, franchise, phase, type, poster_url, synopsis")
       .eq("id", filmId)
       .single();
     if (filmError) throw filmError;
 
+    currentFilm = film;
     renderFilmDetails(film);
 
     const { data: ratings, error: ratingsError } = await supabase
       .from("ratings")
-      .select("id, user_id, score, review, created_at, profiles(username, media)")
+      .select("id, user_id, score, review, created_at, profiles(username, profile_media_memberships(status, media_outlets(name)))")
       .eq("film_id", filmId)
       .order("created_at", { ascending: false });
     if (ratingsError) throw ratingsError;
@@ -125,6 +155,7 @@ async function loadFilmPage() {
     if (session) {
       currentProfile = await getCurrentProfile();
       renderControlStatus(session);
+      renderAdminFilmEditor();
       await fillExistingUserRating(filmId, getActingUserId(session));
     }
   } catch (error) {
@@ -196,5 +227,41 @@ async function handleRatingSubmit(event) {
   }
 }
 
+async function handleAdminFilmSave(event) {
+  event.preventDefault();
+
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+
+  if (!currentProfile) currentProfile = await getCurrentProfile();
+  if (!currentProfile?.is_admin) {
+    setMessage("#admin-film-message", "Acces reserve admin.", true);
+    return;
+  }
+
+  const payload = {
+    id: currentFilm?.id,
+    title: document.querySelector("#film-title").value.trim(),
+    slug: document.querySelector("#film-slug").value.trim() || null,
+    release_date: document.querySelector("#film-release-date").value || null,
+    franchise: document.querySelector("#film-franchise").value.trim() || "MCU",
+    phase: document.querySelector("#film-phase").value.trim() || null,
+    type: document.querySelector("#film-type").value.trim() || "Film",
+    poster_url: document.querySelector("#film-poster-url").value.trim() || null,
+    synopsis: document.querySelector("#film-synopsis").value.trim() || null
+  };
+
+  try {
+    const { error } = await supabase.from("films").upsert(payload);
+    if (error) throw error;
+
+    setMessage("#admin-film-message", "Film mis a jour.");
+    await loadFilmPage();
+  } catch (error) {
+    setMessage("#admin-film-message", error.message || "Mise a jour film impossible.", true);
+  }
+}
+
 document.querySelector("#rating-form")?.addEventListener("submit", handleRatingSubmit);
+document.querySelector("#admin-film-form")?.addEventListener("submit", handleAdminFilmSave);
 loadFilmPage();

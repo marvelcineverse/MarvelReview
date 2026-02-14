@@ -38,6 +38,12 @@ async function loadUsersForControl() {
   selectEl.innerHTML = (data || [])
     .map((user) => `<option value="${user.id}">${escapeHTML(user.username)}</option>`)
     .join("");
+
+  const mediaAdminSelectEl = document.querySelector("#media-admin-profile-id");
+  mediaAdminSelectEl.innerHTML = [
+    `<option value="">Aucun admin pour le moment</option>`,
+    ...(data || []).map((user) => `<option value="${user.id}">${escapeHTML(user.username)}</option>`)
+  ].join("");
 }
 
 function bindControlActions() {
@@ -66,8 +72,7 @@ function bindCreateUser() {
       const { data, error } = await supabase.rpc("admin_create_user_account", {
         p_email: email,
         p_password: password,
-        p_username: username,
-        p_media: "Independant"
+        p_username: username
       });
 
       if (error) throw error;
@@ -81,79 +86,33 @@ function bindCreateUser() {
   });
 }
 
-async function loadFilms() {
-  const { data, error } = await supabase
-    .from("films")
-    .select("id, title, release_date, franchise, phase, type")
-    .order("release_date", { ascending: true });
-
-  if (error) throw error;
-
-  const listEl = document.querySelector("#films-admin-list");
-  listEl.innerHTML = (data || [])
-    .map(
-      (film) => `
-        <article class="card">
-          <strong>${escapeHTML(film.title)}</strong>
-          <p>${film.release_date || "-"} | ${escapeHTML(film.franchise || "-")} | ${escapeHTML(film.type || "-")}</p>
-          <button type="button" data-film-id="${film.id}">Editer</button>
-        </article>
-      `
-    )
-    .join("");
-
-  listEl.querySelectorAll("button[data-film-id]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const { data: film, error: filmError } = await supabase
-        .from("films")
-        .select("id, title, slug, release_date, franchise, phase, type, poster_url, synopsis")
-        .eq("id", button.dataset.filmId)
-        .single();
-
-      if (filmError) {
-        setMessage("#film-message", filmError.message, true);
-        return;
-      }
-
-      document.querySelector("#film-id").value = film.id;
-      document.querySelector("#film-title").value = film.title || "";
-      document.querySelector("#film-slug").value = film.slug || "";
-      document.querySelector("#film-release-date").value = film.release_date || "";
-      document.querySelector("#film-franchise").value = film.franchise || "";
-      document.querySelector("#film-phase").value = film.phase || "";
-      document.querySelector("#film-type").value = film.type || "";
-      document.querySelector("#film-poster-url").value = film.poster_url || "";
-      document.querySelector("#film-synopsis").value = film.synopsis || "";
-    });
-  });
-}
-
-function bindFilmForm() {
-  document.querySelector("#film-form").addEventListener("submit", async (event) => {
+function bindCreateMedia() {
+  document.querySelector("#create-media-form").addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const payload = {
-      id: document.querySelector("#film-id").value || undefined,
-      title: document.querySelector("#film-title").value.trim(),
-      slug: document.querySelector("#film-slug").value.trim() || null,
-      release_date: document.querySelector("#film-release-date").value || null,
-      franchise: document.querySelector("#film-franchise").value.trim() || "MCU",
-      phase: document.querySelector("#film-phase").value.trim() || null,
-      type: document.querySelector("#film-type").value.trim() || "Film",
-      poster_url: document.querySelector("#film-poster-url").value.trim() || null,
-      synopsis: document.querySelector("#film-synopsis").value.trim() || null
+      name: document.querySelector("#media-name").value.trim(),
+      admin_profile_id: document.querySelector("#media-admin-profile-id").value || null,
+      twitter_url: document.querySelector("#media-twitter-url").value.trim() || null,
+      instagram_url: document.querySelector("#media-instagram-url").value.trim() || null,
+      youtube_url: document.querySelector("#media-youtube-url").value.trim() || null,
+      website_url: document.querySelector("#media-website-url").value.trim() || null,
+      description: document.querySelector("#media-description").value.trim() || null
     };
 
+    if (!payload.name) {
+      setMessage("#create-media-message", "Le nom du media est obligatoire.", true);
+      return;
+    }
+
     try {
-      const { error } = await supabase.from("films").upsert(payload);
+      const { error } = await supabase.from("media_outlets").insert(payload);
       if (error) throw error;
 
-      setMessage("#film-message", "Film enregistre.");
-      document.querySelector("#film-form").reset();
-      document.querySelector("#film-id").value = "";
-      await loadFilms();
+      setMessage("#create-media-message", "Media cree.");
+      document.querySelector("#create-media-form").reset();
     } catch (error) {
-      setMessage("#film-message", error.message || "Sauvegarde film impossible.", true);
+      setMessage("#create-media-message", error.message || "Creation media impossible.", true);
     }
   });
 }
@@ -241,8 +200,7 @@ async function initAdminPage() {
   setControlMessage();
 
   bindCreateUser();
-  bindFilmForm();
-  await loadFilms();
+  bindCreateMedia();
   await loadMediaRequests();
 }
 

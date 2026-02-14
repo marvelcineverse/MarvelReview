@@ -46,6 +46,22 @@
         <h2>Dernieres critiques</h2>
         <div id="ratings-list" class="grid"></div>
       </section>
+
+      <section id="admin-film-editor" class="card" style="display: none;">
+        <h2>Edition film (admin)</h2>
+        <form id="admin-film-form" class="form">
+          <label>Titre <input id="film-title" type="text" required /></label>
+          <label>Slug <input id="film-slug" type="text" /></label>
+          <label>Date de sortie <input id="film-release-date" type="date" /></label>
+          <label>Franchise <input id="film-franchise" type="text" /></label>
+          <label>Phase <input id="film-phase" type="text" /></label>
+          <label>Type <input id="film-type" type="text" /></label>
+          <label>URL image <input id="film-poster-url" type="url" /></label>
+          <label>Synopsis <textarea id="film-synopsis"></textarea></label>
+          <button type="submit">Sauvegarder le film</button>
+          <p id="admin-film-message" class="message" aria-live="polite"></p>
+        </form>
+      </section>
     </main>
 
     <script type="module" src="/app/common.js"></script>

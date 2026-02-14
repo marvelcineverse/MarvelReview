@@ -4,19 +4,19 @@ create extension if not exists pgcrypto;
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text not null unique check (char_length(username) between 2 and 30),
-  media text not null default 'Independant' check (char_length(media) between 2 and 60),
   avatar_url text,
   is_admin boolean not null default false,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
 
-alter table public.profiles add column if not exists media text not null default 'Independant';
 alter table public.profiles add column if not exists is_admin boolean not null default false;
+alter table public.profiles add column if not exists avatar_url text;
+alter table public.profiles drop column if exists media;
 
 create table if not exists public.media_outlets (
   id uuid primary key default gen_random_uuid(),
-  admin_profile_id uuid not null references public.profiles(id) on delete cascade,
+  admin_profile_id uuid references public.profiles(id) on delete set null,
   name text not null unique,
   twitter_url text,
   instagram_url text,
@@ -26,6 +26,8 @@ create table if not exists public.media_outlets (
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.media_outlets alter column admin_profile_id drop not null;
 
 create table if not exists public.profile_media_memberships (
   id uuid primary key default gen_random_uuid(),
@@ -110,11 +112,10 @@ as $$
 declare
   media_outlet_text text;
 begin
-  insert into public.profiles (id, username, media)
+  insert into public.profiles (id, username)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data ->> 'username', 'user_' || substring(new.id::text from 1 for 8)),
-    'Independant'
+    coalesce(new.raw_user_meta_data ->> 'username', 'user_' || substring(new.id::text from 1 for 8))
   )
   on conflict (id) do nothing;
 
@@ -137,8 +138,7 @@ $$;
 create or replace function public.admin_create_user_account(
   p_email text,
   p_password text,
-  p_username text,
-  p_media text default 'Independant'
+  p_username text
 )
 returns uuid
 language plpgsql
@@ -198,8 +198,8 @@ begin
     now()
   );
 
-  insert into public.profiles (id, username, media)
-  values (v_new_user_id, p_username, coalesce(nullif(p_media, ''), 'Independant'))
+  insert into public.profiles (id, username)
+  values (v_new_user_id, p_username)
   on conflict (id) do nothing;
 
   return v_new_user_id;
@@ -243,7 +243,6 @@ set search_path = public
 as $$
 declare
   v_row public.profile_media_memberships%rowtype;
-  v_media_name text;
 begin
   select * into v_row
   from public.profile_media_memberships
@@ -270,14 +269,6 @@ begin
       decided_at = timezone('utc', now()),
       decided_by = auth.uid()
   where id = p_membership_id;
-
-  if p_approved then
-    select name into v_media_name from public.media_outlets where id = v_row.media_id;
-    update public.profiles
-    set media = coalesce(v_media_name, media),
-        updated_at = timezone('utc', now())
-    where id = v_row.profile_id;
-  end if;
 end;
 $$;
 
@@ -340,20 +331,20 @@ drop policy if exists "media_admin_insert" on public.media_outlets;
 create policy "media_admin_insert"
 on public.media_outlets
 for insert
-with check (public.is_admin(auth.uid()) and admin_profile_id = auth.uid());
+with check (public.is_admin(auth.uid()));
 
 drop policy if exists "media_admin_update" on public.media_outlets;
 create policy "media_admin_update"
 on public.media_outlets
 for update
-using (public.is_admin(auth.uid()) and admin_profile_id = auth.uid())
-with check (public.is_admin(auth.uid()) and admin_profile_id = auth.uid());
+using (public.is_admin(auth.uid()))
+with check (public.is_admin(auth.uid()));
 
 drop policy if exists "media_admin_delete" on public.media_outlets;
 create policy "media_admin_delete"
 on public.media_outlets
 for delete
-using (public.is_admin(auth.uid()) and admin_profile_id = auth.uid());
+using (public.is_admin(auth.uid()));
 
 drop policy if exists "memberships_public_read" on public.profile_media_memberships;
 create policy "memberships_public_read"
