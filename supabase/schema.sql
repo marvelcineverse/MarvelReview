@@ -31,13 +31,21 @@ alter table public.media_outlets alter column admin_profile_id drop not null;
 
 create table if not exists public.profile_media_memberships (
   id uuid primary key default gen_random_uuid(),
-  profile_id uuid not null unique references public.profiles(id) on delete cascade,
+  profile_id uuid not null references public.profiles(id) on delete cascade,
   media_id uuid not null references public.media_outlets(id) on delete cascade,
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
   requested_at timestamptz not null default timezone('utc', now()),
   decided_at timestamptz,
-  decided_by uuid references public.profiles(id) on delete set null
+  decided_by uuid references public.profiles(id) on delete set null,
+  unique (profile_id, media_id)
 );
+
+alter table public.profile_media_memberships
+  drop constraint if exists profile_media_memberships_profile_id_key;
+
+alter table public.profile_media_memberships
+  add constraint profile_media_memberships_profile_id_media_id_key
+  unique (profile_id, media_id);
 
 create table if not exists public.films (
   id uuid primary key default gen_random_uuid(),
@@ -124,9 +132,8 @@ begin
   if media_outlet_text is not null and media_outlet_text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
     insert into public.profile_media_memberships (profile_id, media_id, status)
     values (new.id, media_outlet_text::uuid, 'pending')
-    on conflict (profile_id) do update
-      set media_id = excluded.media_id,
-          status = 'pending',
+    on conflict (profile_id, media_id) do update
+      set status = 'pending',
           decided_at = null,
           decided_by = null;
   end if;

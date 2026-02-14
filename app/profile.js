@@ -18,7 +18,7 @@ async function loadMediaOutlets() {
   ].join("");
 }
 
-async function loadMembership(userId) {
+async function loadMemberships(userId) {
   const statusEl = document.querySelector("#media-membership-status");
   const currentMediaEl = document.querySelector("#current-media");
 
@@ -26,23 +26,27 @@ async function loadMembership(userId) {
     .from("profile_media_memberships")
     .select("id, status, media_id, media_outlets(name)")
     .eq("profile_id", userId)
-    .maybeSingle();
+    .order("requested_at", { ascending: false });
 
   if (error) throw error;
 
-  if (!data) {
+  const rows = data || [];
+
+  if (!rows.length) {
     statusEl.textContent = "Aucune demande de rattachement.";
     currentMediaEl.textContent = "Independant";
     return;
   }
 
-  const mediaName = data.media_outlets?.name || "Media";
-  statusEl.textContent = `Demande: ${mediaName} (${data.status})`;
-  currentMediaEl.textContent = data.status === "approved" ? mediaName : "Independant";
+  const approved = rows
+    .filter((row) => row.status === "approved")
+    .map((row) => row.media_outlets?.name || "Media");
 
-  if (data.status === "pending") {
-    document.querySelector("#media_outlet_id").value = data.media_id;
-  }
+  currentMediaEl.textContent = approved.length ? approved.join(", ") : "Independant";
+
+  statusEl.innerHTML = rows
+    .map((row) => `- ${escapeHTML(row.media_outlets?.name || "Media")}: ${row.status}`)
+    .join("<br>");
 }
 
 async function loadProfile() {
@@ -69,7 +73,7 @@ async function loadProfile() {
       document.querySelector("#admin-badge").textContent = data.is_admin ? "Oui" : "Non";
     }
 
-    await loadMembership(user.id);
+    await loadMemberships(user.id);
     document.querySelector("#profile-email").textContent = user.email || "";
   } catch (error) {
     setMessage("#form-message", error.message || "Erreur de chargement profil.", true);
@@ -124,14 +128,14 @@ document.querySelector("#profile-form")?.addEventListener("submit", async (event
           decided_at: null,
           decided_by: null
         },
-        { onConflict: "profile_id" }
+        { onConflict: "profile_id,media_id" }
       );
 
       if (membershipError) throw membershipError;
     }
 
-    setMessage("#form-message", "Profil enregistre. Demande media mise a jour si selectionnee.");
-    await loadMembership(session.user.id);
+    setMessage("#form-message", "Profil enregistre. Demande media ajoutee/mise a jour.");
+    await loadMemberships(session.user.id);
   } catch (error) {
     setMessage("#form-message", error.message || "Sauvegarde impossible.", true);
   }
