@@ -13,53 +13,6 @@ import { getCurrentProfile, requireAuth, getSession } from "./auth.js";
 let currentProfile = null;
 let currentFilm = null;
 
-function getActingUserId(session) {
-  if (!currentProfile?.is_admin) return session.user.id;
-
-  const controlledUserId = localStorage.getItem("admin_controlled_user_id");
-  return controlledUserId || session.user.id;
-}
-
-function renderControlStatus(session) {
-  const controlStatusEl = document.querySelector("#control-status");
-  if (!controlStatusEl) return;
-
-  if (!currentProfile?.is_admin) {
-    controlStatusEl.style.display = "none";
-    return;
-  }
-
-  const controlledUserId = localStorage.getItem("admin_controlled_user_id");
-  if (controlledUserId && controlledUserId !== session.user.id) {
-    controlStatusEl.style.display = "block";
-    controlStatusEl.textContent = `Mode admin: controle du compte ${controlledUserId}`;
-  } else {
-    controlStatusEl.style.display = "block";
-    controlStatusEl.textContent = "Mode admin: vous notez avec votre propre compte.";
-  }
-}
-
-function renderAdminFilmEditor() {
-  const sectionEl = document.querySelector("#admin-film-editor");
-  if (!sectionEl) return;
-
-  if (!currentProfile?.is_admin || !currentFilm) {
-    sectionEl.style.display = "none";
-    return;
-  }
-
-  sectionEl.style.display = "block";
-
-  document.querySelector("#film-title").value = currentFilm.title || "";
-  document.querySelector("#film-slug").value = currentFilm.slug || "";
-  document.querySelector("#film-release-date").value = currentFilm.release_date || "";
-  document.querySelector("#film-franchise").value = currentFilm.franchise || "";
-  document.querySelector("#film-phase").value = currentFilm.phase || "";
-  document.querySelector("#film-type").value = currentFilm.type || "";
-  document.querySelector("#film-poster-url").value = currentFilm.poster_url || "";
-  document.querySelector("#film-synopsis").value = currentFilm.synopsis || "";
-}
-
 function renderFilmDetails(film) {
   const container = document.querySelector("#film-details");
   container.innerHTML = `
@@ -90,13 +43,7 @@ function renderAverage(ratings) {
   `;
 }
 
-function getMediaDisplayName(rating) {
-  const memberships = rating.profiles?.profile_media_memberships || [];
-  const approved = memberships.find((item) => item.status === "approved");
-  return approved?.media_outlets?.name || "Independant";
-}
-
-function renderRatings(ratings) {
+function renderRatings(ratings, mediaByUserId) {
   const listEl = document.querySelector("#ratings-list");
 
   if (!ratings.length) {
@@ -107,12 +54,14 @@ function renderRatings(ratings) {
   listEl.innerHTML = ratings
     .map((rating) => {
       const profile = rating.profiles || {};
-      const mediaName = getMediaDisplayName(rating);
+      const mediaNames = mediaByUserId.get(rating.user_id) || [];
+      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Independant";
+
       return `
         <article class="card review-card">
           <div class="review-head">
             <strong>${escapeHTML(profile.username || "Utilisateur")}</strong>
-            <span>${escapeHTML(mediaName)}</span>
+            <span>${escapeHTML(mediaLabel)}</span>
             <span class="score-badge ${getScoreClass(rating.score)}">${formatScore(rating.score)} / 10</span>
           </div>
           <p>${escapeHTML(rating.review || "(Pas de commentaire)")}</p>
@@ -121,6 +70,74 @@ function renderRatings(ratings) {
       `;
     })
     .join("");
+}
+
+async function loadMembershipMapForUsers(userIds) {
+  if (!userIds.length) return new Map();
+
+  const { data, error } = await supabase
+    .from("profile_media_memberships")
+    .select("profile_id, status, media_outlets(name)")
+    .in("profile_id", userIds)
+    .eq("status", "approved");
+
+  if (error) throw error;
+
+  const map = new Map();
+  for (const row of data || []) {
+    const existing = map.get(row.profile_id) || [];
+    const mediaName = row.media_outlets?.name;
+    if (mediaName) existing.push(mediaName);
+    map.set(row.profile_id, existing);
+  }
+
+  return map;
+}
+
+async function fillExistingUserRating(filmId, userId, scoreInputId, reviewInputId) {
+  const { data, error } = await supabase
+    .from("ratings")
+    .select("score, review")
+    .eq("film_id", filmId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  const scoreInput = document.querySelector(`#${scoreInputId}`);
+  const reviewInput = document.querySelector(`#${reviewInputId}`);
+
+  if (!data) {
+    scoreInput.value = "";
+    reviewInput.value = "";
+    return;
+  }
+
+  scoreInput.value = String(data.score);
+  reviewInput.value = data.review || "";
+}
+
+async function loadAdminUsersForFilm(filmId) {
+  const selectEl = document.querySelector("#admin-target-user");
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, username")
+    .order("username", { ascending: true });
+
+  if (error) throw error;
+
+  selectEl.innerHTML = (data || [])
+    .map((user) => `<option value="${user.id}">${escapeHTML(user.username)}</option>`)
+    .join("");
+
+  selectEl.addEventListener("change", async () => {
+    await fillExistingUserRating(filmId, selectEl.value, "admin-score", "admin-review");
+  });
+
+  if (selectEl.value) {
+    await fillExistingUserRating(filmId, selectEl.value, "admin-score", "admin-review");
+  }
 }
 
 async function loadFilmPage() {
@@ -143,39 +160,45 @@ async function loadFilmPage() {
 
     const { data: ratings, error: ratingsError } = await supabase
       .from("ratings")
-      .select("id, user_id, score, review, created_at, profiles(username, profile_media_memberships(status, media_outlets(name)))")
+      .select("id, user_id, score, review, created_at, profiles(username)")
       .eq("film_id", filmId)
       .order("created_at", { ascending: false });
     if (ratingsError) throw ratingsError;
 
+    const userIds = [...new Set((ratings || []).map((row) => row.user_id))];
+    const mediaByUserId = await loadMembershipMapForUsers(userIds);
+
     renderAverage(ratings || []);
-    renderRatings(ratings || []);
+    renderRatings(ratings || [], mediaByUserId);
 
     const session = await getSession();
     if (session) {
       currentProfile = await getCurrentProfile();
-      renderControlStatus(session);
-      renderAdminFilmEditor();
-      await fillExistingUserRating(filmId, getActingUserId(session));
+      await fillExistingUserRating(filmId, session.user.id, "score", "review");
+
+      if (currentProfile?.is_admin) {
+        document.querySelector("#admin-film-editor").style.display = "block";
+        document.querySelector("#admin-rating-editor").style.display = "block";
+        renderAdminFilmEditor();
+        await loadAdminUsersForFilm(filmId);
+      }
     }
   } catch (error) {
     setMessage("#page-message", error.message || "Erreur de chargement du film.", true);
   }
 }
 
-async function fillExistingUserRating(filmId, userId) {
-  const { data, error } = await supabase
-    .from("ratings")
-    .select("score, review")
-    .eq("film_id", filmId)
-    .eq("user_id", userId)
-    .maybeSingle();
+function renderAdminFilmEditor() {
+  if (!currentFilm) return;
 
-  if (error) throw error;
-  if (!data) return;
-
-  document.querySelector("#score").value = String(data.score);
-  document.querySelector("#review").value = data.review || "";
+  document.querySelector("#film-title").value = currentFilm.title || "";
+  document.querySelector("#film-slug").value = currentFilm.slug || "";
+  document.querySelector("#film-release-date").value = currentFilm.release_date || "";
+  document.querySelector("#film-franchise").value = currentFilm.franchise || "";
+  document.querySelector("#film-phase").value = currentFilm.phase || "";
+  document.querySelector("#film-type").value = currentFilm.type || "";
+  document.querySelector("#film-poster-url").value = currentFilm.poster_url || "";
+  document.querySelector("#film-synopsis").value = currentFilm.synopsis || "";
 }
 
 async function handleRatingSubmit(event) {
@@ -183,8 +206,6 @@ async function handleRatingSubmit(event) {
 
   const session = await requireAuth("/login.html");
   if (!session) return;
-
-  if (!currentProfile) currentProfile = await getCurrentProfile();
 
   const filmId = getFilmIdFromURL();
   const scoreValue = Number(document.querySelector("#score").value);
@@ -196,29 +217,17 @@ async function handleRatingSubmit(event) {
   }
 
   try {
-    const targetUserId = getActingUserId(session);
+    const payload = {
+      user_id: session.user.id,
+      film_id: filmId,
+      score: scoreValue,
+      review: reviewValue || null
+    };
 
-    if (currentProfile?.is_admin && targetUserId !== session.user.id) {
-      const { error } = await supabase.rpc("admin_upsert_rating_for_user", {
-        p_user_id: targetUserId,
-        p_film_id: filmId,
-        p_score: scoreValue,
-        p_review: reviewValue || null
-      });
-      if (error) throw error;
-    } else {
-      const payload = {
-        user_id: session.user.id,
-        film_id: filmId,
-        score: scoreValue,
-        review: reviewValue || null
-      };
-
-      const { error } = await supabase
-        .from("ratings")
-        .upsert(payload, { onConflict: "user_id,film_id" });
-      if (error) throw error;
-    }
+    const { error } = await supabase
+      .from("ratings")
+      .upsert(payload, { onConflict: "user_id,film_id" });
+    if (error) throw error;
 
     setMessage("#form-message", "Note enregistree.");
     await loadFilmPage();
@@ -227,17 +236,51 @@ async function handleRatingSubmit(event) {
   }
 }
 
+async function handleAdminRatingSubmit(event) {
+  event.preventDefault();
+
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+  if (!currentProfile?.is_admin) return;
+
+  const filmId = getFilmIdFromURL();
+  const targetUserId = document.querySelector("#admin-target-user").value;
+  const scoreValue = Number(document.querySelector("#admin-score").value);
+  const reviewValue = document.querySelector("#admin-review").value.trim();
+
+  if (!targetUserId) {
+    setMessage("#admin-rating-message", "Selectionne un utilisateur cible.", true);
+    return;
+  }
+
+  if (!isQuarterStep(scoreValue) || scoreValue < 0 || scoreValue > 10) {
+    setMessage("#admin-rating-message", "Le score doit etre entre 0 et 10, par pas de 0,25.", true);
+    return;
+  }
+
+  try {
+    const { error } = await supabase.rpc("admin_upsert_rating_for_user", {
+      p_user_id: targetUserId,
+      p_film_id: filmId,
+      p_score: scoreValue,
+      p_review: reviewValue || null
+    });
+
+    if (error) throw error;
+
+    setMessage("#admin-rating-message", "Note attribuee / modifiee.");
+    await loadFilmPage();
+  } catch (error) {
+    setMessage("#admin-rating-message", error.message || "Attribution impossible.", true);
+  }
+}
+
 async function handleAdminFilmSave(event) {
   event.preventDefault();
 
   const session = await requireAuth("/login.html");
   if (!session) return;
-
-  if (!currentProfile) currentProfile = await getCurrentProfile();
-  if (!currentProfile?.is_admin) {
-    setMessage("#admin-film-message", "Acces reserve admin.", true);
-    return;
-  }
+  if (!currentProfile?.is_admin) return;
 
   const payload = {
     id: currentFilm?.id,
@@ -263,5 +306,6 @@ async function handleAdminFilmSave(event) {
 }
 
 document.querySelector("#rating-form")?.addEventListener("submit", handleRatingSubmit);
+document.querySelector("#admin-rating-form")?.addEventListener("submit", handleAdminRatingSubmit);
 document.querySelector("#admin-film-form")?.addEventListener("submit", handleAdminFilmSave);
 loadFilmPage();

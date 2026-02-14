@@ -25,7 +25,6 @@
 
       <section class="card">
         <h2>Ta note</h2>
-        <p id="control-status" class="status"></p>
         <form id="rating-form" class="form">
           <label>
             Score (0 a 10, par pas de 0,25)
@@ -39,6 +38,29 @@
 
           <button type="submit">Enregistrer</button>
           <p id="form-message" class="message" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section id="admin-rating-editor" class="card" style="display: none;">
+        <h2>Attribution admin</h2>
+        <form id="admin-rating-form" class="form">
+          <label>
+            Utilisateur cible
+            <select id="admin-target-user" required></select>
+          </label>
+
+          <label>
+            Score (0 a 10, par pas de 0,25)
+            <input id="admin-score" type="number" min="0" max="10" step="0.25" required />
+          </label>
+
+          <label>
+            Review (optionnelle)
+            <textarea id="admin-review" maxlength="800" placeholder="Critique attribuee..."></textarea>
+          </label>
+
+          <button type="submit">Attribuer / Mettre a jour</button>
+          <p id="admin-rating-message" class="message" aria-live="polite"></p>
         </form>
       </section>
 

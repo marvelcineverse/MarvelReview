@@ -4,14 +4,6 @@ import { escapeHTML, setMessage } from "./utils.js";
 
 let currentProfile = null;
 
-function setControlMessage() {
-  const controlledUserId = localStorage.getItem("admin_controlled_user_id");
-  const msg = controlledUserId
-    ? `Controle actif sur: ${controlledUserId}`
-    : "Aucun controle actif.";
-  document.querySelector("#control-message").textContent = msg;
-}
-
 async function ensureAdmin() {
   const session = await requireAuth("/login.html");
   if (!session) return null;
@@ -26,7 +18,7 @@ async function ensureAdmin() {
   return session;
 }
 
-async function loadUsersForControl() {
+async function loadUsers() {
   const { data, error } = await supabase
     .from("profiles")
     .select("id, username")
@@ -34,30 +26,11 @@ async function loadUsersForControl() {
 
   if (error) throw error;
 
-  const selectEl = document.querySelector("#controlled-user-id");
-  selectEl.innerHTML = (data || [])
-    .map((user) => `<option value="${user.id}">${escapeHTML(user.username)}</option>`)
-    .join("");
-
   const mediaAdminSelectEl = document.querySelector("#media-admin-profile-id");
   mediaAdminSelectEl.innerHTML = [
     `<option value="">Aucun admin pour le moment</option>`,
     ...(data || []).map((user) => `<option value="${user.id}">${escapeHTML(user.username)}</option>`)
   ].join("");
-}
-
-function bindControlActions() {
-  document.querySelector("#set-control").addEventListener("click", () => {
-    const selected = document.querySelector("#controlled-user-id").value;
-    if (!selected) return;
-    localStorage.setItem("admin_controlled_user_id", selected);
-    setControlMessage();
-  });
-
-  document.querySelector("#clear-control").addEventListener("click", () => {
-    localStorage.removeItem("admin_controlled_user_id");
-    setControlMessage();
-  });
 }
 
 function bindCreateUser() {
@@ -79,7 +52,7 @@ function bindCreateUser() {
 
       document.querySelector("#create-user-message").textContent = `Compte cree: ${data}`;
       document.querySelector("#create-user-form").reset();
-      await loadUsersForControl();
+      await loadUsers();
     } catch (error) {
       setMessage("#create-user-message", error.message || "Creation impossible.", true);
     }
@@ -195,9 +168,7 @@ async function initAdminPage() {
   const session = await ensureAdmin();
   if (!session) return;
 
-  await loadUsersForControl();
-  bindControlActions();
-  setControlMessage();
+  await loadUsers();
 
   bindCreateUser();
   bindCreateMedia();
