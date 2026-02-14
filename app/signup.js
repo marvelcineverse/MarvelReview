@@ -38,10 +38,13 @@ document.querySelector("#signup-form")?.addEventListener("submit", async (event)
   }
 
   try {
+    const emailRedirectTo = `${window.location.origin}/login.html?confirmed=1`;
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo,
         data: {
           username,
           media_outlet_id: mediaOutletId

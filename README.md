@@ -19,6 +19,8 @@ Mini webapp de notation + mini-critiques de films Marvel.
 - `film.html?id=...`: detail film + moyenne + critiques + formulaire de note
 - `ranking.html`: classement par moyenne
 - `login.html`: connexion
+- `forgot-password.html`: demande de reinitialisation du mot de passe
+- `update-password.html`: definition du nouveau mot de passe via lien email
 - `signup.html`: inscription
 - `profile.html`: edition du profil
 - `media.html`: fiche d'un media + classement de ses notes
@@ -46,6 +48,22 @@ Mini webapp de notation + mini-critiques de films Marvel.
 3. Laisse `Enable email confirmations` selon ton choix:
    - ON: l'utilisateur doit confirmer son email.
    - OFF: connexion immediate apres signup.
+4. Dans `Authentication` > `URL Configuration`:
+   - ajoute ton URL de site (ex: `https://ton-site.vercel.app`)
+   - ajoute en redirect URL:
+     - `https://ton-site.vercel.app/login.html?confirmed=1`
+     - `https://ton-site.vercel.app/update-password.html`
+     - pour local: `http://localhost:5500/login.html?confirmed=1` et `http://localhost:5500/update-password.html`
+
+### B2. Personnaliser le mail de validation
+
+1. Va dans `Authentication` > `Email Templates`.
+2. Ouvre `Confirm signup`.
+3. Tu peux modifier:
+   - sujet
+   - contenu HTML
+   - style/branding
+4. Garde le lien de confirmation avec la variable Supabase (ne remplace pas le token).
 
 ### C. Creer les tables rapidement
 
@@ -82,9 +100,10 @@ Apres execution du SQL, va dans `Database` > `Tables`:
 ## 4) Comportement MVP
 
 - Auth email/password: signup/login/logout
+- Mot de passe oublie: envoi d'email + page de nouveau mot de passe
 - Profil: username + media obligatoires, avatar URL optionnelle
 - Profil: demande de rattachement media soumise a validation
-- Role admin: edition films, creation comptes, controle de compte (notes au nom d'un autre user)
+- Role admin: edition films, creation comptes, attribution de notes/reviews pour un utilisateur cible
 - 1 note par utilisateur et par film (upsert sur `user_id,film_id`)
 - Page film: moyenne + liste des notes (username, media, score, review, date)
 - Classement: moyenne decroissante
