@@ -476,3 +476,369 @@ values
   ('The Avengers', '2012-05-04', 'https://image.tmdb.org/t/p/w500/RYMX2wcKCBAr24UyPD7xwmjaTn.jpg', 'Reunion des heros face a Loki.'),
   ('Guardians of the Galaxy', '2014-08-01', 'https://image.tmdb.org/t/p/w500/r7vmZjiyZw9rpJMQJdXpjgiCOk9.jpg', 'Une equipe improbable sauve la galaxie.')
 on conflict do nothing;
+
+-- Series / saisons / episodes
+create table if not exists public.series (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  slug text unique,
+  synopsis text,
+  poster_url text,
+  start_date date,
+  end_date date,
+  franchise text not null default 'MCU',
+  type text not null default 'Serie',
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+alter table public.series add column if not exists slug text;
+alter table public.series add column if not exists synopsis text;
+alter table public.series add column if not exists poster_url text;
+alter table public.series add column if not exists start_date date;
+alter table public.series add column if not exists end_date date;
+alter table public.series add column if not exists franchise text not null default 'MCU';
+alter table public.series add column if not exists type text not null default 'Serie';
+
+create table if not exists public.series_seasons (
+  id uuid primary key default gen_random_uuid(),
+  series_id uuid not null references public.series(id) on delete cascade,
+  name text not null,
+  season_number int not null check (season_number > 0),
+  slug text unique,
+  poster_url text,
+  start_date date,
+  end_date date,
+  phase text,
+  created_at timestamptz not null default timezone('utc', now()),
+  unique (series_id, season_number)
+);
+
+alter table public.series_seasons add column if not exists slug text;
+alter table public.series_seasons add column if not exists poster_url text;
+alter table public.series_seasons add column if not exists start_date date;
+alter table public.series_seasons add column if not exists end_date date;
+alter table public.series_seasons add column if not exists phase text;
+
+create table if not exists public.series_episodes (
+  id uuid primary key default gen_random_uuid(),
+  season_id uuid not null references public.series_seasons(id) on delete cascade,
+  episode_number int not null check (episode_number > 0),
+  title text not null,
+  air_date date,
+  created_at timestamptz not null default timezone('utc', now()),
+  unique (season_id, episode_number)
+);
+
+create table if not exists public.episode_ratings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  episode_id uuid not null references public.series_episodes(id) on delete cascade,
+  score numeric(4,2) not null check (score >= 0 and score <= 10 and mod((score * 100)::int, 25) = 0),
+  review text,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (user_id, episode_id)
+);
+
+alter table public.episode_ratings
+  alter column score type numeric(4,2) using score::numeric;
+
+alter table public.episode_ratings drop constraint if exists episode_ratings_score_check;
+alter table public.episode_ratings
+  add constraint episode_ratings_score_check
+  check (score >= 0 and score <= 10 and mod((score * 100)::int, 25) = 0);
+
+create table if not exists public.season_user_ratings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  season_id uuid not null references public.series_seasons(id) on delete cascade,
+  manual_score numeric(4,2),
+  adjustment numeric(4,2) not null default 0,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (user_id, season_id)
+);
+
+alter table public.season_user_ratings
+  alter column manual_score type numeric(4,2) using manual_score::numeric;
+alter table public.season_user_ratings
+  alter column adjustment type numeric(4,2) using adjustment::numeric;
+
+alter table public.season_user_ratings drop constraint if exists season_user_ratings_manual_score_check;
+alter table public.season_user_ratings
+  add constraint season_user_ratings_manual_score_check
+  check (
+    manual_score is null
+    or (manual_score >= 0 and manual_score <= 10 and mod((manual_score * 100)::int, 25) = 0)
+  );
+
+alter table public.season_user_ratings drop constraint if exists season_user_ratings_adjustment_check;
+alter table public.season_user_ratings
+  add constraint season_user_ratings_adjustment_check
+  check (
+    adjustment >= -2
+    and adjustment <= 2
+  );
+
+drop trigger if exists trg_episode_ratings_updated_at on public.episode_ratings;
+create trigger trg_episode_ratings_updated_at
+before update on public.episode_ratings
+for each row
+execute function public.set_updated_at();
+
+drop trigger if exists trg_season_user_ratings_updated_at on public.season_user_ratings;
+create trigger trg_season_user_ratings_updated_at
+before update on public.season_user_ratings
+for each row
+execute function public.set_updated_at();
+
+alter table public.series enable row level security;
+alter table public.series_seasons enable row level security;
+alter table public.series_episodes enable row level security;
+alter table public.episode_ratings enable row level security;
+alter table public.season_user_ratings enable row level security;
+
+drop policy if exists "series_public_read" on public.series;
+create policy "series_public_read"
+on public.series
+for select
+using (true);
+
+drop policy if exists "series_admin_insert" on public.series;
+create policy "series_admin_insert"
+on public.series
+for insert
+with check (public.is_admin(auth.uid()));
+
+drop policy if exists "series_admin_update" on public.series;
+create policy "series_admin_update"
+on public.series
+for update
+using (public.is_admin(auth.uid()))
+with check (public.is_admin(auth.uid()));
+
+drop policy if exists "series_admin_delete" on public.series;
+create policy "series_admin_delete"
+on public.series
+for delete
+using (public.is_admin(auth.uid()));
+
+drop policy if exists "series_seasons_public_read" on public.series_seasons;
+create policy "series_seasons_public_read"
+on public.series_seasons
+for select
+using (true);
+
+drop policy if exists "series_seasons_admin_insert" on public.series_seasons;
+create policy "series_seasons_admin_insert"
+on public.series_seasons
+for insert
+with check (public.is_admin(auth.uid()));
+
+drop policy if exists "series_seasons_admin_update" on public.series_seasons;
+create policy "series_seasons_admin_update"
+on public.series_seasons
+for update
+using (public.is_admin(auth.uid()))
+with check (public.is_admin(auth.uid()));
+
+drop policy if exists "series_seasons_admin_delete" on public.series_seasons;
+create policy "series_seasons_admin_delete"
+on public.series_seasons
+for delete
+using (public.is_admin(auth.uid()));
+
+drop policy if exists "series_episodes_public_read" on public.series_episodes;
+create policy "series_episodes_public_read"
+on public.series_episodes
+for select
+using (true);
+
+drop policy if exists "series_episodes_admin_insert" on public.series_episodes;
+create policy "series_episodes_admin_insert"
+on public.series_episodes
+for insert
+with check (public.is_admin(auth.uid()));
+
+drop policy if exists "series_episodes_admin_update" on public.series_episodes;
+create policy "series_episodes_admin_update"
+on public.series_episodes
+for update
+using (public.is_admin(auth.uid()))
+with check (public.is_admin(auth.uid()));
+
+drop policy if exists "series_episodes_admin_delete" on public.series_episodes;
+create policy "series_episodes_admin_delete"
+on public.series_episodes
+for delete
+using (public.is_admin(auth.uid()));
+
+drop policy if exists "episode_ratings_public_read" on public.episode_ratings;
+create policy "episode_ratings_public_read"
+on public.episode_ratings
+for select
+using (true);
+
+drop policy if exists "episode_ratings_insert_own_or_admin" on public.episode_ratings;
+create policy "episode_ratings_insert_own_or_admin"
+on public.episode_ratings
+for insert
+with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+
+drop policy if exists "episode_ratings_update_own_or_admin" on public.episode_ratings;
+create policy "episode_ratings_update_own_or_admin"
+on public.episode_ratings
+for update
+using (auth.uid() = user_id or public.is_admin(auth.uid()))
+with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+
+drop policy if exists "episode_ratings_delete_own_or_admin" on public.episode_ratings;
+create policy "episode_ratings_delete_own_or_admin"
+on public.episode_ratings
+for delete
+using (auth.uid() = user_id or public.is_admin(auth.uid()));
+
+drop policy if exists "season_user_ratings_public_read" on public.season_user_ratings;
+create policy "season_user_ratings_public_read"
+on public.season_user_ratings
+for select
+using (true);
+
+drop policy if exists "season_user_ratings_insert_own_or_admin" on public.season_user_ratings;
+create policy "season_user_ratings_insert_own_or_admin"
+on public.season_user_ratings
+for insert
+with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+
+drop policy if exists "season_user_ratings_update_own_or_admin" on public.season_user_ratings;
+create policy "season_user_ratings_update_own_or_admin"
+on public.season_user_ratings
+for update
+using (auth.uid() = user_id or public.is_admin(auth.uid()))
+with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+
+drop policy if exists "season_user_ratings_delete_own_or_admin" on public.season_user_ratings;
+create policy "season_user_ratings_delete_own_or_admin"
+on public.season_user_ratings
+for delete
+using (auth.uid() = user_id or public.is_admin(auth.uid()));
+
+-- Jeu de donnees de test: Loki
+with upsert_loki as (
+  insert into public.series (
+    title,
+    slug,
+    synopsis,
+    poster_url,
+    start_date,
+    end_date,
+    franchise,
+    type
+  )
+  values (
+    'Loki',
+    'loki',
+    'Le Dieu de la Malice se retrouve pris dans les rouages du TVA.',
+    'https://image.tmdb.org/t/p/w500/voHUmluYmKyleFkTu3lOXQG702u.jpg',
+    '2021-06-09',
+    '2023-11-09',
+    'MCU',
+    'Serie'
+  )
+  on conflict (slug) do update
+    set
+      title = excluded.title,
+      synopsis = excluded.synopsis,
+      poster_url = excluded.poster_url,
+      start_date = excluded.start_date,
+      end_date = excluded.end_date,
+      franchise = excluded.franchise,
+      type = excluded.type
+  returning id
+),
+upsert_s1 as (
+  insert into public.series_seasons (
+    series_id,
+    name,
+    season_number,
+    slug,
+    poster_url,
+    start_date,
+    end_date,
+    phase
+  )
+  select
+    id,
+    'Saison 1',
+    1,
+    'loki-saison-1',
+    'https://image.tmdb.org/t/p/w500/voHUmluYmKyleFkTu3lOXQG702u.jpg',
+    '2021-06-09',
+    '2021-07-14',
+    'Phase 4'
+  from upsert_loki
+  on conflict (series_id, season_number) do update
+    set
+      name = excluded.name,
+      slug = excluded.slug,
+      poster_url = excluded.poster_url,
+      start_date = excluded.start_date,
+      end_date = excluded.end_date,
+      phase = excluded.phase
+  returning id
+),
+upsert_s2 as (
+  insert into public.series_seasons (
+    series_id,
+    name,
+    season_number,
+    slug,
+    poster_url,
+    start_date,
+    end_date,
+    phase
+  )
+  select
+    id,
+    'Saison 2',
+    2,
+    'loki-saison-2',
+    'https://image.tmdb.org/t/p/w500/kEl2t3OhXc3Zb9FBh1AuYzRTgZp.jpg',
+    '2023-10-06',
+    '2023-11-09',
+    'Phase 5'
+  from upsert_loki
+  on conflict (series_id, season_number) do update
+    set
+      name = excluded.name,
+      slug = excluded.slug,
+      poster_url = excluded.poster_url,
+      start_date = excluded.start_date,
+      end_date = excluded.end_date,
+      phase = excluded.phase
+  returning id
+)
+insert into public.series_episodes (season_id, episode_number, title, air_date)
+select
+  season_id,
+  episode_number,
+  title,
+  air_date
+from (
+  select (select id from upsert_s1) as season_id, 1 as episode_number, 'Un destin exceptionnel' as title, '2021-06-09'::date as air_date
+  union all select (select id from upsert_s1), 2, 'Le Variant', '2021-06-16'::date
+  union all select (select id from upsert_s1), 3, 'Lamentis', '2021-06-23'::date
+  union all select (select id from upsert_s1), 4, 'Le Nexus', '2021-06-30'::date
+  union all select (select id from upsert_s1), 5, 'Voyage vers le mystere', '2021-07-07'::date
+  union all select (select id from upsert_s1), 6, 'Pour toujours. A jamais.', '2021-07-14'::date
+  union all select (select id from upsert_s2), 1, 'Ouroboros', '2023-10-06'::date
+  union all select (select id from upsert_s2), 2, 'Brad Fer', '2023-10-13'::date
+  union all select (select id from upsert_s2), 3, '1893', '2023-10-20'::date
+  union all select (select id from upsert_s2), 4, 'Le coeur du TVA', '2023-10-27'::date
+  union all select (select id from upsert_s2), 5, 'Science/Fiction', '2023-11-03'::date
+  union all select (select id from upsert_s2), 6, 'Glorieux destin', '2023-11-09'::date
+) as loki_episodes
+on conflict (season_id, episode_number) do update
+  set
+    title = excluded.title,
+    air_date = excluded.air_date;

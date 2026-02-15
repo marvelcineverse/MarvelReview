@@ -3,6 +3,7 @@
     <a class="brand" href="/index.html">MarvelReview</a>
     <nav class="top-nav">
       <a href="/index.html">Films</a>
+      <a href="/series.html">Series</a>
       <a href="/ranking.html">Classement</a>
       <a href="/profile.html">Profil</a>
       <a href="/media.html">Medias</a>
@@ -26,6 +27,11 @@ export function getFilmIdFromURL() {
 }
 
 export function getMediaIdFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("id");
+}
+
+export function getSeriesIdFromURL() {
   const params = new URLSearchParams(window.location.search);
   return params.get("id");
 }

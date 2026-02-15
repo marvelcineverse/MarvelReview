@@ -40,6 +40,69 @@
           </form>
         </section>
 
+        <section class="card">
+          <h2>Series</h2>
+          <form id="series-form" class="form">
+            <label>Serie existante (optionnel)
+              <select id="series-id">
+                <option value="">Nouvelle serie</option>
+              </select>
+            </label>
+            <label>Titre <input id="series-title" type="text" required /></label>
+            <label>Slug <input id="series-slug" type="text" /></label>
+            <label>Synopsis <textarea id="series-synopsis"></textarea></label>
+            <label>Poster URL <input id="series-poster-url" type="url" /></label>
+            <label>Date de debut <input id="series-start-date" type="date" /></label>
+            <label>Date de fin <input id="series-end-date" type="date" /></label>
+            <label>Franchise <input id="series-franchise" type="text" value="MCU" /></label>
+            <label>Type <input id="series-type" type="text" value="Serie" /></label>
+            <button type="submit">Creer / Mettre a jour la serie</button>
+            <p id="series-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Saisons</h2>
+          <form id="season-form" class="form">
+            <label>Serie parent
+              <select id="season-series-id" required></select>
+            </label>
+            <label>Saison existante (optionnel)
+              <select id="season-id">
+                <option value="">Nouvelle saison</option>
+              </select>
+            </label>
+            <label>Nom <input id="season-name" type="text" required /></label>
+            <label>Numero <input id="season-number" type="number" min="1" step="1" required /></label>
+            <label>Slug <input id="season-slug" type="text" /></label>
+            <label>Poster URL <input id="season-poster-url" type="url" /></label>
+            <label>Date de debut <input id="season-start-date" type="date" /></label>
+            <label>Date de fin <input id="season-end-date" type="date" /></label>
+            <label>Phase <input id="season-phase" type="text" /></label>
+            <button type="submit">Creer / Mettre a jour la saison</button>
+            <p id="season-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Episodes</h2>
+          <form id="episode-form" class="form">
+            <label>Saison parent
+              <select id="episode-season-id" required></select>
+            </label>
+            <label>Episode existant (optionnel)
+              <select id="episode-id">
+                <option value="">Nouvel episode</option>
+              </select>
+            </label>
+            <label>Numero episode <input id="episode-number" type="number" min="1" step="1" required /></label>
+            <label>Titre <input id="episode-title" type="text" required /></label>
+            <label>Date de diffusion <input id="episode-air-date" type="date" /></label>
+            <button type="submit">Creer / Mettre a jour l'episode</button>
+            <p id="episode-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
+
       </section>
     </main>
 
