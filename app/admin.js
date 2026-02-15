@@ -100,7 +100,11 @@ function renderSeasonOptions(seriesId = "") {
     })
   ].join("");
 
-  document.querySelector("#episode-season-id").innerHTML = episodeSeasonOptions;
+  const episodeSeasonEl = document.querySelector("#episode-season-id");
+  if (episodeSeasonEl) episodeSeasonEl.innerHTML = episodeSeasonOptions;
+
+  const bulkSeasonEl = document.querySelector("#episode-bulk-season-id");
+  if (bulkSeasonEl) bulkSeasonEl.innerHTML = episodeSeasonOptions;
 }
 
 function renderEpisodeOptions(seasonId = "") {
@@ -190,6 +194,7 @@ async function refreshSeriesData() {
   const selectedSeasonId = document.querySelector("#season-id")?.value || "";
   const selectedEpisodeSeasonId = document.querySelector("#episode-season-id")?.value || "";
   const selectedEpisodeId = document.querySelector("#episode-id")?.value || "";
+  const selectedBulkEpisodeSeasonId = document.querySelector("#episode-bulk-season-id")?.value || "";
 
   renderSeriesOptions();
   document.querySelector("#series-id").value = state.series.some((s) => s.id === selectedSeriesId) ? selectedSeriesId : "";
@@ -205,6 +210,68 @@ async function refreshSeriesData() {
   renderEpisodeOptions(document.querySelector("#episode-season-id").value || "");
   document.querySelector("#episode-id").value = state.episodes.some((e) => e.id === selectedEpisodeId) ? selectedEpisodeId : "";
   if (document.querySelector("#episode-id").value) fillEpisodeForm(document.querySelector("#episode-id").value);
+
+  const bulkSeasonEl = document.querySelector("#episode-bulk-season-id");
+  if (bulkSeasonEl) {
+    bulkSeasonEl.value = state.seasons.some((s) => s.id === selectedBulkEpisodeSeasonId) ? selectedBulkEpisodeSeasonId : "";
+  }
+}
+
+function normalizeBulkDate(rawDate) {
+  const raw = (rawDate || "").trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const frMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (frMatch) {
+    const [, day, month, year] = frMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  return undefined;
+}
+
+function parseBulkEpisodesInput(value) {
+  const lines = (value || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!lines.length) {
+    throw new Error("Ajoute au moins une ligne d'episode.");
+  }
+
+  const parsed = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const lineNumber = index + 1;
+    const parts = lines[index].split("|").map((part) => part.trim());
+    if (parts.length < 2) {
+      throw new Error(`Ligne ${lineNumber}: format attendu numero|titre|date.`);
+    }
+
+    const episodeNumber = Number(parts[0].replace(/^ep\.?\s*/i, ""));
+    if (!Number.isInteger(episodeNumber) || episodeNumber < 1) {
+      throw new Error(`Ligne ${lineNumber}: numero d'episode invalide.`);
+    }
+
+    const title = parts[1];
+    if (!title) {
+      throw new Error(`Ligne ${lineNumber}: titre obligatoire.`);
+    }
+
+    const airDate = normalizeBulkDate(parts[2] || "");
+    if (airDate === undefined) {
+      throw new Error(`Ligne ${lineNumber}: date invalide (utilise YYYY-MM-DD ou DD/MM/YYYY).`);
+    }
+
+    parsed.push({ episode_number: episodeNumber, title, air_date: airDate || null });
+  }
+
+  const dedup = new Map();
+  for (const item of parsed) {
+    dedup.set(item.episode_number, item);
+  }
+  return Array.from(dedup.values()).sort((a, b) => a.episode_number - b.episode_number);
 }
 
 function bindSeriesForms() {
@@ -328,6 +395,46 @@ function bindSeriesForms() {
       renderEpisodeOptions(seasonId);
     } catch (error) {
       setMessage("#episode-message", error.message || "Enregistrement episode impossible.", true);
+    }
+  });
+
+  document.querySelector("#episode-bulk-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const seasonId = document.querySelector("#episode-bulk-season-id").value || null;
+    const linesRaw = document.querySelector("#episode-bulk-lines").value;
+
+    if (!seasonId) {
+      setMessage("#episode-bulk-message", "Selectionne une saison.", true);
+      return;
+    }
+
+    let episodes;
+    try {
+      episodes = parseBulkEpisodesInput(linesRaw);
+    } catch (error) {
+      setMessage("#episode-bulk-message", error.message || "Format bulk invalide.", true);
+      return;
+    }
+
+    const payload = episodes.map((episode) => ({
+      season_id: seasonId,
+      episode_number: episode.episode_number,
+      title: episode.title,
+      air_date: episode.air_date
+    }));
+
+    try {
+      const { error } = await supabase
+        .from("series_episodes")
+        .upsert(payload, { onConflict: "season_id,episode_number" });
+      if (error) throw error;
+
+      setMessage("#episode-bulk-message", `${episodes.length} episode(s) importe(s).`);
+      await refreshSeriesData();
+      renderEpisodeOptions(seasonId);
+    } catch (error) {
+      setMessage("#episode-bulk-message", error.message || "Import bulk impossible.", true);
     }
   });
 }

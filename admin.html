@@ -101,6 +101,19 @@
             <button type="submit">Creer / Mettre a jour l'episode</button>
             <p id="episode-message" class="message" aria-live="polite"></p>
           </form>
+          <hr />
+          <form id="episode-bulk-form" class="form">
+            <h3>Ajout episodes en masse</h3>
+            <label>Saison parent
+              <select id="episode-bulk-season-id" required></select>
+            </label>
+            <label>Episodes (1 ligne = 1 episode)
+              <textarea id="episode-bulk-lines" placeholder="1|Un destin exceptionnel|2021-06-09&#10;2|Le Variant|2021-06-16&#10;3|Lamentis|2021-06-23"></textarea>
+            </label>
+            <p class="film-meta">Format: numero|titre|date. Date optionnelle. Date acceptee: YYYY-MM-DD ou DD/MM/YYYY.</p>
+            <button type="submit">Importer les episodes</button>
+            <p id="episode-bulk-message" class="message" aria-live="polite"></p>
+          </form>
         </section>
 
       </section>
