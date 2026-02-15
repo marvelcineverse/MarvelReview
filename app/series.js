@@ -18,8 +18,15 @@ const state = {
   episodes: [],
   episodeRatings: [],
   seasonUserRatings: [],
-  seriesReviews: []
+  seriesReviews: [],
+  socialExpanded: {
+    reviews: false,
+    activity: false
+  }
 };
+
+const SOCIAL_MOBILE_QUERY = "(max-width: 700px)";
+const SOCIAL_MOBILE_VISIBLE_ITEMS = 4;
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -137,14 +144,11 @@ function computeSeasonMetrics(seasonId) {
   };
 }
 
-function computeSeriesAverages() {
+function computeSeriesAverageByUserId() {
   const totalSeasons = state.seasons.length;
+  const userAverageById = new Map();
   if (!totalSeasons) {
-    return {
-      globalAverage: null,
-      myAverage: null,
-      contributorCount: 0
-    };
+    return userAverageById;
   }
 
   const userSeasonScores = new Map();
@@ -183,23 +187,74 @@ function computeSeriesAverages() {
       }
   }
 
-  const weightedScores = [];
-  let weightedSum = 0;
-  let coverageWeightSum = 0;
-  let myAverage = null;
   for (const [userId, seasonScores] of userSeasonScores.entries()) {
     if (!seasonScores.length) continue;
     const userAverage = seasonScores.reduce((sum, value) => sum + value, 0) / seasonScores.length;
-    const coverage = seasonScores.length / totalSeasons;
-    weightedScores.push(userAverage);
-    weightedSum += userAverage * coverage;
-    coverageWeightSum += coverage;
-    if (state.currentUserId && userId === state.currentUserId) {
-      myAverage = userAverage;
+    userAverageById.set(userId, userAverage);
+  }
+
+  return userAverageById;
+}
+
+function computeSeriesAverages() {
+  const totalSeasons = state.seasons.length;
+  const userAverageById = computeSeriesAverageByUserId();
+  if (!totalSeasons || !userAverageById.size) {
+    return {
+      globalAverage: null,
+      myAverage: null,
+      contributorCount: 0
+    };
+  }
+
+  const userSeasonScores = new Map();
+  for (const season of state.seasons) {
+    const seasonEpisodes = state.episodes.filter((episode) => episode.season_id === season.id);
+    const episodeIds = new Set(seasonEpisodes.map((episode) => episode.id));
+
+    const episodeByUser = new Map();
+    for (const rating of state.episodeRatings) {
+      if (!episodeIds.has(rating.episode_id)) continue;
+      const current = episodeByUser.get(rating.user_id) || { total: 0, count: 0 };
+      current.total += Number(rating.score || 0);
+      current.count += 1;
+      episodeByUser.set(rating.user_id, current);
+    }
+
+    const seasonRows = state.seasonUserRatings.filter((row) => row.season_id === season.id);
+    const allUserIds = new Set([...episodeByUser.keys(), ...seasonRows.map((row) => row.user_id)]);
+
+    for (const userId of allUserIds) {
+      const manualRow = seasonRows.find((row) => row.user_id === userId);
+      const episodeValues = episodeByUser.get(userId);
+      const episodeAverage = episodeValues ? episodeValues.total / episodeValues.count : null;
+      const manual = manualRow?.manual_score === null || manualRow?.manual_score === undefined
+        ? null
+        : Number(manualRow.manual_score);
+      const adjustment = Number(manualRow?.adjustment || 0);
+      const effective = manual !== null
+        ? clamp(manual, 0, 10)
+        : (Number.isFinite(episodeAverage) ? clamp(episodeAverage + adjustment, 0, 10) : null);
+      if (!Number.isFinite(effective)) continue;
+
+      const current = userSeasonScores.get(userId) || [];
+      current.push(effective);
+      userSeasonScores.set(userId, current);
     }
   }
 
-  if (!weightedScores.length || coverageWeightSum <= 0) {
+  let weightedSum = 0;
+  let coverageWeightSum = 0;
+  for (const [userId, seasonScores] of userSeasonScores.entries()) {
+    if (!seasonScores.length) continue;
+    const userAverage = userAverageById.get(userId);
+    if (!Number.isFinite(userAverage)) continue;
+    const coverage = seasonScores.length / totalSeasons;
+    weightedSum += userAverage * coverage;
+    coverageWeightSum += coverage;
+  }
+
+  if (coverageWeightSum <= 0) {
     return {
       globalAverage: null,
       myAverage: null,
@@ -209,8 +264,8 @@ function computeSeriesAverages() {
 
   return {
     globalAverage: weightedSum / coverageWeightSum,
-    myAverage,
-    contributorCount: weightedScores.length
+    myAverage: state.currentUserId ? (userAverageById.get(state.currentUserId) ?? null) : null,
+    contributorCount: userAverageById.size
   };
 }
 
@@ -274,20 +329,105 @@ async function loadMembershipMapForUsers(userIds) {
   return map;
 }
 
+function isSocialMobileLayout() {
+  return window.matchMedia(SOCIAL_MOBILE_QUERY).matches;
+}
+
+function updateSocialMoreButton(selector, shouldShow, expanded) {
+  const button = document.querySelector(selector);
+  if (!button) return;
+  button.style.display = shouldShow ? "inline-flex" : "none";
+  button.textContent = expanded ? "Voir moins" : "Voir plus";
+}
+
+function getSeriesSocialUserIds() {
+  return [...new Set([
+    ...state.seriesReviews.map((row) => row.user_id),
+    ...state.episodeRatings.map((row) => row.user_id),
+    ...state.seasonUserRatings.map((row) => row.user_id)
+  ])];
+}
+
+function getSocialTimeValue(value) {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function buildSeriesSocialActivityRows() {
+  const seasonsById = new Map(state.seasons.map((season) => [season.id, season]));
+  const episodesById = new Map(state.episodes.map((episode) => [episode.id, episode]));
+  const rows = [];
+
+  for (const rating of state.episodeRatings) {
+    if (!Number.isFinite(Number(rating.score)) && !String(rating.review || "").trim()) continue;
+    const episode = episodesById.get(rating.episode_id);
+    if (!episode) continue;
+    const season = seasonsById.get(episode.season_id);
+    rows.push({
+      id: `episode-${rating.id}`,
+      type: "episode",
+      user_id: rating.user_id,
+      username: rating.profiles?.username || "Utilisateur",
+      created_at: rating.created_at || null,
+      score: Number(rating.score),
+      review: rating.review || "",
+      href: `/episode.html?id=${episode.id}`,
+      title: episode.title || "Episode",
+      seasonLabel: season?.season_number ? `S${season.season_number}` : "Saison"
+    });
+  }
+
+  for (const rating of state.seasonUserRatings) {
+    const hasManual = Number.isFinite(Number(rating.manual_score));
+    const hasAdjustment = Number(rating.adjustment || 0) !== 0;
+    const hasReview = String(rating.review || "").trim().length > 0;
+    if (!hasManual && !hasAdjustment && !hasReview) continue;
+    const season = seasonsById.get(rating.season_id);
+    rows.push({
+      id: `season-${rating.id}`,
+      type: "season",
+      user_id: rating.user_id,
+      username: rating.profiles?.username || "Utilisateur",
+      created_at: rating.created_at || null,
+      score: hasManual ? Number(rating.manual_score) : null,
+      adjustment: Number(rating.adjustment || 0),
+      review: rating.review || "",
+      href: `/season.html?id=${rating.season_id}`,
+      title: season?.name || "Saison",
+      seasonLabel: season?.season_number ? `S${season.season_number}` : "Saison"
+    });
+  }
+
+  return rows.sort((a, b) => getSocialTimeValue(b.created_at) - getSocialTimeValue(a.created_at));
+}
+
 function renderSeriesReviews(mediaByUserId = new Map()) {
   const listEl = document.querySelector("#series-reviews-list");
   if (!listEl) return;
+  const userAverageById = computeSeriesAverageByUserId();
+  const isMobile = isSocialMobileLayout();
+  const shouldTruncate = isMobile && !state.socialExpanded.reviews;
 
   if (!state.seriesReviews.length) {
     listEl.innerHTML = "<p>Aucune critique pour cette serie.</p>";
+    updateSocialMoreButton('[data-action="toggle-series-reviews-more"]', false, state.socialExpanded.reviews);
     return;
   }
 
-  listEl.innerHTML = state.seriesReviews
+  const reviewsToShow = shouldTruncate
+    ? state.seriesReviews.slice(0, SOCIAL_MOBILE_VISIBLE_ITEMS)
+    : state.seriesReviews;
+
+  listEl.innerHTML = reviewsToShow
     .map((review) => {
       const profile = review.profiles || {};
       const mediaNames = mediaByUserId.get(review.user_id) || [];
       const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Independant";
+      const userAverage = userAverageById.get(review.user_id);
+      const userAverageLabel = Number.isFinite(userAverage)
+        ? `<span class="score-badge ${getScoreClass(userAverage)}">${formatScore(userAverage, 2, 2)} / 10</span>`
+        : `<span class="score-badge stade-neutre">Pas de moyenne</span>`;
 
       return `
         <article class="card review-card">
@@ -295,12 +435,69 @@ function renderSeriesReviews(mediaByUserId = new Map()) {
             <strong>${escapeHTML(profile.username || "Utilisateur")}</strong>
             <span>${escapeHTML(mediaLabel)}</span>
           </div>
+          <p class="film-meta">Moyenne de la personne sur cette serie: ${userAverageLabel}</p>
           <p>${escapeHTML(review.review || "(Pas de commentaire)")}</p>
           <small>${formatDate(review.created_at)}</small>
         </article>
       `;
     })
     .join("");
+
+  updateSocialMoreButton(
+    '[data-action="toggle-series-reviews-more"]',
+    isMobile && state.seriesReviews.length > SOCIAL_MOBILE_VISIBLE_ITEMS,
+    state.socialExpanded.reviews
+  );
+}
+
+function renderSeriesSocialActivity(mediaByUserId = new Map()) {
+  const listEl = document.querySelector("#series-social-activity-list");
+  if (!listEl) return;
+
+  const rows = buildSeriesSocialActivityRows();
+  const isMobile = isSocialMobileLayout();
+  const shouldTruncate = isMobile && !state.socialExpanded.activity;
+  const rowsToShow = shouldTruncate ? rows.slice(0, SOCIAL_MOBILE_VISIBLE_ITEMS) : rows;
+
+  if (!rows.length) {
+    listEl.innerHTML = "<p>Aucune note ou critique recente sur les saisons/episodes.</p>";
+    updateSocialMoreButton('[data-action="toggle-series-activity-more"]', false, state.socialExpanded.activity);
+    return;
+  }
+
+  listEl.innerHTML = rowsToShow
+    .map((row) => {
+      const mediaNames = mediaByUserId.get(row.user_id) || [];
+      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Independant";
+      const scorePart = Number.isFinite(row.score)
+        ? `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score, 2, 2)} / 10</span>`
+        : '<span class="score-badge stade-neutre">Sans note</span>';
+      const adjustmentPart = row.type === "season" && row.adjustment !== 0
+        ? ` | Ajustement ${row.adjustment > 0 ? "+" : ""}${formatScore(row.adjustment, 2, 2)}`
+        : "";
+
+      return `
+        <article class="card review-card">
+          <div class="review-head">
+            <strong>${escapeHTML(row.username)}</strong>
+            <span>${escapeHTML(mediaLabel)}</span>
+          </div>
+          <p class="film-meta">
+            ${row.type === "episode" ? "Episode" : "Saison"} - ${escapeHTML(row.seasonLabel)} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>
+          </p>
+          <p>${scorePart}<span class="film-meta">${escapeHTML(adjustmentPart)}</span></p>
+          <p>${escapeHTML(row.review || "(Pas de commentaire)")}</p>
+          <small>${formatDate(row.created_at)}</small>
+        </article>
+      `;
+    })
+    .join("");
+
+  updateSocialMoreButton(
+    '[data-action="toggle-series-activity-more"]',
+    isMobile && rows.length > SOCIAL_MOBILE_VISIBLE_ITEMS,
+    state.socialExpanded.activity
+  );
 }
 
 function fillCurrentUserSeriesReview() {
@@ -533,13 +730,13 @@ async function loadRatingsData() {
     episodeIds.length
       ? supabase
         .from("episode_ratings")
-        .select("id, episode_id, user_id, score, review")
+        .select("id, episode_id, user_id, score, review, created_at, profiles(username)")
         .in("episode_id", episodeIds)
-      : Promise.resolve({ data: [], error: null }),
+    : Promise.resolve({ data: [], error: null }),
     seasonIds.length
       ? supabase
         .from("season_user_ratings")
-        .select("id, season_id, user_id, manual_score, adjustment, review")
+        .select("id, season_id, user_id, manual_score, adjustment, review, created_at, profiles(username)")
         .in("season_id", seasonIds)
       : Promise.resolve({ data: [], error: null }),
     state.series?.id
@@ -567,9 +764,10 @@ async function reloadSeriesDetails(seriesId) {
   applySeriesReviewAvailability();
   fillCurrentUserSeriesReview();
   renderSeriesAverage();
-  const userIds = [...new Set(state.seriesReviews.map((row) => row.user_id))];
+  const userIds = getSeriesSocialUserIds();
   const mediaByUserId = await loadMembershipMapForUsers(userIds);
   renderSeriesReviews(mediaByUserId);
+  renderSeriesSocialActivity(mediaByUserId);
   renderSeasons();
 }
 
@@ -579,9 +777,10 @@ async function refreshRatingsOnly() {
   applySeriesReviewAvailability();
   fillCurrentUserSeriesReview();
   renderSeriesAverage();
-  const userIds = [...new Set(state.seriesReviews.map((row) => row.user_id))];
+  const userIds = getSeriesSocialUserIds();
   const mediaByUserId = await loadMembershipMapForUsers(userIds);
   renderSeriesReviews(mediaByUserId);
+  renderSeriesSocialActivity(mediaByUserId);
   renderSeasons(openSeasonIds);
 }
 
@@ -840,7 +1039,11 @@ function bindDetailEvents() {
     const seasonId = button.dataset.seasonId;
 
     try {
-      if (action === "save-episode-rating" && episodeId) {
+      if (action === "toggle-series-reviews-more") {
+        state.socialExpanded.reviews = !state.socialExpanded.reviews;
+      } else if (action === "toggle-series-activity-more") {
+        state.socialExpanded.activity = !state.socialExpanded.activity;
+      } else if (action === "save-episode-rating" && episodeId) {
         await saveEpisodeRating(episodeId);
       } else if (action === "delete-episode-rating" && episodeId) {
         await deleteEpisodeRating(episodeId);
@@ -858,7 +1061,9 @@ function bindDetailEvents() {
         return;
       }
 
-      setMessage("#page-message", "Sauvegarde reussie.");
+      if (!action.startsWith("toggle-series-")) {
+        setMessage("#page-message", "Sauvegarde reussie.");
+      }
       await refreshRatingsOnly();
     } catch (error) {
       const message = error?.message || "Operation impossible.";

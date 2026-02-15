@@ -384,6 +384,32 @@ textarea {
   flex-wrap: wrap;
 }
 
+.social-columns {
+  display: grid;
+  gap: 1rem;
+}
+
+.social-column {
+  min-width: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.social-column h3 {
+  margin: 0;
+}
+
+.social-feed {
+  max-height: 430px;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  align-content: start;
+}
+
+.social-more-button {
+  justify-self: start;
+}
+
 .score-row {
   display: flex;
   align-items: center;
@@ -598,6 +624,12 @@ textarea {
     display: block;
     margin-inline: auto;
   }
+
+  .social-feed {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
 }
 
 @media (min-width: 980px) {
@@ -612,5 +644,10 @@ textarea {
     width: 100%;
     max-width: 300px;
     margin-left: auto;
+  }
+
+  .social-columns {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
   }
 }

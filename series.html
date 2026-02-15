@@ -54,8 +54,23 @@
         </section>
 
         <section class="card">
-          <h2>Dernieres critiques serie</h2>
-          <div id="series-reviews-list" class="grid"></div>
+          <h2>Zone sociale</h2>
+          <div class="social-columns">
+            <div class="social-column">
+              <h3>Dernieres critiques serie</h3>
+              <div id="series-reviews-list" class="grid social-feed"></div>
+              <button type="button" class="ghost-button social-more-button" data-action="toggle-series-reviews-more" style="display: none;">
+                Voir plus
+              </button>
+            </div>
+            <div class="social-column">
+              <h3>Dernieres notes/critiques saisons & episodes</h3>
+              <div id="series-social-activity-list" class="grid social-feed"></div>
+              <button type="button" class="ghost-button social-more-button" data-action="toggle-series-activity-more" style="display: none;">
+                Voir plus
+              </button>
+            </div>
+          </div>
         </section>
         <section class="card">
           <h2>Saisons</h2>
