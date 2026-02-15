@@ -258,15 +258,59 @@ button:hover {
 }
 
 .season-adjuster strong {
-  min-width: 62px;
+  min-width: 48px;
   text-align: center;
   display: inline-block;
 }
 
-details > summary {
+.season-adjuster {
+  margin-left: 10px;
+  font-size: 0.9rem;
+  gap: 0.4rem;
+}
+
+.season-manual-help {
+  margin: 0;
+}
+
+.icon-circle-btn.neutral {
+  background: #8a96a3;
+}
+
+.icon-circle-btn.neutral:hover {
+  background: #727d89;
+}
+
+.icon-circle-btn.small {
+  width: 26px;
+  height: 26px;
+  font-size: 0.8rem;
+}
+
+.season-episodes {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f9fbfd;
+  padding: 0.35rem 0.55rem 0.55rem;
+}
+
+.season-episodes-summary {
   cursor: pointer;
-  font-weight: 600;
-  margin-bottom: 0.55rem;
+  font-weight: 700;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.season-episodes-summary small {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.season-episodes[open] .season-episodes-summary {
+  margin-bottom: 0.45rem;
 }
 
 label {

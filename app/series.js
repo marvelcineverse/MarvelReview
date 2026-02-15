@@ -24,6 +24,14 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function getOpenSeasonIdsFromDOM() {
+  return new Set(
+    Array.from(document.querySelectorAll("details[data-season-id][open]"))
+      .map((el) => el.dataset.seasonId)
+      .filter(Boolean)
+  );
+}
+
 function computeSeasonMetrics(seasonId) {
   const seasonEpisodes = state.episodes.filter((episode) => episode.season_id === seasonId);
   const episodeIds = new Set(seasonEpisodes.map((episode) => episode.id));
@@ -71,7 +79,6 @@ function computeSeasonMetrics(seasonId) {
 
   return {
     episodeCount: seasonEpisodes.length,
-    userEpisodeAverage: user.episodeAverage,
     userManualScore: user.manualScore,
     userAdjustment: user.adjustment,
     userEffective,
@@ -81,7 +88,7 @@ function computeSeasonMetrics(seasonId) {
 
 function computeSeriesWeightedAverage() {
   const totalSeasons = state.seasons.length;
-  if (!totalSeasons) return null;
+  if (!totalSeasons) return { average: null, contributorCount: 0 };
 
   const userSeasonScores = new Map();
   for (const season of state.seasons) {
@@ -108,6 +115,7 @@ function computeSeriesWeightedAverage() {
         ? null
         : Number(manualRow.manual_score);
       const adjustment = Number(manualRow?.adjustment || 0);
+
       const base = manual !== null ? manual : episodeAverage;
       if (!Number.isFinite(base)) continue;
       const effective = clamp(base + adjustment, 0, 10);
@@ -126,8 +134,12 @@ function computeSeriesWeightedAverage() {
     weightedScores.push(avg * coverage);
   }
 
-  if (!weightedScores.length) return null;
-  return weightedScores.reduce((sum, value) => sum + value, 0) / weightedScores.length;
+  if (!weightedScores.length) return { average: null, contributorCount: 0 };
+
+  return {
+    average: weightedScores.reduce((sum, value) => sum + value, 0) / weightedScores.length,
+    contributorCount: weightedScores.length
+  };
 }
 
 function renderSeriesList(rows) {
@@ -153,7 +165,7 @@ function renderSeriesList(rows) {
     .join("");
 }
 
-function renderSeriesDetails() {
+function renderSeriesHeader() {
   const detailsEl = document.querySelector("#series-details");
   const series = state.series;
   detailsEl.innerHTML = `
@@ -166,20 +178,31 @@ function renderSeriesDetails() {
       <img class="film-hero-poster" src="${escapeHTML(series.poster_url || "https://via.placeholder.com/260x390?text=Serie")}" alt="Affiche de ${escapeHTML(series.title)}" />
     </article>
   `;
-
-  const weightedAverage = computeSeriesWeightedAverage();
-  const message = weightedAverage === null
-    ? "Moyenne ponderee de la serie: aucune note pour le moment."
-    : `Moyenne ponderee de la serie: ${formatScore(weightedAverage, 2, 2)} / 10`;
-  setMessage("#series-average-message", message);
 }
 
-function renderSeasons() {
+function renderSeriesAverage() {
+  const averageEl = document.querySelector("#series-average");
+  const metrics = computeSeriesWeightedAverage();
+
+  if (metrics.average === null) {
+    averageEl.innerHTML = `<span class="score-badge stade-neutre">Pas encore de note</span>`;
+    return;
+  }
+
+  averageEl.innerHTML = `
+    <span class="score-badge ${getScoreClass(metrics.average)}">${formatScore(metrics.average, 2, 2)} / 10</span>
+    <span>${metrics.contributorCount} profil(s) contributeur(s)</span>
+  `;
+}
+
+function renderSeasons(openSeasonIds = null) {
   const container = document.querySelector("#series-seasons-list");
   if (!state.seasons.length) {
     container.innerHTML = "<p>Aucune saison pour cette serie.</p>";
     return;
   }
+
+  const initialOpenAll = openSeasonIds === null;
 
   container.innerHTML = state.seasons
     .map((season) => {
@@ -198,16 +221,30 @@ function renderSeasons() {
 
       const manualValue = metrics.userManualScore === null ? "" : String(metrics.userManualScore);
       const adjustmentValue = formatScore(metrics.userAdjustment, 2, 2);
+      const isOpen = initialOpenAll || openSeasonIds.has(season.id);
 
       return `
         <article class="card">
           <h3>${escapeHTML(season.name || `Saison ${season.season_number}`)}</h3>
           <p>Phase: ${escapeHTML(season.phase || "-")} | Debut: ${formatDate(season.start_date)} | Fin: ${formatDate(season.end_date)}</p>
           <p>Moyenne de la saison (site): ${seasonAverage}</p>
+
+          <div class="inline-actions season-adjuster">
+            <span>Ajusteur de moyenne</span>
+            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" data-season-id="${season.id}" aria-label="Diminuer l'ajusteur de saison">
+              <i class="fa-solid fa-minus" aria-hidden="true"></i>
+            </button>
+            <strong data-field="season-adjustment-value">${adjustmentValue}</strong>
+            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" data-season-id="${season.id}" aria-label="Augmenter l'ajusteur de saison">
+              <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            </button>
+          </div>
+
           <p>Ta note effective de saison: ${userAverage}</p>
           <p class="film-meta">Base perso: ${metrics.userManualScore === null ? "Moyenne de tes episodes" : "Note de saison manuelle"} | Episodes: ${metrics.episodeCount}</p>
 
           <div class="season-controls">
+            <p class="film-meta season-manual-help">Renseigner une note generale pour toute la saison (optionnel).</p>
             <div class="inline-actions inline-edit">
               <input data-field="season-manual-score" data-season-id="${season.id}" type="number" min="0" max="10" step="0.25" value="${manualValue}" placeholder="Note saison (optionnelle)" />
               <button type="button" class="icon-circle-btn save" data-action="save-season-manual" data-season-id="${season.id}" aria-label="Valider la note de saison">
@@ -219,21 +256,13 @@ function renderSeasons() {
                 </button>
               `}
             </div>
-
-            <div class="inline-actions season-adjuster">
-              <span>Ajusteur</span>
-              <button type="button" class="icon-circle-btn delete" data-action="adjust-season-down" data-season-id="${season.id}" aria-label="Diminuer l'ajusteur de saison">
-                <i class="fa-solid fa-minus" aria-hidden="true"></i>
-              </button>
-              <strong data-field="season-adjustment-value">${adjustmentValue}</strong>
-              <button type="button" class="icon-circle-btn save" data-action="adjust-season-up" data-season-id="${season.id}" aria-label="Augmenter l'ajusteur de saison">
-                <i class="fa-solid fa-plus" aria-hidden="true"></i>
-              </button>
-            </div>
           </div>
 
-          <details>
-            <summary>Episodes</summary>
+          <details class="season-episodes" data-season-id="${season.id}" ${isOpen ? "open" : ""}>
+            <summary class="season-episodes-summary">
+              <span>Episodes</span>
+              <small>Cliquer pour replier / deplier</small>
+            </summary>
             <div class="table-wrapper">
               <table class="ranking-table compact">
                 <thead>
@@ -288,7 +317,7 @@ function renderSeasons() {
     .join("");
 }
 
-async function reloadSeriesDetails(seriesId) {
+async function loadSeriesStructure(seriesId) {
   const [{ data: series, error: seriesError }, { data: seasons, error: seasonsError }] = await Promise.all([
     supabase
       .from("series")
@@ -306,18 +335,30 @@ async function reloadSeriesDetails(seriesId) {
   if (seasonsError) throw seasonsError;
 
   const seasonIds = (seasons || []).map((season) => season.id);
+  const { data: episodes, error: episodesError } = seasonIds.length
+    ? await supabase
+      .from("series_episodes")
+      .select("id, season_id, episode_number, title, air_date")
+      .in("season_id", seasonIds)
+    : { data: [], error: null };
 
-  const [{ data: episodes, error: episodesError }, { data: episodeRatings, error: episodeRatingsError }, { data: seasonUserRatings, error: seasonUserRatingsError }] = await Promise.all([
-    seasonIds.length
-      ? supabase
-        .from("series_episodes")
-        .select("id, season_id, episode_number, title, air_date")
-        .in("season_id", seasonIds)
-      : Promise.resolve({ data: [], error: null }),
-    seasonIds.length
+  if (episodesError) throw episodesError;
+
+  state.series = series;
+  state.seasons = seasons || [];
+  state.episodes = episodes || [];
+}
+
+async function loadRatingsData() {
+  const seasonIds = state.seasons.map((season) => season.id);
+  const episodeIds = state.episodes.map((episode) => episode.id);
+
+  const [{ data: episodeRatings, error: episodeRatingsError }, { data: seasonUserRatings, error: seasonUserRatingsError }] = await Promise.all([
+    episodeIds.length
       ? supabase
         .from("episode_ratings")
         .select("id, episode_id, user_id, score, review")
+        .in("episode_id", episodeIds)
       : Promise.resolve({ data: [], error: null }),
     seasonIds.length
       ? supabase
@@ -327,18 +368,26 @@ async function reloadSeriesDetails(seriesId) {
       : Promise.resolve({ data: [], error: null })
   ]);
 
-  if (episodesError) throw episodesError;
   if (episodeRatingsError) throw episodeRatingsError;
   if (seasonUserRatingsError) throw seasonUserRatingsError;
 
-  state.series = series;
-  state.seasons = seasons || [];
-  state.episodes = episodes || [];
   state.episodeRatings = episodeRatings || [];
   state.seasonUserRatings = seasonUserRatings || [];
+}
 
-  renderSeriesDetails();
+async function reloadSeriesDetails(seriesId) {
+  await loadSeriesStructure(seriesId);
+  await loadRatingsData();
+  renderSeriesHeader();
+  renderSeriesAverage();
   renderSeasons();
+}
+
+async function refreshRatingsOnly() {
+  const openSeasonIds = getOpenSeasonIdsFromDOM();
+  await loadRatingsData();
+  renderSeriesAverage();
+  renderSeasons(openSeasonIds);
 }
 
 async function saveEpisodeRating(episodeId) {
@@ -474,7 +523,7 @@ async function adjustSeason(seasonId, delta) {
   if (error) throw error;
 }
 
-async function bindDetailEvents() {
+function bindDetailEvents() {
   const detailRoot = document.querySelector("#series-detail-section");
   detailRoot.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-action]");
@@ -483,8 +532,6 @@ async function bindDetailEvents() {
     const action = button.dataset.action;
     const episodeId = button.dataset.episodeId;
     const seasonId = button.dataset.seasonId;
-    const seriesId = state.series?.id;
-    if (!seriesId) return;
 
     try {
       if (action === "save-episode-rating" && episodeId) {
@@ -504,7 +551,7 @@ async function bindDetailEvents() {
       }
 
       setMessage("#page-message", "Sauvegarde reussie.");
-      await reloadSeriesDetails(seriesId);
+      await refreshRatingsOnly();
     } catch (error) {
       setMessage("#page-message", error.message || "Operation impossible.", true);
     }
@@ -532,7 +579,7 @@ async function initPage() {
     document.querySelector("#series-subtitle").textContent = "Saisons, episodes et notation.";
 
     await reloadSeriesDetails(seriesId);
-    await bindDetailEvents();
+    bindDetailEvents();
   } catch (error) {
     setMessage("#page-message", error.message || "Erreur de chargement des series.", true);
   }
