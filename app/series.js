@@ -265,6 +265,9 @@ function renderSeasons(openSeasonIds = null) {
       const siteAverage = metrics.siteAverage === null
         ? `Pas de note`
         : `${formatScore(metrics.siteAverage, 2, 2)} / 10`;
+      const siteAverageBadge = metrics.siteAverage === null
+        ? `<span class="score-badge stade-neutre">Pas de note</span>`
+        : `<span class="score-badge ${getScoreClass(metrics.siteAverage)}">${formatScore(metrics.siteAverage, 2, 2)} / 10</span>`;
 
       const userAverage = metrics.userEffective === null
         ? `<span class="score-badge stade-neutre">-</span>`
@@ -276,9 +279,9 @@ function renderSeasons(openSeasonIds = null) {
 
       return `
         <article class="card">
-          <h3>${escapeHTML(season.name || `Saison ${season.season_number}`)} - Moyenne du site: ${siteAverage}</h3>
+          <h3>${escapeHTML(season.name || `Saison ${season.season_number}`)} — Moyenne du site: ${siteAverageBadge}</h3>
           <p>Phase: ${escapeHTML(season.phase || "-")} | Debut: ${formatDate(season.start_date)} | Fin: ${formatDate(season.end_date)}</p>
-          <p>Moyenne de tes episodes: <b>${seasonAverage}</b> &mdash; Site: ${siteAverage}</p>
+          <p>Moyenne de tes episodes: <b>${seasonAverage}</b></p>
 
           <div class="inline-actions season-adjuster">
             <span>Ajusteur de moyenne</span>
