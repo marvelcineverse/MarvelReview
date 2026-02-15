@@ -1,14 +1,13 @@
-﻿import { supabase } from "../supabaseClient.js";
+import { supabase } from "../supabaseClient.js";
 import { getCurrentProfile, requireAuth } from "./auth.js";
 import { escapeHTML, setMessage } from "./utils.js";
 
-let currentProfile = null;
 
 async function ensureAdmin() {
   const session = await requireAuth("/login.html");
   if (!session) return null;
 
-  currentProfile = await getCurrentProfile();
+  const currentProfile = await getCurrentProfile();
   if (!currentProfile?.is_admin) {
     setMessage("#page-message", "Acces reserve aux administrateurs.", true);
     document.querySelector("#admin-root").style.display = "none";
@@ -64,88 +63,14 @@ function bindCreateMedia() {
   });
 }
 
-async function loadMediaRequests() {
-  const { data, error } = await supabase
-    .from("profile_media_memberships")
-    .select("id, status, profile_id, media_id")
-    .eq("status", "pending");
-
-  if (error) throw error;
-
-  const mediaIds = [...new Set((data || []).map((row) => row.media_id))];
-  const profileIds = [...new Set((data || []).map((row) => row.profile_id))];
-
-  const { data: medias, error: mediaError } = await supabase
-    .from("media_outlets")
-    .select("id, name, admin_profile_id")
-    .in("id", mediaIds);
-  if (mediaError) throw mediaError;
-
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, username")
-    .in("id", profileIds);
-  if (profilesError) throw profilesError;
-
-  const mediaById = new Map((medias || []).map((item) => [item.id, item]));
-  const profileById = new Map((profiles || []).map((item) => [item.id, item]));
-
-  const requests = (data || [])
-    .map((row) => ({
-      ...row,
-      media: mediaById.get(row.media_id),
-      profile: profileById.get(row.profile_id)
-    }))
-    .filter((row) => row.media?.admin_profile_id === currentProfile.id);
-
-  const container = document.querySelector("#media-requests");
-  if (!requests.length) {
-    container.innerHTML = "<p>Aucune demande en attente.</p>";
-    return;
-  }
-
-  container.innerHTML = requests
-    .map(
-      (row) => `
-        <article class="card">
-          <p><strong>${escapeHTML(row.profile?.username || row.profile_id)}</strong> -> ${escapeHTML(row.media?.name || "Media")}</p>
-          <div class="inline-actions">
-            <button type="button" data-action="approve" data-id="${row.id}">Approuver</button>
-            <button type="button" data-action="reject" data-id="${row.id}" class="ghost-button">Refuser</button>
-          </div>
-        </article>
-      `
-    )
-    .join("");
-
-  container.querySelectorAll("button[data-action]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const approved = button.dataset.action === "approve";
-      const membershipId = button.dataset.id;
-
-      const { error: rpcError } = await supabase.rpc("admin_decide_media_membership", {
-        p_membership_id: membershipId,
-        p_approved: approved
-      });
-
-      if (rpcError) {
-        setMessage("#page-message", rpcError.message, true);
-        return;
-      }
-
-      await loadMediaRequests();
-    });
-  });
-}
-
 async function initAdminPage() {
   const session = await ensureAdmin();
   if (!session) return;
 
   await loadUsers();
-
   bindCreateMedia();
-  await loadMediaRequests();
 }
 
 initAdminPage();
+
+

@@ -1,5 +1,6 @@
 ﻿import { supabase } from "../supabaseClient.js";
 import {
+  buildDenseRankLabels,
   escapeHTML,
   formatDate,
   formatScore,
@@ -9,11 +10,9 @@ import {
   setMessage
 } from "./utils.js";
 
-const mediaSelectEl = document.querySelector("#media-select");
-
-function toOption(item, selectedId) {
-  return `<option value="${item.id}" ${item.id === selectedId ? "selected" : ""}>${escapeHTML(item.name)}</option>`;
-}
+const mediaButtonsEl = document.querySelector("#media-buttons");
+let mediaList = [];
+let currentMediaId = null;
 
 async function loadMediaList(selectedId = null) {
   const { data, error } = await supabase
@@ -24,13 +23,38 @@ async function loadMediaList(selectedId = null) {
   if (error) throw error;
 
   if (!data?.length) {
-    mediaSelectEl.innerHTML = `<option value="">Aucun media</option>`;
+    mediaButtonsEl.innerHTML = `<p>Aucun media</p>`;
     return null;
   }
 
-  const effectiveId = selectedId || data[0].id;
-  mediaSelectEl.innerHTML = data.map((item) => toOption(item, effectiveId)).join("");
+  mediaList = data;
+  const effectiveId = selectedId && data.some((item) => item.id === selectedId) ? selectedId : data[0].id;
+  renderMediaButtons(effectiveId);
   return effectiveId;
+}
+
+function renderMediaButtons(selectedId) {
+  currentMediaId = selectedId;
+  mediaButtonsEl.innerHTML = mediaList
+    .map((item) => {
+      const selectedClass = item.id === selectedId ? "is-selected" : "";
+      return `<button type="button" class="ghost-button media-pill ${selectedClass}" data-media-id="${item.id}">${escapeHTML(item.name)}</button>`;
+    })
+    .join("");
+
+  mediaButtonsEl.querySelectorAll("button[data-media-id]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const selectedId = button.dataset.mediaId;
+      if (!selectedId || selectedId === currentMediaId) return;
+      renderMediaButtons(selectedId);
+      const nextURL = new URL(window.location.href);
+      nextURL.searchParams.set("id", selectedId);
+      history.replaceState({}, "", nextURL);
+      await loadMediaDetails(selectedId);
+      await loadMediaUsers(selectedId);
+      await loadMediaRanking(selectedId);
+    });
+  });
 }
 
 async function loadMediaDetails(mediaId) {
@@ -63,6 +87,30 @@ async function loadMediaDetails(mediaId) {
       ${media.youtube_url ? ` | <a href="${escapeHTML(media.youtube_url)}" target="_blank" rel="noreferrer">Youtube</a>` : ""}
     </p>
   `;
+}
+
+async function loadMediaUsers(mediaId) {
+  const usersEl = document.querySelector("#media-users-list");
+
+  const { data, error } = await supabase
+    .from("profile_media_memberships")
+    .select("status, profiles(username)")
+    .eq("media_id", mediaId)
+    .eq("status", "approved");
+
+  if (error) throw error;
+
+  const usernames = (data || [])
+    .map((row) => row.profiles?.username || "")
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "fr"));
+
+  if (!usernames.length) {
+    usersEl.innerHTML = "<li>Aucun utilisateur rattache.</li>";
+    return;
+  }
+
+  usersEl.innerHTML = usernames.map((name) => `<li>${escapeHTML(name)}</li>`).join("");
 }
 
 async function loadMediaRanking(mediaId) {
@@ -119,11 +167,13 @@ async function loadMediaRanking(mediaId) {
     return;
   }
 
+  const rankLabels = buildDenseRankLabels(ranked, (film) => film.average, 2);
+
   bodyEl.innerHTML = ranked
     .map(
       (film, index) => `
         <tr>
-          <td>${index + 1}</td>
+          <td>${rankLabels[index]}</td>
           <td><a href="/film.html?id=${film.id}" class="film-link">${escapeHTML(film.title)}</a> <small>(${formatDate(film.release_date)})</small></td>
           <td><span class="score-badge ${getScoreClass(film.average)}">${formatScore(film.average, 2, 2)} / 10</span></td>
           <td>${film.count}</td>
@@ -140,16 +190,8 @@ async function loadPage() {
     if (!mediaId) return;
 
     await loadMediaDetails(mediaId);
+    await loadMediaUsers(mediaId);
     await loadMediaRanking(mediaId);
-
-    mediaSelectEl.addEventListener("change", async () => {
-      const selectedId = mediaSelectEl.value;
-      const nextURL = new URL(window.location.href);
-      nextURL.searchParams.set("id", selectedId);
-      history.replaceState({}, "", nextURL);
-      await loadMediaDetails(selectedId);
-      await loadMediaRanking(selectedId);
-    });
   } catch (error) {
     setMessage("#page-message", error.message || "Erreur de chargement des medias.", true);
   }

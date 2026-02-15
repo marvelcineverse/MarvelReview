@@ -42,6 +42,41 @@ export function isReleasedOnOrBeforeToday(releaseDate) {
   return releaseDate <= toLocalISODate();
 }
 
+export function buildDenseRankLabels(items, scoreAccessor, precision = null) {
+  const labels = [];
+  let previousScore = null;
+  let rank = 0;
+  let firstRankAssigned = false;
+
+  for (const item of items) {
+    const rawScore = scoreAccessor(item);
+    if (!Number.isFinite(rawScore)) {
+      labels.push("-");
+      continue;
+    }
+
+    const score = precision === null ? rawScore : Number(rawScore.toFixed(precision));
+    if (!firstRankAssigned) {
+      rank = 1;
+      labels.push(String(rank));
+      previousScore = score;
+      firstRankAssigned = true;
+      continue;
+    }
+
+    if (score === previousScore) {
+      labels.push("-");
+      continue;
+    }
+
+    rank += 1;
+    labels.push(String(rank));
+    previousScore = score;
+  }
+
+  return labels;
+}
+
 export function formatDate(dateString) {
   if (!dateString) return "-";
   return new Date(dateString).toLocaleDateString("fr-FR", {

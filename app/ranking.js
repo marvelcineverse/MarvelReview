@@ -1,6 +1,7 @@
 ﻿import { supabase } from "../supabaseClient.js";
 import {
   escapeHTML,
+  buildDenseRankLabels,
   formatDate,
   formatScore,
   getScoreClass,
@@ -58,6 +59,8 @@ async function loadRanking() {
       return;
     }
 
+    const rankLabels = buildDenseRankLabels(ranked, (film) => film.average, 2);
+
     bodyEl.innerHTML = ranked
       .map((film, index) => {
         const averageCell = film.count
@@ -70,7 +73,7 @@ async function loadRanking() {
 
         return `
           <tr>
-            <td>${index + 1}</td>
+            <td>${rankLabels[index]}</td>
             <td>
               <a href="/film.html?id=${film.id}" class="film-link">${escapeHTML(film.title)}</a>
               <small>(${formatDate(film.release_date)})</small>
