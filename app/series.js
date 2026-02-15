@@ -354,6 +354,43 @@ function getSocialTimeValue(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function computeSeasonEffectiveScoreForUser(seasonId, userId) {
+  const seasonEpisodeIds = new Set(
+    state.episodes
+      .filter((episode) => episode.season_id === seasonId)
+      .map((episode) => episode.id)
+  );
+
+  let episodeTotal = 0;
+  let episodeCount = 0;
+  for (const rating of state.episodeRatings) {
+    if (rating.user_id !== userId || !seasonEpisodeIds.has(rating.episode_id)) continue;
+    const score = Number(rating.score);
+    if (!Number.isFinite(score)) continue;
+    episodeTotal += score;
+    episodeCount += 1;
+  }
+
+  const seasonRow = state.seasonUserRatings.find(
+    (row) => row.season_id === seasonId && row.user_id === userId
+  );
+  const manualScore = seasonRow?.manual_score === null || seasonRow?.manual_score === undefined
+    ? null
+    : Number(seasonRow.manual_score);
+  const adjustment = Number(seasonRow?.adjustment || 0);
+
+  if (Number.isFinite(manualScore)) {
+    return clamp(manualScore, 0, 10);
+  }
+
+  if (!episodeCount) {
+    return null;
+  }
+
+  const episodeAverage = episodeTotal / episodeCount;
+  return clamp(episodeAverage + adjustment, 0, 10);
+}
+
 function buildSeriesSocialActivityRows() {
   const seasonsById = new Map(state.seasons.map((season) => [season.id, season]));
   const episodesById = new Map(state.episodes.map((episode) => [episode.id, episode]));
@@ -384,13 +421,14 @@ function buildSeriesSocialActivityRows() {
     const hasReview = String(rating.review || "").trim().length > 0;
     if (!hasManual && !hasAdjustment && !hasReview) continue;
     const season = seasonsById.get(rating.season_id);
+    const effectiveScore = computeSeasonEffectiveScoreForUser(rating.season_id, rating.user_id);
     rows.push({
       id: `season-${rating.id}`,
       type: "season",
       user_id: rating.user_id,
       username: rating.profiles?.username || "Utilisateur",
       created_at: rating.created_at || null,
-      score: hasManual ? Number(rating.manual_score) : null,
+      score: Number.isFinite(effectiveScore) ? effectiveScore : null,
       adjustment: Number(rating.adjustment || 0),
       review: rating.review || "",
       href: `/season.html?id=${rating.season_id}`,
