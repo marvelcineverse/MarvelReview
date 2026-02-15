@@ -37,7 +37,10 @@
             <textarea id="review" maxlength="800" placeholder="Ton avis..."></textarea>
           </label>
 
-          <button type="submit">Enregistrer</button>
+          <div class="inline-actions">
+            <button type="submit">Enregistrer</button>
+            <button id="delete-rating-button" type="button" class="ghost-button" style="display: none;">Supprimer ma note</button>
+          </div>
           <p id="form-message" class="message" aria-live="polite"></p>
         </form>
       </section>

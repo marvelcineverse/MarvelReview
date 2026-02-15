@@ -95,6 +95,7 @@ function renderPersonalRatings(rows) {
             <div class="inline-actions inline-edit">
               <input data-field="score" data-film-id="${row.film_id}" type="number" min="0" max="10" step="0.25" value="${scoreText}" placeholder="0 a 10" />
               <button type="button" class="ghost-button" data-action="save-rating" data-film-id="${row.film_id}">Valider</button>
+              ${row.score === null ? "" : `<button type="button" class="ghost-button" data-action="delete-rating" data-film-id="${row.film_id}">Supprimer</button>`}
             </div>
           </td>
         </tr>
@@ -265,6 +266,21 @@ async function saveQuickRating(filmId) {
   await loadPersonalRatings(currentUserId);
 }
 
+async function deleteQuickRating(filmId) {
+  if (!currentUserId) return;
+
+  const { error } = await supabase
+    .from("ratings")
+    .delete()
+    .eq("user_id", currentUserId)
+    .eq("film_id", filmId);
+
+  if (error) throw error;
+
+  setMessage("#ratings-quick-message", "Note supprimee.");
+  await loadPersonalRatings(currentUserId);
+}
+
 async function loadProfile() {
   const session = await requireAuth("/login.html");
   if (!session) return;
@@ -349,16 +365,23 @@ document.querySelector("#profile-form")?.addEventListener("submit", async (event
 });
 
 document.querySelector("#personal-ratings-body")?.addEventListener("click", async (event) => {
-  const button = event.target.closest("button[data-action='save-rating']");
+  const button = event.target.closest("button[data-action]");
   if (!button) return;
 
   const filmId = button.dataset.filmId;
   if (!filmId) return;
 
   try {
-    await saveQuickRating(filmId);
+    if (button.dataset.action === "save-rating") {
+      await saveQuickRating(filmId);
+      return;
+    }
+
+    if (button.dataset.action === "delete-rating") {
+      await deleteQuickRating(filmId);
+    }
   } catch (error) {
-    setMessage("#ratings-quick-message", error.message || "Sauvegarde impossible.", true);
+    setMessage("#ratings-quick-message", error.message || "Operation impossible.", true);
   }
 });
 

@@ -132,15 +132,20 @@ async function fillExistingUserRating(filmId, userId, scoreInputId, reviewInputI
 
   const scoreInput = document.querySelector(`#${scoreInputId}`);
   const reviewInput = document.querySelector(`#${reviewInputId}`);
+  const deleteButton = scoreInputId === "score"
+    ? document.querySelector("#delete-rating-button")
+    : null;
 
   if (!data) {
     scoreInput.value = "";
     reviewInput.value = "";
+    if (deleteButton) deleteButton.style.display = "none";
     return;
   }
 
   scoreInput.value = String(data.score);
   reviewInput.value = data.review || "";
+  if (deleteButton) deleteButton.style.display = "inline-block";
 }
 
 async function loadAdminUsersForFilm(filmId) {
@@ -342,7 +347,31 @@ async function handleAdminFilmSave(event) {
   }
 }
 
+async function handleDeleteRating() {
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+
+  const filmId = getFilmIdFromURL();
+  if (!filmId) return;
+
+  try {
+    const { error } = await supabase
+      .from("ratings")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("film_id", filmId);
+
+    if (error) throw error;
+
+    setMessage("#form-message", "Note supprimee.");
+    await loadFilmPage();
+  } catch (error) {
+    setMessage("#form-message", error.message || "Suppression impossible.", true);
+  }
+}
+
 document.querySelector("#rating-form")?.addEventListener("submit", handleRatingSubmit);
+document.querySelector("#delete-rating-button")?.addEventListener("click", handleDeleteRating);
 document.querySelector("#admin-rating-form")?.addEventListener("submit", handleAdminRatingSubmit);
 document.querySelector("#admin-film-form")?.addEventListener("submit", handleAdminFilmSave);
 loadFilmPage();
