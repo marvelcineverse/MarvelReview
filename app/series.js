@@ -81,14 +81,21 @@ function computeSeasonMetrics(seasonId) {
     episodeCount: seasonEpisodes.length,
     userManualScore: user.manualScore,
     userAdjustment: user.adjustment,
+    userBase,
     userEffective,
     siteAverage
   };
 }
 
-function computeSeriesWeightedAverage() {
+function computeSeriesAverages() {
   const totalSeasons = state.seasons.length;
-  if (!totalSeasons) return { average: null, contributorCount: 0 };
+  if (!totalSeasons) {
+    return {
+      globalAverage: null,
+      myAverage: null,
+      contributorCount: 0
+    };
+  }
 
   const userSeasonScores = new Map();
   for (const season of state.seasons) {
@@ -127,17 +134,32 @@ function computeSeriesWeightedAverage() {
   }
 
   const weightedScores = [];
-  for (const seasonScores of userSeasonScores.values()) {
+  let weightedSum = 0;
+  let coverageWeightSum = 0;
+  let myAverage = null;
+  for (const [userId, seasonScores] of userSeasonScores.entries()) {
     if (!seasonScores.length) continue;
-    const avg = seasonScores.reduce((sum, value) => sum + value, 0) / seasonScores.length;
+    const userAverage = seasonScores.reduce((sum, value) => sum + value, 0) / seasonScores.length;
     const coverage = seasonScores.length / totalSeasons;
-    weightedScores.push(avg * coverage);
+    weightedScores.push(userAverage);
+    weightedSum += userAverage * coverage;
+    coverageWeightSum += coverage;
+    if (state.currentUserId && userId === state.currentUserId) {
+      myAverage = userAverage;
+    }
   }
 
-  if (!weightedScores.length) return { average: null, contributorCount: 0 };
+  if (!weightedScores.length || coverageWeightSum <= 0) {
+    return {
+      globalAverage: null,
+      myAverage: null,
+      contributorCount: 0
+    };
+  }
 
   return {
-    average: weightedScores.reduce((sum, value) => sum + value, 0) / weightedScores.length,
+    globalAverage: weightedSum / coverageWeightSum,
+    myAverage,
     contributorCount: weightedScores.length
   };
 }
@@ -181,18 +203,20 @@ function renderSeriesHeader() {
 }
 
 function renderSeriesAverage() {
-  const averageEl = document.querySelector("#series-average");
-  const metrics = computeSeriesWeightedAverage();
+  const globalEl = document.querySelector("#series-global-average");
+  const myEl = document.querySelector("#series-my-average");
+  const metrics = computeSeriesAverages();
 
-  if (metrics.average === null) {
-    averageEl.innerHTML = `<span class="score-badge stade-neutre">Pas encore de note</span>`;
-    return;
-  }
+  globalEl.innerHTML = metrics.globalAverage === null
+    ? `<span class="score-badge stade-neutre">Pas encore de note</span>`
+    : `
+      <span class="score-badge ${getScoreClass(metrics.globalAverage)}">${formatScore(metrics.globalAverage, 2, 2)} / 10</span>
+      <span>${metrics.contributorCount} profil(s) contributeur(s)</span>
+    `;
 
-  averageEl.innerHTML = `
-    <span class="score-badge ${getScoreClass(metrics.average)}">${formatScore(metrics.average, 2, 2)} / 10</span>
-    <span>${metrics.contributorCount} profil(s) contributeur(s)</span>
-  `;
+  myEl.innerHTML = metrics.myAverage === null
+    ? `<span class="score-badge stade-neutre">Tu n'as pas encore de moyenne sur cette serie</span>`
+    : `<span class="score-badge ${getScoreClass(metrics.myAverage)}">${formatScore(metrics.myAverage, 2, 2)} / 10</span>`;
 }
 
 function renderSeasons(openSeasonIds = null) {
@@ -498,9 +522,30 @@ async function adjustSeason(seasonId, delta) {
   if (!session) return;
 
   const existing = getCurrentSeasonUserRow(seasonId);
-  const currentAdjustment = Number(existing?.adjustment || 0);
-  const nextAdjustment = clamp(Math.round((currentAdjustment + delta) * 4) / 4, -2, 2);
-  if (!isQuarterStep(nextAdjustment)) return;
+  const metrics = computeSeasonMetrics(seasonId);
+  const base = metrics.userBase;
+
+  if (!Number.isFinite(base)) {
+    setMessage("#page-message", "Il faut une base (note de saison ou episodes notes) pour ajuster.", true);
+    return;
+  }
+
+  const currentEffective = Number.isFinite(metrics.userEffective) ? metrics.userEffective : base;
+  let nextEffective;
+  if (delta > 0) {
+    nextEffective = Math.ceil((currentEffective + 0.000001) * 4) / 4;
+    if (Math.abs(nextEffective - currentEffective) < 0.000001) {
+      nextEffective += 0.25;
+    }
+  } else {
+    nextEffective = Math.floor((currentEffective - 0.000001) * 4) / 4;
+    if (Math.abs(nextEffective - currentEffective) < 0.000001) {
+      nextEffective -= 0.25;
+    }
+  }
+
+  nextEffective = clamp(nextEffective, 0, 10);
+  const nextAdjustment = clamp(nextEffective - base, -2, 2);
 
   const payload = {
     user_id: session.user.id,

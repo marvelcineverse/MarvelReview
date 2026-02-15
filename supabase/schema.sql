@@ -578,7 +578,6 @@ alter table public.season_user_ratings
   check (
     adjustment >= -2
     and adjustment <= 2
-    and mod((abs(adjustment) * 100)::int, 25) = 0
   );
 
 drop trigger if exists trg_episode_ratings_updated_at on public.episode_ratings;

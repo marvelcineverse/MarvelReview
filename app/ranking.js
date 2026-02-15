@@ -109,22 +109,25 @@ function computeSeriesRows(seriesList, seasons, episodes, episodeRatings, season
     }
 
     const weightedScores = [];
+    let weightedSum = 0;
+    let coverageWeightSum = 0;
     let myScore = null;
 
     for (const [userId, seasonScores] of userSeasonScores.entries()) {
       if (!seasonScores.length) continue;
-      const avg = seasonScores.reduce((sum, value) => sum + value, 0) / seasonScores.length;
+      const userAverage = seasonScores.reduce((sum, value) => sum + value, 0) / seasonScores.length;
       const coverage = seasonScores.length / totalSeasons;
-      const weighted = avg * coverage;
-      weightedScores.push(weighted);
+      weightedScores.push(userAverage);
+      weightedSum += userAverage * coverage;
+      coverageWeightSum += coverage;
 
       if (currentUserId && userId === currentUserId) {
-        myScore = weighted;
+        myScore = userAverage;
       }
     }
 
-    const average = weightedScores.length
-      ? weightedScores.reduce((sum, value) => sum + value, 0) / weightedScores.length
+    const average = weightedScores.length && coverageWeightSum > 0
+      ? weightedSum / coverageWeightSum
       : null;
 
     result.push({
