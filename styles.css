@@ -273,6 +273,17 @@ button:hover {
   margin: 0;
 }
 
+.bulk-episode-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 230px;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.bulk-episode-row input {
+  max-width: none;
+}
+
 .icon-circle-btn.neutral {
   background: #8a96a3;
 }

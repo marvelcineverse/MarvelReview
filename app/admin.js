@@ -231,47 +231,73 @@ function normalizeBulkDate(rawDate) {
   return undefined;
 }
 
-function parseBulkEpisodesInput(value) {
-  const lines = (value || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+function getBulkRowsValues() {
+  return Array.from(document.querySelectorAll("[data-bulk-row]")).map((row, index) => ({
+    index: index + 1,
+    episode_number: row.querySelector("[data-field='episode-number']")?.value?.trim() || "",
+    title: row.querySelector("[data-field='episode-title']")?.value?.trim() || "",
+    air_date: row.querySelector("[data-field='episode-air-date']")?.value?.trim() || ""
+  }));
+}
 
-  if (!lines.length) {
-    throw new Error("Ajoute au moins une ligne d'episode.");
+function renderBulkEpisodeRows(count, previousRows = []) {
+  const container = document.querySelector("#episode-bulk-rows");
+  if (!container) return;
+
+  const safeCount = Math.min(Math.max(Number(count) || 1, 1), 50);
+  container.innerHTML = Array.from({ length: safeCount }, (_, idx) => {
+    const row = previousRows[idx] || {};
+    const episodeNumber = row.episode_number || String(idx + 1);
+    const title = escapeHTML(row.title || "");
+    const airDate = escapeHTML(row.air_date || "");
+    return `
+      <div class="bulk-episode-row" data-bulk-row>
+        <input data-field="episode-number" type="number" min="1" step="1" value="${escapeHTML(episodeNumber)}" placeholder="Numero" />
+        <input data-field="episode-title" type="text" value="${title}" placeholder="Titre episode" />
+        <input data-field="episode-air-date" type="text" value="${airDate}" placeholder="Date (YYYY-MM-DD ou DD/MM/YYYY)" />
+      </div>
+    `;
+  }).join("");
+
+  const countInput = document.querySelector("#episode-bulk-count");
+  if (countInput) countInput.value = String(safeCount);
+}
+
+function parseBulkEpisodesRows() {
+  const rows = getBulkRowsValues();
+  if (!rows.length) {
+    throw new Error("Aucune ligne a importer.");
   }
 
   const parsed = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    const lineNumber = index + 1;
-    const parts = lines[index].split("|").map((part) => part.trim());
-    if (parts.length < 2) {
-      throw new Error(`Ligne ${lineNumber}: format attendu numero|titre|date.`);
-    }
-
-    const episodeNumber = Number(parts[0].replace(/^ep\.?\s*/i, ""));
+  const seenEpisodeNumbers = new Set();
+  for (const row of rows) {
+    const episodeNumber = Number(row.episode_number.replace(/^ep\.?\s*/i, ""));
     if (!Number.isInteger(episodeNumber) || episodeNumber < 1) {
-      throw new Error(`Ligne ${lineNumber}: numero d'episode invalide.`);
+      throw new Error(`Ligne ${row.index}: numero d'episode invalide.`);
+    }
+    if (seenEpisodeNumbers.has(episodeNumber)) {
+      throw new Error(`Ligne ${row.index}: numero d'episode duplique.`);
+    }
+    seenEpisodeNumbers.add(episodeNumber);
+
+    if (!row.title) {
+      throw new Error(`Ligne ${row.index}: titre obligatoire.`);
     }
 
-    const title = parts[1];
-    if (!title) {
-      throw new Error(`Ligne ${lineNumber}: titre obligatoire.`);
-    }
-
-    const airDate = normalizeBulkDate(parts[2] || "");
+    const airDate = normalizeBulkDate(row.air_date);
     if (airDate === undefined) {
-      throw new Error(`Ligne ${lineNumber}: date invalide (utilise YYYY-MM-DD ou DD/MM/YYYY).`);
+      throw new Error(`Ligne ${row.index}: date invalide (utilise YYYY-MM-DD ou DD/MM/YYYY).`);
     }
 
-    parsed.push({ episode_number: episodeNumber, title, air_date: airDate || null });
+    parsed.push({
+      episode_number: episodeNumber,
+      title: row.title,
+      air_date: airDate || null
+    });
   }
 
-  const dedup = new Map();
-  for (const item of parsed) {
-    dedup.set(item.episode_number, item);
-  }
-  return Array.from(dedup.values()).sort((a, b) => a.episode_number - b.episode_number);
+  return parsed.sort((a, b) => a.episode_number - b.episode_number);
 }
 
 function bindSeriesForms() {
@@ -402,7 +428,6 @@ function bindSeriesForms() {
     event.preventDefault();
 
     const seasonId = document.querySelector("#episode-bulk-season-id").value || null;
-    const linesRaw = document.querySelector("#episode-bulk-lines").value;
 
     if (!seasonId) {
       setMessage("#episode-bulk-message", "Selectionne une saison.", true);
@@ -411,7 +436,7 @@ function bindSeriesForms() {
 
     let episodes;
     try {
-      episodes = parseBulkEpisodesInput(linesRaw);
+      episodes = parseBulkEpisodesRows();
     } catch (error) {
       setMessage("#episode-bulk-message", error.message || "Format bulk invalide.", true);
       return;
@@ -437,6 +462,20 @@ function bindSeriesForms() {
       setMessage("#episode-bulk-message", error.message || "Import bulk impossible.", true);
     }
   });
+
+  document.querySelector("#episode-bulk-generate")?.addEventListener("click", () => {
+    const count = Number(document.querySelector("#episode-bulk-count")?.value || 1);
+    const previousRows = getBulkRowsValues();
+    renderBulkEpisodeRows(count, previousRows);
+  });
+
+  document.querySelector("#episode-bulk-count")?.addEventListener("change", () => {
+    const count = Number(document.querySelector("#episode-bulk-count")?.value || 1);
+    const previousRows = getBulkRowsValues();
+    renderBulkEpisodeRows(count, previousRows);
+  });
+
+  renderBulkEpisodeRows(Number(document.querySelector("#episode-bulk-count")?.value || 6));
 }
 
 async function initAdminPage() {

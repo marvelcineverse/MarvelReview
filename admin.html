@@ -107,10 +107,12 @@
             <label>Saison parent
               <select id="episode-bulk-season-id" required></select>
             </label>
-            <label>Episodes (1 ligne = 1 episode)
-              <textarea id="episode-bulk-lines" placeholder="1|Un destin exceptionnel|2021-06-09&#10;2|Le Variant|2021-06-16&#10;3|Lamentis|2021-06-23"></textarea>
+            <label>Nombre d'episodes
+              <input id="episode-bulk-count" type="number" min="1" max="50" step="1" value="6" />
             </label>
-            <p class="film-meta">Format: numero|titre|date. Date optionnelle. Date acceptee: YYYY-MM-DD ou DD/MM/YYYY.</p>
+            <button id="episode-bulk-generate" type="button">Generer les lignes</button>
+            <div id="episode-bulk-rows" class="grid"></div>
+            <p class="film-meta">Une ligne = 1 episode. Date optionnelle (YYYY-MM-DD ou DD/MM/YYYY).</p>
             <button type="submit">Importer les episodes</button>
             <p id="episode-bulk-message" class="message" aria-live="polite"></p>
           </form>
