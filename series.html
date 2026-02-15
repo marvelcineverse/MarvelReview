@@ -34,6 +34,30 @@
           <p id="series-my-average" class="score-row"></p>
         </section>
         <section class="card">
+          <h2>Ta critique serie</h2>
+          <p id="series-rating-unavailable-message" class="message" style="display: none;" aria-live="polite"></p>
+          <form id="series-review-form" class="form">
+            <label>
+              Critique (optionnelle)
+              <textarea id="series-review" maxlength="1500" placeholder="Ton avis global sur la serie..."></textarea>
+            </label>
+            <div class="inline-actions">
+              <button type="submit" class="icon-circle-btn save" aria-label="Enregistrer ma critique serie">
+                <i class="fa-solid fa-check" aria-hidden="true"></i>
+              </button>
+              <button id="series-review-delete-button" type="button" class="icon-circle-btn delete" style="display: none;" aria-label="Supprimer ma critique serie">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p id="series-review-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Dernieres critiques serie</h2>
+          <div id="series-reviews-list" class="grid"></div>
+        </section>
+        <section class="card">
           <h2>Saisons</h2>
           <div id="series-seasons-list" class="grid"></div>
         </section>

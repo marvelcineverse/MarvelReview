@@ -36,6 +36,16 @@ export function getSeriesIdFromURL() {
   return params.get("id");
 }
 
+export function getSeasonIdFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("id");
+}
+
+export function getEpisodeIdFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("id");
+}
+
 function toLocalISODate(date = new Date()) {
   const year = String(date.getFullYear());
   const month = String(date.getMonth() + 1).padStart(2, "0");

@@ -842,3 +842,50 @@ on conflict (season_id, episode_number) do update
   set
     title = excluded.title,
     air_date = excluded.air_date;
+
+-- Reviews series/saisons
+alter table public.season_user_ratings
+  add column if not exists review text;
+
+create table if not exists public.series_reviews (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  series_id uuid not null references public.series(id) on delete cascade,
+  review text not null,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (user_id, series_id)
+);
+
+drop trigger if exists trg_series_reviews_updated_at on public.series_reviews;
+create trigger trg_series_reviews_updated_at
+before update on public.series_reviews
+for each row
+execute function public.set_updated_at();
+
+alter table public.series_reviews enable row level security;
+
+drop policy if exists "series_reviews_public_read" on public.series_reviews;
+create policy "series_reviews_public_read"
+on public.series_reviews
+for select
+using (true);
+
+drop policy if exists "series_reviews_insert_own_or_admin" on public.series_reviews;
+create policy "series_reviews_insert_own_or_admin"
+on public.series_reviews
+for insert
+with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+
+drop policy if exists "series_reviews_update_own_or_admin" on public.series_reviews;
+create policy "series_reviews_update_own_or_admin"
+on public.series_reviews
+for update
+using (auth.uid() = user_id or public.is_admin(auth.uid()))
+with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+
+drop policy if exists "series_reviews_delete_own_or_admin" on public.series_reviews;
+create policy "series_reviews_delete_own_or_admin"
+on public.series_reviews
+for delete
+using (auth.uid() = user_id or public.is_admin(auth.uid()));

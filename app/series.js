@@ -17,7 +17,8 @@ const state = {
   seasons: [],
   episodes: [],
   episodeRatings: [],
-  seasonUserRatings: []
+  seasonUserRatings: [],
+  seriesReviews: []
 };
 
 function clamp(value, min, max) {
@@ -48,6 +49,28 @@ function getOpenSeasonIdsFromDOM() {
       .map((el) => el.dataset.seasonId)
       .filter(Boolean)
   );
+}
+
+function canReviewSeries() {
+  return isReleasedOnOrBeforeToday(state.series?.start_date || null);
+}
+
+function applySeriesReviewAvailability() {
+  const canReview = canReviewSeries();
+  const messageEl = document.querySelector("#series-rating-unavailable-message");
+  const form = document.querySelector("#series-review-form");
+  const message = "Cette serie n'est pas encore sortie (ou n'a pas de date de debut). Les critiques sont desactivees.";
+
+  if (messageEl) {
+    messageEl.textContent = canReview ? "" : message;
+    messageEl.style.display = canReview ? "none" : "block";
+  }
+
+  if (!form) return;
+  const controls = form.querySelectorAll("textarea, button");
+  for (const control of controls) {
+    control.disabled = !canReview;
+  }
 }
 
 function isSeasonRateable(season) {
@@ -229,6 +252,67 @@ function renderSeriesHeader() {
   `;
 }
 
+async function loadMembershipMapForUsers(userIds) {
+  if (!userIds.length) return new Map();
+
+  const { data, error } = await supabase
+    .from("profile_media_memberships")
+    .select("profile_id, status, media_outlets(name)")
+    .in("profile_id", userIds)
+    .eq("status", "approved");
+
+  if (error) throw error;
+
+  const map = new Map();
+  for (const row of data || []) {
+    const existing = map.get(row.profile_id) || [];
+    const mediaName = row.media_outlets?.name;
+    if (mediaName) existing.push(mediaName);
+    map.set(row.profile_id, existing);
+  }
+
+  return map;
+}
+
+function renderSeriesReviews(mediaByUserId = new Map()) {
+  const listEl = document.querySelector("#series-reviews-list");
+  if (!listEl) return;
+
+  if (!state.seriesReviews.length) {
+    listEl.innerHTML = "<p>Aucune critique pour cette serie.</p>";
+    return;
+  }
+
+  listEl.innerHTML = state.seriesReviews
+    .map((review) => {
+      const profile = review.profiles || {};
+      const mediaNames = mediaByUserId.get(review.user_id) || [];
+      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Independant";
+
+      return `
+        <article class="card review-card">
+          <div class="review-head">
+            <strong>${escapeHTML(profile.username || "Utilisateur")}</strong>
+            <span>${escapeHTML(mediaLabel)}</span>
+          </div>
+          <p>${escapeHTML(review.review || "(Pas de commentaire)")}</p>
+          <small>${formatDate(review.created_at)}</small>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function fillCurrentUserSeriesReview() {
+  const textarea = document.querySelector("#series-review");
+  const deleteBtn = document.querySelector("#series-review-delete-button");
+  if (!textarea || !deleteBtn) return;
+
+  const myReview = state.seriesReviews.find((row) => row.user_id === state.currentUserId);
+  textarea.value = myReview?.review || "";
+  deleteBtn.style.display = myReview ? "inline-flex" : "none";
+}
+
 function renderSeriesAverage() {
   const globalEl = document.querySelector("#series-global-average");
   const myEl = document.querySelector("#series-my-average");
@@ -262,6 +346,16 @@ function renderSeasons(openSeasonIds = null) {
         .sort((a, b) => a.episode_number - b.episode_number);
       const metrics = computeSeasonMetrics(season.id);
       const canRateSeason = isSeasonRateable(season);
+      const episodeAverageById = new Map();
+      for (const episode of seasonEpisodes) {
+        const ratings = state.episodeRatings.filter((rating) => rating.episode_id === episode.id);
+        if (!ratings.length) {
+          episodeAverageById.set(episode.id, null);
+          continue;
+        }
+        const total = ratings.reduce((sum, rating) => sum + Number(rating.score || 0), 0);
+        episodeAverageById.set(episode.id, total / ratings.length);
+      }
 
       const seasonAverage = metrics.userEpisodeAverage === null
         ? `Pas de note`
@@ -284,7 +378,11 @@ function renderSeasons(openSeasonIds = null) {
 
       return `
         <article class="card">
-          <h3>${escapeHTML(season.name || `Saison ${season.season_number}`)} — Moyenne du site: ${siteAverageBadge}</h3>
+          <h3>
+            <a href="/season.html?id=${season.id}" class="film-link">${escapeHTML(season.name || `Saison ${season.season_number}`)}</a>
+            <small>(voir details)</small>
+            - Moyenne du site: ${siteAverageBadge}
+          </h3>
           <p>Phase: ${escapeHTML(season.phase || "-")} | Debut: ${formatDate(season.start_date)} | Fin: ${formatDate(season.end_date)}</p>
           <p>Moyenne de tes episodes: <b>${seasonAverage}</b></p>
 
@@ -332,6 +430,7 @@ function renderSeasons(openSeasonIds = null) {
                     <th>#</th>
                     <th>Episode</th>
                     <th>Diffusion</th>
+                    <th>Moyenne</th>
                     <th>Ta note</th>
                     <th>Modifier</th>
                   </tr>
@@ -346,14 +445,17 @@ function renderSeasons(openSeasonIds = null) {
                     const scoreBadge = userRating
                       ? `<span class="score-badge ${getScoreClass(userRating.score)}">${formatScore(userRating.score)} / 10</span>`
                       : `<span class="score-badge stade-neutre">-</span>`;
+                    const episodeAverage = episodeAverageById.get(episode.id);
+                    const averageText = Number.isFinite(episodeAverage) ? formatScore(episodeAverage, 2, 2) : "-";
 
                     return `
                       <tr>
                         <td>${episode.episode_number}</td>
-                        <td>${escapeHTML(episode.title)}</td>
+                        <td><a href="/episode.html?id=${episode.id}" class="film-link">${escapeHTML(episode.title)}</a></td>
                         <td>${formatDate(episode.air_date)}</td>
+                        <td>${averageText}</td>
                         <td>${scoreBadge}</td>
-                        <td>
+                        <td class="actions-cell">
                           <div class="inline-actions inline-edit">
                             <input data-field="episode-score" data-episode-id="${episode.id}" type="number" min="0" max="10" step="0.25" value="${scoreValue}" placeholder="0 a 10" ${canRate ? "" : "disabled"} />
                             <button type="button" class="icon-circle-btn save" data-action="save-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Valider la note d'episode">
@@ -415,7 +517,11 @@ async function loadRatingsData() {
   const seasonIds = state.seasons.map((season) => season.id);
   const episodeIds = state.episodes.map((episode) => episode.id);
 
-  const [{ data: episodeRatings, error: episodeRatingsError }, { data: seasonUserRatings, error: seasonUserRatingsError }] = await Promise.all([
+  const [
+    { data: episodeRatings, error: episodeRatingsError },
+    { data: seasonUserRatings, error: seasonUserRatingsError },
+    { data: seriesReviews, error: seriesReviewsError }
+  ] = await Promise.all([
     episodeIds.length
       ? supabase
         .from("episode_ratings")
@@ -425,31 +531,90 @@ async function loadRatingsData() {
     seasonIds.length
       ? supabase
         .from("season_user_ratings")
-        .select("id, season_id, user_id, manual_score, adjustment")
+        .select("id, season_id, user_id, manual_score, adjustment, review")
         .in("season_id", seasonIds)
+      : Promise.resolve({ data: [], error: null }),
+    state.series?.id
+      ? supabase
+        .from("series_reviews")
+        .select("id, series_id, user_id, review, created_at, profiles(username)")
+        .eq("series_id", state.series.id)
+        .order("created_at", { ascending: false })
       : Promise.resolve({ data: [], error: null })
   ]);
 
   if (episodeRatingsError) throw episodeRatingsError;
   if (seasonUserRatingsError) throw seasonUserRatingsError;
+  if (seriesReviewsError) throw seriesReviewsError;
 
   state.episodeRatings = episodeRatings || [];
   state.seasonUserRatings = seasonUserRatings || [];
+  state.seriesReviews = seriesReviews || [];
 }
 
 async function reloadSeriesDetails(seriesId) {
   await loadSeriesStructure(seriesId);
   await loadRatingsData();
   renderSeriesHeader();
+  applySeriesReviewAvailability();
+  fillCurrentUserSeriesReview();
   renderSeriesAverage();
+  const userIds = [...new Set(state.seriesReviews.map((row) => row.user_id))];
+  const mediaByUserId = await loadMembershipMapForUsers(userIds);
+  renderSeriesReviews(mediaByUserId);
   renderSeasons();
 }
 
 async function refreshRatingsOnly() {
   const openSeasonIds = getOpenSeasonIdsFromDOM();
   await loadRatingsData();
+  applySeriesReviewAvailability();
+  fillCurrentUserSeriesReview();
   renderSeriesAverage();
+  const userIds = [...new Set(state.seriesReviews.map((row) => row.user_id))];
+  const mediaByUserId = await loadMembershipMapForUsers(userIds);
+  renderSeriesReviews(mediaByUserId);
   renderSeasons(openSeasonIds);
+}
+
+async function saveSeriesReview() {
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+  if (!canReviewSeries()) {
+    setMessage("#series-review-message", "Impossible de commenter une serie non sortie ou sans date de debut.", true);
+    return;
+  }
+
+  const textarea = document.querySelector("#series-review");
+  const reviewValue = textarea?.value?.trim() || "";
+  if (!reviewValue) {
+    setMessage("#series-review-message", "La critique est vide.", true);
+    return;
+  }
+
+  const { error } = await supabase.from("series_reviews").upsert(
+    {
+      user_id: session.user.id,
+      series_id: state.series.id,
+      review: reviewValue
+    },
+    { onConflict: "user_id,series_id" }
+  );
+  if (error) throw error;
+  setMessage("#series-review-message", "Critique serie enregistree.");
+}
+
+async function deleteSeriesReview() {
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+
+  const { error } = await supabase
+    .from("series_reviews")
+    .delete()
+    .eq("user_id", session.user.id)
+    .eq("series_id", state.series.id);
+  if (error) throw error;
+  setMessage("#series-review-message", "Critique serie supprimee.");
 }
 
 async function saveEpisodeRating(episodeId) {
@@ -514,6 +679,7 @@ async function saveSeasonManualScore(seasonId) {
     return;
   }
 
+  const existing = getCurrentSeasonUserRow(seasonId);
   const scoreInput = document.querySelector(`[data-field="season-manual-score"][data-season-id="${seasonId}"]`);
   const raw = scoreInput?.value.trim() || "";
   if (!raw) {
@@ -532,7 +698,8 @@ async function saveSeasonManualScore(seasonId) {
       user_id: session.user.id,
       season_id: seasonId,
       manual_score: score,
-      adjustment: 0
+      adjustment: 0,
+      review: existing?.review ?? null
     },
     { onConflict: "user_id,season_id" }
   );
@@ -614,7 +781,8 @@ async function adjustSeason(seasonId, delta) {
     user_id: session.user.id,
     season_id: seasonId,
     manual_score: existing?.manual_score ?? null,
-    adjustment: nextAdjustment
+    adjustment: nextAdjustment,
+    review: existing?.review ?? null
   };
 
   if (payload.manual_score === null && payload.adjustment === 0) {
@@ -645,7 +813,8 @@ async function resetSeasonAdjustment(seasonId) {
         user_id: session.user.id,
         season_id: seasonId,
         manual_score: existing.manual_score ?? null,
-        adjustment: 0
+        adjustment: 0,
+        review: existing.review ?? null
       },
       { onConflict: "user_id,season_id" }
     );
@@ -720,6 +889,25 @@ async function initPage() {
 
     await reloadSeriesDetails(seriesId);
     bindDetailEvents();
+
+    document.querySelector("#series-review-form")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        await saveSeriesReview();
+        await refreshRatingsOnly();
+      } catch (error) {
+        setMessage("#series-review-message", error.message || "Impossible d'enregistrer la critique serie.", true);
+      }
+    });
+
+    document.querySelector("#series-review-delete-button")?.addEventListener("click", async () => {
+      try {
+        await deleteSeriesReview();
+        await refreshRatingsOnly();
+      } catch (error) {
+        setMessage("#series-review-message", error.message || "Impossible de supprimer la critique serie.", true);
+      }
+    });
   } catch (error) {
     setMessage("#page-message", error.message || "Erreur de chargement des series.", true);
   }

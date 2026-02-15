@@ -417,6 +417,10 @@ textarea {
   text-align: center;
 }
 
+.ranking-table td.actions-cell {
+  text-align: center;
+}
+
 .film-link {
   font-weight: 600;
 }
