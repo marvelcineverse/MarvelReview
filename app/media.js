@@ -92,16 +92,29 @@ async function loadMediaDetails(mediaId) {
 async function loadMediaUsers(mediaId) {
   const usersEl = document.querySelector("#media-users-list");
 
-  const { data, error } = await supabase
+  const { data: memberships, error: membershipsError } = await supabase
     .from("profile_media_memberships")
-    .select("status, profiles(username)")
+    .select("profile_id")
     .eq("media_id", mediaId)
     .eq("status", "approved");
 
-  if (error) throw error;
+  if (membershipsError) throw membershipsError;
 
-  const usernames = (data || [])
-    .map((row) => row.profiles?.username || "")
+  const profileIds = [...new Set((memberships || []).map((row) => row.profile_id))];
+  if (!profileIds.length) {
+    usersEl.innerHTML = "<li>Aucun utilisateur rattache.</li>";
+    return;
+  }
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from("profiles")
+    .select("id, username")
+    .in("id", profileIds);
+
+  if (profilesError) throw profilesError;
+
+  const usernames = (profiles || [])
+    .map((row) => row.username || "")
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b, "fr"));
 
