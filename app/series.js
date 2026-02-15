@@ -50,6 +50,10 @@ function getOpenSeasonIdsFromDOM() {
   );
 }
 
+function isSeasonRateable(season) {
+  return isReleasedOnOrBeforeToday(season?.start_date || null);
+}
+
 function computeSeasonMetrics(seasonId) {
   const seasonEpisodes = state.episodes.filter((episode) => episode.season_id === seasonId);
   const episodeIds = new Set(seasonEpisodes.map((episode) => episode.id));
@@ -257,6 +261,7 @@ function renderSeasons(openSeasonIds = null) {
         .filter((episode) => episode.season_id === season.id)
         .sort((a, b) => a.episode_number - b.episode_number);
       const metrics = computeSeasonMetrics(season.id);
+      const canRateSeason = isSeasonRateable(season);
 
       const seasonAverage = metrics.userEpisodeAverage === null
         ? `Pas de note`
@@ -285,14 +290,14 @@ function renderSeasons(openSeasonIds = null) {
 
           <div class="inline-actions season-adjuster">
             <span>Ajusteur de moyenne</span>
-            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" data-season-id="${season.id}" aria-label="Diminuer l'ajusteur de saison">
+            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" data-season-id="${season.id}" aria-label="Diminuer l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
               <i class="fa-solid fa-minus" aria-hidden="true"></i>
             </button>
             <strong data-field="season-adjustment-value">${adjustmentValue}</strong>
-            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" data-season-id="${season.id}" aria-label="Augmenter l'ajusteur de saison">
+            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" data-season-id="${season.id}" aria-label="Augmenter l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
               <i class="fa-solid fa-plus" aria-hidden="true"></i>
             </button>
-            <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" data-season-id="${season.id}" aria-label="Reinitialiser l'ajusteur de saison">
+            <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" data-season-id="${season.id}" aria-label="Reinitialiser l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
               <i class="fa-solid fa-xmark" aria-hidden="true"></i>
             </button>
           </div>
@@ -303,12 +308,12 @@ function renderSeasons(openSeasonIds = null) {
           <div class="season-controls">
             <p class="film-meta season-manual-help">Renseigner une note generale pour toute la saison (optionnel).</p>
             <div class="inline-actions inline-edit">
-              <input data-field="season-manual-score" data-season-id="${season.id}" type="number" min="0" max="10" step="0.25" value="${manualValue}" placeholder="Note saison (optionnelle)" />
-              <button type="button" class="icon-circle-btn save" data-action="save-season-manual" data-season-id="${season.id}" aria-label="Valider la note de saison">
+              <input data-field="season-manual-score" data-season-id="${season.id}" type="number" min="0" max="10" step="0.25" value="${manualValue}" placeholder="Note saison (optionnelle)" ${canRateSeason ? "" : "disabled"} />
+              <button type="button" class="icon-circle-btn save" data-action="save-season-manual" data-season-id="${season.id}" aria-label="Valider la note de saison" ${canRateSeason ? "" : "disabled"}>
                 <i class="fa-solid fa-check" aria-hidden="true"></i>
               </button>
               ${metrics.userManualScore === null ? "" : `
-                <button type="button" class="icon-circle-btn delete" data-action="delete-season-manual" data-season-id="${season.id}" aria-label="Supprimer la note manuelle de saison">
+                <button type="button" class="icon-circle-btn delete" data-action="delete-season-manual" data-season-id="${season.id}" aria-label="Supprimer la note manuelle de saison" ${canRateSeason ? "" : "disabled"}>
                   <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                 </button>
               `}
@@ -451,6 +456,12 @@ async function saveEpisodeRating(episodeId) {
   const session = await requireAuth("/login.html");
   if (!session) return;
 
+  const episode = state.episodes.find((item) => item.id === episodeId);
+  if (!isReleasedOnOrBeforeToday(episode?.air_date || null)) {
+    setMessage("#page-message", "Impossible de noter un episode non diffuse ou sans date de diffusion.", true);
+    return;
+  }
+
   const scoreInput = document.querySelector(`[data-field="episode-score"][data-episode-id="${episodeId}"]`);
   const scoreRaw = scoreInput?.value.trim() || "";
   if (!scoreRaw) {
@@ -496,6 +507,12 @@ function getCurrentSeasonUserRow(seasonId) {
 async function saveSeasonManualScore(seasonId) {
   const session = await requireAuth("/login.html");
   if (!session) return;
+
+  const season = state.seasons.find((item) => item.id === seasonId);
+  if (!isSeasonRateable(season)) {
+    setMessage("#page-message", "Impossible de noter une saison non sortie ou sans date de debut.", true);
+    return;
+  }
 
   const scoreInput = document.querySelector(`[data-field="season-manual-score"][data-season-id="${seasonId}"]`);
   const raw = scoreInput?.value.trim() || "";
@@ -550,6 +567,12 @@ async function deleteSeasonManualScore(seasonId) {
 async function adjustSeason(seasonId, delta) {
   const session = await requireAuth("/login.html");
   if (!session) return;
+
+  const season = state.seasons.find((item) => item.id === seasonId);
+  if (!isSeasonRateable(season)) {
+    setMessage("#page-message", "Impossible d'ajuster une saison non sortie ou sans date de debut.", true);
+    return;
+  }
 
   const existing = getCurrentSeasonUserRow(seasonId);
   const metrics = computeSeasonMetrics(seasonId);
