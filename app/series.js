@@ -269,7 +269,6 @@ function renderSeasons(openSeasonIds = null) {
       const manualValue = metrics.userManualScore === null ? "" : String(metrics.userManualScore);
       const adjustmentValue = formatScore(metrics.userAdjustment, 2, 2);
       const isOpen = initialOpenAll || openSeasonIds.has(season.id);
-      const canAdjust = Number.isFinite(metrics.userEpisodeAverage) && metrics.userManualScore === null;
 
       return `
         <article class="card">
@@ -279,14 +278,14 @@ function renderSeasons(openSeasonIds = null) {
 
           <div class="inline-actions season-adjuster">
             <span>Ajusteur de moyenne</span>
-            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" data-season-id="${season.id}" aria-label="Diminuer l'ajusteur de saison" ${canAdjust ? "" : "disabled"}>
+            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" data-season-id="${season.id}" aria-label="Diminuer l'ajusteur de saison">
               <i class="fa-solid fa-minus" aria-hidden="true"></i>
             </button>
             <strong data-field="season-adjustment-value">${adjustmentValue}</strong>
-            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" data-season-id="${season.id}" aria-label="Augmenter l'ajusteur de saison" ${canAdjust ? "" : "disabled"}>
+            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" data-season-id="${season.id}" aria-label="Augmenter l'ajusteur de saison">
               <i class="fa-solid fa-plus" aria-hidden="true"></i>
             </button>
-            <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" data-season-id="${season.id}" aria-label="Reinitialiser l'ajusteur de saison" ${canAdjust ? "" : "disabled"}>
+            <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" data-season-id="${season.id}" aria-label="Reinitialiser l'ajusteur de saison">
               <i class="fa-solid fa-xmark" aria-hidden="true"></i>
             </button>
           </div>
@@ -652,7 +651,16 @@ function bindDetailEvents() {
       setMessage("#page-message", "Sauvegarde reussie.");
       await refreshRatingsOnly();
     } catch (error) {
-      setMessage("#page-message", error.message || "Operation impossible.", true);
+      const message = error?.message || "Operation impossible.";
+      if (message.includes("season_user_ratings_adjustment_check")) {
+        setMessage(
+          "#page-message",
+          "Ajustement refuse par la base de donnees. Applique la derniere version de supabase/schema.sql (contrainte season_user_ratings_adjustment_check).",
+          true
+        );
+      } else {
+        setMessage("#page-message", message, true);
+      }
     }
   });
 }
