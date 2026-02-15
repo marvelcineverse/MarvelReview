@@ -262,6 +262,9 @@ function renderSeasons(openSeasonIds = null) {
             <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" data-season-id="${season.id}" aria-label="Augmenter l'ajusteur de saison">
               <i class="fa-solid fa-plus" aria-hidden="true"></i>
             </button>
+            <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" data-season-id="${season.id}" aria-label="Reinitialiser l'ajusteur de saison">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
           </div>
 
           <p>Ta note effective de saison: ${userAverage}</p>
@@ -477,15 +480,12 @@ async function saveSeasonManualScore(seasonId) {
     return;
   }
 
-  const existing = getCurrentSeasonUserRow(seasonId);
-  const adjustment = Number(existing?.adjustment || 0);
-
   const { error } = await supabase.from("season_user_ratings").upsert(
     {
       user_id: session.user.id,
       season_id: seasonId,
       manual_score: score,
-      adjustment
+      adjustment: 0
     },
     { onConflict: "user_id,season_id" }
   );
@@ -523,7 +523,7 @@ async function adjustSeason(seasonId, delta) {
 
   const existing = getCurrentSeasonUserRow(seasonId);
   const metrics = computeSeasonMetrics(seasonId);
-  const base = metrics.userBase;
+  const base = Number.isFinite(metrics.userBase) ? metrics.userBase : metrics.siteAverage;
 
   if (!Number.isFinite(base)) {
     setMessage("#page-message", "Il faut une base (note de saison ou episodes notes) pour ajuster.", true);
@@ -531,17 +531,18 @@ async function adjustSeason(seasonId, delta) {
   }
 
   const currentEffective = Number.isFinite(metrics.userEffective) ? metrics.userEffective : base;
+  const quarter = Math.round(currentEffective * 4) / 4;
+  const isAlreadyQuarter = Math.abs(quarter - currentEffective) < 0.000001;
+
   let nextEffective;
   if (delta > 0) {
-    nextEffective = Math.ceil((currentEffective + 0.000001) * 4) / 4;
-    if (Math.abs(nextEffective - currentEffective) < 0.000001) {
-      nextEffective += 0.25;
-    }
+    nextEffective = isAlreadyQuarter
+      ? quarter + 0.25
+      : Math.ceil(currentEffective * 4) / 4;
   } else {
-    nextEffective = Math.floor((currentEffective - 0.000001) * 4) / 4;
-    if (Math.abs(nextEffective - currentEffective) < 0.000001) {
-      nextEffective -= 0.25;
-    }
+    nextEffective = isAlreadyQuarter
+      ? quarter - 0.25
+      : Math.floor(currentEffective * 4) / 4;
   }
 
   nextEffective = clamp(nextEffective, 0, 10);
@@ -568,6 +569,31 @@ async function adjustSeason(seasonId, delta) {
   if (error) throw error;
 }
 
+async function resetSeasonAdjustment(seasonId) {
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+
+  const existing = getCurrentSeasonUserRow(seasonId);
+  if (!existing) return;
+
+  if (existing.manual_score === null || existing.manual_score === undefined) {
+    const { error } = await supabase
+      .from("season_user_ratings")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("season_id", seasonId);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase
+    .from("season_user_ratings")
+    .update({ adjustment: 0 })
+    .eq("user_id", session.user.id)
+    .eq("season_id", seasonId);
+  if (error) throw error;
+}
+
 function bindDetailEvents() {
   const detailRoot = document.querySelector("#series-detail-section");
   detailRoot.addEventListener("click", async (event) => {
@@ -591,6 +617,8 @@ function bindDetailEvents() {
         await adjustSeason(seasonId, 0.25);
       } else if (action === "adjust-season-down" && seasonId) {
         await adjustSeason(seasonId, -0.25);
+      } else if (action === "reset-season-adjustment" && seasonId) {
+        await resetSeasonAdjustment(seasonId);
       } else {
         return;
       }
