@@ -11,6 +11,17 @@ import {
 } from "./utils.js";
 
 let currentUserId = null;
+const personalRankingState = {
+  allRows: [],
+  filters: {
+    films: true,
+    series: true
+  }
+};
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
 
 async function loadMediaOutlets() {
   const selectEl = document.querySelector("#media_outlet_id");
@@ -71,43 +82,89 @@ function renderAvatarPreview(url) {
 
 function renderPersonalRatings(rows) {
   const body = document.querySelector("#personal-ratings-body");
-  if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="4">Aucun film trouvable a noter pour le moment.</td></tr>`;
+  const filteredRows = rows.filter((row) => {
+    if (row.type === "film") return personalRankingState.filters.films;
+    if (row.type === "series") return personalRankingState.filters.series;
+    return false;
+  });
+
+  if (!filteredRows.length) {
+    body.innerHTML = `<tr><td colspan="4">Aucun element pour ce filtre.</td></tr>`;
     return;
   }
 
-  const rankLabels = buildDenseRankLabels(rows, (row) => row.score, 2);
+  const sortedRows = [...filteredRows].sort((a, b) => {
+    const aRated = a.score !== null;
+    const bRated = b.score !== null;
 
-  body.innerHTML = rows
+    if (aRated && bRated) {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.title.localeCompare(b.title, "fr");
+    }
+    if (aRated) return -1;
+    if (bRated) return 1;
+
+    const aTs = a.sort_date ? new Date(a.sort_date).getTime() : Number.POSITIVE_INFINITY;
+    const bTs = b.sort_date ? new Date(b.sort_date).getTime() : Number.POSITIVE_INFINITY;
+    if (aTs !== bTs) return aTs - bTs;
+    return a.title.localeCompare(b.title, "fr");
+  });
+
+  const rankLabels = buildDenseRankLabels(sortedRows, (row) => row.score, 2);
+
+  body.innerHTML = sortedRows
     .map((row, index) => {
       const rank = row.score === null ? "-" : rankLabels[index];
       const scoreText = row.score === null ? "" : String(row.score);
       const badge = row.score === null
         ? `<span class="score-badge stade-neutre">Pas note</span>`
         : `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score)} / 10</span>`;
+      const typeLabel = row.type === "film" ? "Film" : "Serie";
+      const href = row.type === "film" ? `/film.html?id=${row.film_id}` : `/series.html?id=${row.series_id}`;
+      const modifierCell = row.type === "film"
+        ? `
+          <div class="inline-actions inline-edit">
+            <input data-field="score" data-film-id="${row.film_id}" type="number" min="0" max="10" step="0.25" value="${scoreText}" placeholder="0 a 10" />
+            <button type="button" class="icon-circle-btn save" data-action="save-rating" data-film-id="${row.film_id}" aria-label="Valider la note">
+              <i class="fa-solid fa-check" aria-hidden="true"></i>
+            </button>
+            ${row.score === null ? "" : `
+              <button type="button" class="icon-circle-btn delete" data-action="delete-rating" data-film-id="${row.film_id}" aria-label="Supprimer la note">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+              </button>
+            `}
+          </div>
+        `
+        : `<span class="film-meta">Notable sur la page serie</span>`;
 
       return `
         <tr>
           <td>${rank}</td>
-          <td><a href="/film.html?id=${row.film_id}" class="film-link">${escapeHTML(row.title)}</a></td>
-          <td>${badge}</td>
           <td>
-            <div class="inline-actions inline-edit">
-              <input data-field="score" data-film-id="${row.film_id}" type="number" min="0" max="10" step="0.25" value="${scoreText}" placeholder="0 a 10" />
-              <button type="button" class="icon-circle-btn save" data-action="save-rating" data-film-id="${row.film_id}" aria-label="Valider la note">
-                <i class="fa-solid fa-check" aria-hidden="true"></i>
-              </button>
-              ${row.score === null ? "" : `
-                <button type="button" class="icon-circle-btn delete" data-action="delete-rating" data-film-id="${row.film_id}" aria-label="Supprimer la note">
-                  <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                </button>
-              `}
-            </div>
+            <a href="${href}" class="film-link">${escapeHTML(row.title)}</a>
+            <small>(${escapeHTML(typeLabel)})</small>
           </td>
+          <td>${badge}</td>
+          <td>${modifierCell}</td>
         </tr>
       `;
     })
     .join("");
+}
+
+function bindRankingFilters() {
+  const filmsEl = document.querySelector("#filter-films");
+  const seriesEl = document.querySelector("#filter-series");
+
+  filmsEl?.addEventListener("change", () => {
+    personalRankingState.filters.films = filmsEl.checked;
+    renderPersonalRatings(personalRankingState.allRows);
+  });
+
+  seriesEl?.addEventListener("change", () => {
+    personalRankingState.filters.series = seriesEl.checked;
+    renderPersonalRatings(personalRankingState.allRows);
+  });
 }
 
 function renderManagedRequests(rows) {
@@ -183,7 +240,15 @@ async function loadManagedMediaRequests(userId) {
 }
 
 async function loadPersonalRatings(userId) {
-  const [{ data: films, error: filmsError }, { data: ratings, error: ratingsError }] = await Promise.all([
+  const [
+    { data: films, error: filmsError },
+    { data: ratings, error: ratingsError },
+    { data: seriesList, error: seriesError },
+    { data: seasons, error: seasonsError },
+    { data: episodes, error: episodesError },
+    { data: episodeRatings, error: episodeRatingsError },
+    { data: seasonUserRatings, error: seasonUserRatingsError }
+  ] = await Promise.all([
     supabase
       .from("films")
       .select("id, title, release_date")
@@ -191,41 +256,111 @@ async function loadPersonalRatings(userId) {
     supabase
       .from("ratings")
       .select("film_id, score, review")
+      .eq("user_id", userId),
+    supabase
+      .from("series")
+      .select("id, title, start_date")
+      .order("start_date", { ascending: true, nullsFirst: false }),
+    supabase
+      .from("series_seasons")
+      .select("id, series_id"),
+    supabase
+      .from("series_episodes")
+      .select("id, season_id"),
+    supabase
+      .from("episode_ratings")
+      .select("episode_id, score")
+      .eq("user_id", userId),
+    supabase
+      .from("season_user_ratings")
+      .select("season_id, manual_score, adjustment")
       .eq("user_id", userId)
   ]);
 
   if (filmsError) throw filmsError;
   if (ratingsError) throw ratingsError;
+  if (seriesError) throw seriesError;
+  if (seasonsError) throw seasonsError;
+  if (episodesError) throw episodesError;
+  if (episodeRatingsError) throw episodeRatingsError;
+  if (seasonUserRatingsError) throw seasonUserRatingsError;
 
   const ratingByFilmId = new Map((ratings || []).map((row) => [row.film_id, row]));
 
-  const merged = (films || [])
+  const filmRows = (films || [])
     .map((film) => {
       const rating = ratingByFilmId.get(film.id);
       return {
+        type: "film",
         film_id: film.id,
         title: film.title,
         release_date: film.release_date,
+        sort_date: film.release_date,
         score: rating ? Number(rating.score) : null,
         review: rating?.review || ""
       };
     })
     .filter((film) => isReleasedOnOrBeforeToday(film.release_date));
 
-  merged.sort((a, b) => {
-    const aRated = a.score !== null;
-    const bRated = b.score !== null;
-    if (aRated && bRated) return b.score - a.score || a.title.localeCompare(b.title, "fr");
-    if (aRated) return -1;
-    if (bRated) return 1;
+  const seasonsBySeriesId = new Map();
+  for (const season of seasons || []) {
+    const rows = seasonsBySeriesId.get(season.series_id) || [];
+    rows.push(season);
+    seasonsBySeriesId.set(season.series_id, rows);
+  }
 
-    const aTs = a.release_date ? new Date(a.release_date).getTime() : Number.POSITIVE_INFINITY;
-    const bTs = b.release_date ? new Date(b.release_date).getTime() : Number.POSITIVE_INFINITY;
-    if (aTs !== bTs) return aTs - bTs;
-    return a.title.localeCompare(b.title, "fr");
+  const episodesBySeasonId = new Map();
+  for (const episode of episodes || []) {
+    const rows = episodesBySeasonId.get(episode.season_id) || [];
+    rows.push(episode);
+    episodesBySeasonId.set(episode.season_id, rows);
+  }
+
+  const userEpisodeScoreByEpisodeId = new Map((episodeRatings || []).map((row) => [row.episode_id, Number(row.score)]));
+  const seasonUserRowBySeasonId = new Map((seasonUserRatings || []).map((row) => [row.season_id, row]));
+
+  const seriesRows = (seriesList || []).map((serie) => {
+    const serieSeasons = seasonsBySeriesId.get(serie.id) || [];
+    const seasonScores = [];
+
+    for (const season of serieSeasons) {
+      const seasonEpisodes = episodesBySeasonId.get(season.id) || [];
+      const episodeScores = seasonEpisodes
+        .map((episode) => userEpisodeScoreByEpisodeId.get(episode.id))
+        .filter((score) => Number.isFinite(score));
+      const episodeAverage = episodeScores.length
+        ? episodeScores.reduce((sum, score) => sum + score, 0) / episodeScores.length
+        : null;
+
+      const seasonUserRow = seasonUserRowBySeasonId.get(season.id);
+      const manual = seasonUserRow?.manual_score === null || seasonUserRow?.manual_score === undefined
+        ? null
+        : Number(seasonUserRow.manual_score);
+      const adjustment = Number(seasonUserRow?.adjustment || 0);
+      const effective = manual !== null
+        ? clamp(manual, 0, 10)
+        : (Number.isFinite(episodeAverage) ? clamp(episodeAverage + adjustment, 0, 10) : null);
+
+      if (Number.isFinite(effective)) {
+        seasonScores.push(effective);
+      }
+    }
+
+    const score = seasonScores.length
+      ? seasonScores.reduce((sum, seasonScore) => sum + seasonScore, 0) / seasonScores.length
+      : null;
+
+    return {
+      type: "series",
+      series_id: serie.id,
+      title: serie.title,
+      sort_date: serie.start_date,
+      score
+    };
   });
 
-  renderPersonalRatings(merged);
+  personalRankingState.allRows = [...filmRows, ...seriesRows];
+  renderPersonalRatings(personalRankingState.allRows);
 }
 
 async function saveQuickRating(filmId) {
@@ -418,3 +553,4 @@ document.querySelector("#managed-media-requests")?.addEventListener("click", asy
 });
 
 loadProfile();
+bindRankingFilters();

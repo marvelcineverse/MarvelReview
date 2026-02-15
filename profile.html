@@ -50,14 +50,24 @@
 
       <section class="card">
         <h2>Mon classement personnel</h2>
-        <p>Note rapidement chaque film sans ouvrir sa page detail.</p>
+        <p>Note rapidement chaque film sans ouvrir sa page detail. Les series sont affichees mais non modifiables ici.</p>
+        <div class="inline-actions">
+          <label class="checkbox-inline">
+            <input id="filter-films" type="checkbox" checked />
+            Films
+          </label>
+          <label class="checkbox-inline">
+            <input id="filter-series" type="checkbox" checked />
+            Series
+          </label>
+        </div>
         <p id="ratings-quick-message" class="message" aria-live="polite"></p>
         <div class="table-wrapper">
           <table class="ranking-table compact">
             <thead>
               <tr>
                 <th>#</th>
-                <th>Film</th>
+                <th>Titre</th>
                 <th>Ma note</th>
                 <th>Modifier</th>
               </tr>
