@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MarvelReview - Film</title>
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   </head>
   <body>
     <main class="container">
@@ -38,8 +39,12 @@
           </label>
 
           <div class="inline-actions">
-            <button type="submit">Enregistrer</button>
-            <button id="delete-rating-button" type="button" class="ghost-button" style="display: none;">Supprimer ma note</button>
+            <button type="submit" class="icon-circle-btn save" aria-label="Enregistrer ma note">
+              <i class="fa-solid fa-check" aria-hidden="true"></i>
+            </button>
+            <button id="delete-rating-button" type="button" class="icon-circle-btn delete" style="display: none;" aria-label="Supprimer ma note">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
           </div>
           <p id="form-message" class="message" aria-live="polite"></p>
         </form>

@@ -1,5 +1,5 @@
 import { supabase } from "../supabaseClient.js";
-import { escapeHTML, formatDate, formatScore, setMessage } from "./utils.js";
+import { escapeHTML, formatDate, formatScore, getScoreClass, setMessage } from "./utils.js";
 
 const state = {
   films: [],
@@ -107,7 +107,11 @@ function renderFilms() {
           <img src="${escapeHTML(film.poster_url || "https://via.placeholder.com/240x360?text=Marvel")}" alt="Affiche de ${escapeHTML(film.title)}" />
           <div>
             <h3>${escapeHTML(film.title)}</h3>
-            <p class="film-average">${film.rating_count > 0 ? `Moyenne: ${formatScore(film.average, 2, 2)} / 10` : "Moyenne: pas de note"}</p>
+            <p class="film-average">${
+              film.rating_count > 0
+                ? `Moyenne: <span class="score-badge film-average-badge ${getScoreClass(film.average)}">${formatScore(film.average, 2, 2)} / 10</span>`
+                : `Moyenne: <span class="score-badge film-average-badge stade-neutre">pas de note</span>`
+            }</p>
             <p>Sortie: ${formatDate(film.release_date)}</p>
             <p class="film-meta">${escapeHTML(film.franchise || "-")} - ${escapeHTML(film.type || "-")}</p>
             <a class="button" href="/film.html?id=${film.id}">Voir la page film</a>

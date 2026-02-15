@@ -94,8 +94,14 @@ function renderPersonalRatings(rows) {
           <td>
             <div class="inline-actions inline-edit">
               <input data-field="score" data-film-id="${row.film_id}" type="number" min="0" max="10" step="0.25" value="${scoreText}" placeholder="0 a 10" />
-              <button type="button" class="ghost-button" data-action="save-rating" data-film-id="${row.film_id}">Valider</button>
-              ${row.score === null ? "" : `<button type="button" class="ghost-button" data-action="delete-rating" data-film-id="${row.film_id}">Supprimer</button>`}
+              <button type="button" class="icon-circle-btn save" data-action="save-rating" data-film-id="${row.film_id}" aria-label="Valider la note">
+                <i class="fa-solid fa-check" aria-hidden="true"></i>
+              </button>
+              ${row.score === null ? "" : `
+                <button type="button" class="icon-circle-btn delete" data-action="delete-rating" data-film-id="${row.film_id}" aria-label="Supprimer la note">
+                  <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+              `}
             </div>
           </td>
         </tr>
