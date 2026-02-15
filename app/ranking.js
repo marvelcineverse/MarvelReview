@@ -101,7 +101,9 @@ function computeSeriesRows(seriesList, seasons, episodes, episodeRatings, season
         const base = manual !== null ? manual : episodeAverage;
         if (!Number.isFinite(base)) continue;
 
-        const effective = clamp(base + adjustment, 0, 10);
+        const effective = manual !== null
+          ? clamp(base, 0, 10)
+          : clamp(base + adjustment, 0, 10);
         const current = userSeasonScores.get(userId) || [];
         current.push(effective);
         userSeasonScores.set(userId, current);

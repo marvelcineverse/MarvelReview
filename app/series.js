@@ -24,6 +24,24 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function toFixedNumber(value, digits = 6) {
+  return Number(value.toFixed(digits));
+}
+
+function buildAdjustmentTargets(base) {
+  const minEffective = clamp(base - 2, 0, 10);
+  const maxEffective = clamp(base + 2, 0, 10);
+  const targets = new Set([toFixedNumber(clamp(base, 0, 10))]);
+
+  const startQuarter = Math.ceil((minEffective - 1e-9) * 4);
+  const endQuarter = Math.floor((maxEffective + 1e-9) * 4);
+  for (let quarter = startQuarter; quarter <= endQuarter; quarter += 1) {
+    targets.add(toFixedNumber(quarter / 4));
+  }
+
+  return Array.from(targets).sort((a, b) => a - b);
+}
+
 function getOpenSeasonIdsFromDOM() {
   return new Set(
     Array.from(document.querySelectorAll("details[data-season-id][open]"))
@@ -63,9 +81,13 @@ function computeSeasonMetrics(seasonId) {
 
   const effectiveScores = [];
   for (const value of perUser.values()) {
-    const baseScore = value.manualScore !== null ? value.manualScore : value.episodeAverage;
-    if (!Number.isFinite(baseScore)) continue;
-    const effective = clamp(baseScore + value.adjustment, 0, 10);
+    if (value.manualScore !== null) {
+      const effective = clamp(value.manualScore, 0, 10);
+      effectiveScores.push(effective);
+      continue;
+    }
+    if (!Number.isFinite(value.episodeAverage)) continue;
+    const effective = clamp(value.episodeAverage + value.adjustment, 0, 10);
     effectiveScores.push(effective);
   }
 
@@ -74,14 +96,15 @@ function computeSeasonMetrics(seasonId) {
     : null;
 
   const user = perUser.get(state.currentUserId) || { episodeAverage: null, manualScore: null, adjustment: 0 };
-  const userBase = user.manualScore !== null ? user.manualScore : user.episodeAverage;
-  const userEffective = Number.isFinite(userBase) ? clamp(userBase + user.adjustment, 0, 10) : null;
+  const userEffective = user.manualScore !== null
+    ? clamp(user.manualScore, 0, 10)
+    : (Number.isFinite(user.episodeAverage) ? clamp(user.episodeAverage + user.adjustment, 0, 10) : null);
 
   return {
     episodeCount: seasonEpisodes.length,
+    userEpisodeAverage: user.episodeAverage,
     userManualScore: user.manualScore,
     userAdjustment: user.adjustment,
-    userBase,
     userEffective,
     siteAverage
   };
@@ -111,26 +134,26 @@ function computeSeriesAverages() {
       episodeByUser.set(rating.user_id, current);
     }
 
-    const seasonRows = state.seasonUserRatings.filter((row) => row.season_id === season.id);
-    const allUserIds = new Set([...episodeByUser.keys(), ...seasonRows.map((row) => row.user_id)]);
+      const seasonRows = state.seasonUserRatings.filter((row) => row.season_id === season.id);
+      const allUserIds = new Set([...episodeByUser.keys(), ...seasonRows.map((row) => row.user_id)]);
 
-    for (const userId of allUserIds) {
-      const manualRow = seasonRows.find((row) => row.user_id === userId);
-      const episodeValues = episodeByUser.get(userId);
-      const episodeAverage = episodeValues ? episodeValues.total / episodeValues.count : null;
-      const manual = manualRow?.manual_score === null || manualRow?.manual_score === undefined
-        ? null
-        : Number(manualRow.manual_score);
-      const adjustment = Number(manualRow?.adjustment || 0);
+      for (const userId of allUserIds) {
+        const manualRow = seasonRows.find((row) => row.user_id === userId);
+        const episodeValues = episodeByUser.get(userId);
+        const episodeAverage = episodeValues ? episodeValues.total / episodeValues.count : null;
+        const manual = manualRow?.manual_score === null || manualRow?.manual_score === undefined
+          ? null
+          : Number(manualRow.manual_score);
+        const adjustment = Number(manualRow?.adjustment || 0);
+        const effective = manual !== null
+          ? clamp(manual, 0, 10)
+          : (Number.isFinite(episodeAverage) ? clamp(episodeAverage + adjustment, 0, 10) : null);
+        if (!Number.isFinite(effective)) continue;
 
-      const base = manual !== null ? manual : episodeAverage;
-      if (!Number.isFinite(base)) continue;
-      const effective = clamp(base + adjustment, 0, 10);
-
-      const current = userSeasonScores.get(userId) || [];
-      current.push(effective);
-      userSeasonScores.set(userId, current);
-    }
+        const current = userSeasonScores.get(userId) || [];
+        current.push(effective);
+        userSeasonScores.set(userId, current);
+      }
   }
 
   const weightedScores = [];
@@ -235,9 +258,9 @@ function renderSeasons(openSeasonIds = null) {
         .sort((a, b) => a.episode_number - b.episode_number);
       const metrics = computeSeasonMetrics(season.id);
 
-      const seasonAverage = metrics.siteAverage === null
+      const seasonAverage = metrics.userEpisodeAverage === null
         ? `<span class="score-badge stade-neutre">Pas de note</span>`
-        : `<span class="score-badge ${getScoreClass(metrics.siteAverage)}">${formatScore(metrics.siteAverage, 2, 2)} / 10</span>`;
+        : `<span class="score-badge ${getScoreClass(metrics.userEpisodeAverage)}">${formatScore(metrics.userEpisodeAverage, 2, 2)} / 10</span>`;
 
       const userAverage = metrics.userEffective === null
         ? `<span class="score-badge stade-neutre">-</span>`
@@ -246,23 +269,24 @@ function renderSeasons(openSeasonIds = null) {
       const manualValue = metrics.userManualScore === null ? "" : String(metrics.userManualScore);
       const adjustmentValue = formatScore(metrics.userAdjustment, 2, 2);
       const isOpen = initialOpenAll || openSeasonIds.has(season.id);
+      const canAdjust = Number.isFinite(metrics.userEpisodeAverage) && metrics.userManualScore === null;
 
       return `
         <article class="card">
           <h3>${escapeHTML(season.name || `Saison ${season.season_number}`)}</h3>
           <p>Phase: ${escapeHTML(season.phase || "-")} | Debut: ${formatDate(season.start_date)} | Fin: ${formatDate(season.end_date)}</p>
-          <p>Moyenne de la saison (site): ${seasonAverage}</p>
+          <p>Moyenne de tes episodes: ${seasonAverage}</p>
 
           <div class="inline-actions season-adjuster">
             <span>Ajusteur de moyenne</span>
-            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" data-season-id="${season.id}" aria-label="Diminuer l'ajusteur de saison">
+            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" data-season-id="${season.id}" aria-label="Diminuer l'ajusteur de saison" ${canAdjust ? "" : "disabled"}>
               <i class="fa-solid fa-minus" aria-hidden="true"></i>
             </button>
             <strong data-field="season-adjustment-value">${adjustmentValue}</strong>
-            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" data-season-id="${season.id}" aria-label="Augmenter l'ajusteur de saison">
+            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" data-season-id="${season.id}" aria-label="Augmenter l'ajusteur de saison" ${canAdjust ? "" : "disabled"}>
               <i class="fa-solid fa-plus" aria-hidden="true"></i>
             </button>
-            <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" data-season-id="${season.id}" aria-label="Reinitialiser l'ajusteur de saison">
+            <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" data-season-id="${season.id}" aria-label="Reinitialiser l'ajusteur de saison" ${canAdjust ? "" : "disabled"}>
               <i class="fa-solid fa-xmark" aria-hidden="true"></i>
             </button>
           </div>
@@ -523,30 +547,36 @@ async function adjustSeason(seasonId, delta) {
 
   const existing = getCurrentSeasonUserRow(seasonId);
   const metrics = computeSeasonMetrics(seasonId);
-  const base = Number.isFinite(metrics.userBase) ? metrics.userBase : metrics.siteAverage;
+  const base = metrics.userEpisodeAverage;
+
+  if (metrics.userManualScore !== null) {
+    setMessage("#page-message", "L'ajusteur est desactive quand une note manuelle de saison est definie.", true);
+    return;
+  }
 
   if (!Number.isFinite(base)) {
-    setMessage("#page-message", "Il faut une base (note de saison ou episodes notes) pour ajuster.", true);
+    setMessage("#page-message", "Il faut noter des episodes pour utiliser l'ajusteur.", true);
     return;
   }
 
   const currentEffective = Number.isFinite(metrics.userEffective) ? metrics.userEffective : base;
-  const quarter = Math.round(currentEffective * 4) / 4;
-  const isAlreadyQuarter = Math.abs(quarter - currentEffective) < 0.000001;
+  const targets = buildAdjustmentTargets(base);
+  const epsilon = 0.000001;
 
-  let nextEffective;
+  let nextEffective = currentEffective;
   if (delta > 0) {
-    nextEffective = isAlreadyQuarter
-      ? quarter + 0.25
-      : Math.ceil(currentEffective * 4) / 4;
-  } else {
-    nextEffective = isAlreadyQuarter
-      ? quarter - 0.25
-      : Math.floor(currentEffective * 4) / 4;
+    nextEffective = targets.find((value) => value > currentEffective + epsilon) ?? currentEffective;
+  } else if (delta < 0) {
+    for (let idx = targets.length - 1; idx >= 0; idx -= 1) {
+      if (targets[idx] < currentEffective - epsilon) {
+        nextEffective = targets[idx];
+        break;
+      }
+    }
   }
 
   nextEffective = clamp(nextEffective, 0, 10);
-  const nextAdjustment = clamp(nextEffective - base, -2, 2);
+  const nextAdjustment = toFixedNumber(clamp(nextEffective - base, -2, 2), 4);
 
   const payload = {
     user_id: session.user.id,
@@ -576,21 +606,17 @@ async function resetSeasonAdjustment(seasonId) {
   const existing = getCurrentSeasonUserRow(seasonId);
   if (!existing) return;
 
-  if (existing.manual_score === null || existing.manual_score === undefined) {
-    const { error } = await supabase
-      .from("season_user_ratings")
-      .delete()
-      .eq("user_id", session.user.id)
-      .eq("season_id", seasonId);
-    if (error) throw error;
-    return;
-  }
-
   const { error } = await supabase
     .from("season_user_ratings")
-    .update({ adjustment: 0 })
-    .eq("user_id", session.user.id)
-    .eq("season_id", seasonId);
+    .upsert(
+      {
+        user_id: session.user.id,
+        season_id: seasonId,
+        manual_score: existing.manual_score ?? null,
+        adjustment: 0
+      },
+      { onConflict: "user_id,season_id" }
+    );
   if (error) throw error;
 }
 
