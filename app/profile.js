@@ -1,6 +1,13 @@
 import { supabase } from "../supabaseClient.js";
 import { requireAuth } from "./auth.js";
-import { escapeHTML, formatScore, getScoreClass, isQuarterStep, setMessage } from "./utils.js";
+import {
+  escapeHTML,
+  formatScore,
+  getScoreClass,
+  isQuarterStep,
+  isReleasedOnOrBeforeToday,
+  setMessage
+} from "./utils.js";
 
 let currentUserId = null;
 
@@ -64,7 +71,7 @@ function renderAvatarPreview(url) {
 function renderPersonalRatings(rows) {
   const body = document.querySelector("#personal-ratings-body");
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="3">Aucun film trouve.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="4">Aucun film trouvable a noter pour le moment.</td></tr>`;
     return;
   }
 
@@ -80,11 +87,11 @@ function renderPersonalRatings(rows) {
         <tr>
           <td>${rank}</td>
           <td><a href="/film.html?id=${row.film_id}" class="film-link">${escapeHTML(row.title)}</a></td>
+          <td>${badge}</td>
           <td>
-            ${badge}
-            <div class="inline-actions">
+            <div class="inline-actions inline-edit">
               <input data-field="score" data-film-id="${row.film_id}" type="number" min="0" max="10" step="0.25" value="${scoreText}" placeholder="0 a 10" />
-              <button type="button" class="ghost-button" data-action="save-rating" data-film-id="${row.film_id}">✅</button>
+              <button type="button" class="ghost-button" data-action="save-rating" data-film-id="${row.film_id}">Valider</button>
             </div>
           </td>
         </tr>
@@ -110,16 +117,18 @@ async function loadPersonalRatings(userId) {
 
   const ratingByFilmId = new Map((ratings || []).map((row) => [row.film_id, row]));
 
-  const merged = (films || []).map((film) => {
-    const rating = ratingByFilmId.get(film.id);
-    return {
-      film_id: film.id,
-      title: film.title,
-      release_date: film.release_date,
-      score: rating ? Number(rating.score) : null,
-      review: rating?.review || ""
-    };
-  });
+  const merged = (films || [])
+    .map((film) => {
+      const rating = ratingByFilmId.get(film.id);
+      return {
+        film_id: film.id,
+        title: film.title,
+        release_date: film.release_date,
+        score: rating ? Number(rating.score) : null,
+        review: rating?.review || ""
+      };
+    })
+    .filter((film) => isReleasedOnOrBeforeToday(film.release_date));
 
   merged.sort((a, b) => {
     const aRated = a.score !== null;
@@ -127,6 +136,10 @@ async function loadPersonalRatings(userId) {
     if (aRated && bRated) return b.score - a.score || a.title.localeCompare(b.title, "fr");
     if (aRated) return -1;
     if (bRated) return 1;
+
+    const aTs = a.release_date ? new Date(a.release_date).getTime() : Number.POSITIVE_INFINITY;
+    const bTs = b.release_date ? new Date(b.release_date).getTime() : Number.POSITIVE_INFINITY;
+    if (aTs !== bTs) return aTs - bTs;
     return a.title.localeCompare(b.title, "fr");
   });
 
@@ -135,6 +148,18 @@ async function loadPersonalRatings(userId) {
 
 async function saveQuickRating(filmId) {
   if (!currentUserId) return;
+
+  const { data: film, error: filmError } = await supabase
+    .from("films")
+    .select("release_date")
+    .eq("id", filmId)
+    .maybeSingle();
+
+  if (filmError) throw filmError;
+  if (!isReleasedOnOrBeforeToday(film?.release_date || null)) {
+    setMessage("#ratings-quick-message", "Impossible de noter un film non sorti ou sans date de sortie.", true);
+    return;
+  }
 
   const scoreInput = document.querySelector(`[data-field="score"][data-film-id="${filmId}"]`);
   const scoreRaw = scoreInput?.value.trim() || "";

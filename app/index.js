@@ -1,9 +1,10 @@
-﻿import { supabase } from "../supabaseClient.js";
-import { escapeHTML, formatDate, setMessage } from "./utils.js";
+import { supabase } from "../supabaseClient.js";
+import { escapeHTML, formatDate, formatScore, setMessage } from "./utils.js";
 
 const state = {
   films: [],
   filters: {
+    search: "",
     franchise: "",
     phase: "",
     type: ""
@@ -15,6 +16,7 @@ const franchiseFilterEl = document.querySelector("#franchise-filter");
 const phaseFilterEl = document.querySelector("#phase-filter");
 const typeFilterEl = document.querySelector("#type-filter");
 const phaseFilterWrapEl = document.querySelector("#phase-filter-wrap");
+const titleSearchEl = document.querySelector("#title-search");
 
 function sortChronologically(films) {
   return [...films].sort((a, b) => {
@@ -85,10 +87,12 @@ function setupFilters() {
 
 function renderFilms() {
   const filtered = state.films.filter((film) => {
+    const searchText = state.filters.search.trim().toLocaleLowerCase("fr");
     const matchesFranchise = !state.filters.franchise || film.franchise === state.filters.franchise;
     const matchesPhase = !state.filters.phase || film.phase === state.filters.phase;
     const matchesType = !state.filters.type || film.type === state.filters.type;
-    return matchesFranchise && matchesPhase && matchesType;
+    const matchesSearch = !searchText || (film.title || "").toLocaleLowerCase("fr").includes(searchText);
+    return matchesFranchise && matchesPhase && matchesType && matchesSearch;
   });
 
   if (!filtered.length) {
@@ -103,6 +107,7 @@ function renderFilms() {
           <img src="${escapeHTML(film.poster_url || "https://via.placeholder.com/240x360?text=Marvel")}" alt="Affiche de ${escapeHTML(film.title)}" />
           <div>
             <h3>${escapeHTML(film.title)}</h3>
+            <p class="film-average">${film.rating_count > 0 ? `Moyenne: ${formatScore(film.average, 2, 2)} / 10` : "Moyenne: pas de note"}</p>
             <p>Sortie: ${formatDate(film.release_date)}</p>
             <p class="film-meta">${escapeHTML(film.franchise || "-")} - ${escapeHTML(film.type || "-")}</p>
             <a class="button" href="/film.html?id=${film.id}">Voir la page film</a>
@@ -115,18 +120,40 @@ function renderFilms() {
 
 async function loadFilms() {
   try {
-    const { data, error } = await supabase
-      .from("films")
-      .select("id, title, release_date, poster_url, franchise, phase, type");
+    const [{ data: films, error: filmsError }, { data: ratings, error: ratingsError }] = await Promise.all([
+      supabase
+        .from("films")
+        .select("id, title, release_date, poster_url, franchise, phase, type"),
+      supabase
+        .from("ratings")
+        .select("film_id, score")
+    ]);
 
-    if (error) throw error;
+    if (filmsError) throw filmsError;
+    if (ratingsError) throw ratingsError;
 
-    if (!data || data.length === 0) {
+    if (!films || films.length === 0) {
       listEl.innerHTML = "<p>Aucun film pour le moment.</p>";
       return;
     }
 
-    state.films = sortChronologically(data);
+    const scoreByFilmId = new Map();
+    for (const rating of ratings || []) {
+      const existing = scoreByFilmId.get(rating.film_id) || { total: 0, count: 0 };
+      existing.total += Number(rating.score || 0);
+      existing.count += 1;
+      scoreByFilmId.set(rating.film_id, existing);
+    }
+
+    state.films = sortChronologically(films).map((film) => {
+      const ratingData = scoreByFilmId.get(film.id) || { total: 0, count: 0 };
+      return {
+        ...film,
+        rating_count: ratingData.count,
+        average: ratingData.count ? ratingData.total / ratingData.count : null
+      };
+    });
+
     setupFilters();
     renderFilms();
   } catch (error) {
@@ -134,5 +161,10 @@ async function loadFilms() {
     listEl.innerHTML = "";
   }
 }
+
+titleSearchEl?.addEventListener("input", () => {
+  state.filters.search = titleSearchEl.value || "";
+  renderFilms();
+});
 
 loadFilms();

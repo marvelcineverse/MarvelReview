@@ -1,5 +1,12 @@
 ﻿import { supabase } from "../supabaseClient.js";
-import { escapeHTML, formatDate, formatScore, getScoreClass, setMessage } from "./utils.js";
+import {
+  escapeHTML,
+  formatDate,
+  formatScore,
+  getScoreClass,
+  isReleasedOnOrBeforeToday,
+  setMessage
+} from "./utils.js";
 import { getSession } from "./auth.js";
 
 async function loadRanking() {
@@ -20,8 +27,10 @@ async function loadRanking() {
       .select("film_id, user_id, score");
     if (ratingsError) throw ratingsError;
 
+    const releasedFilms = (films || []).filter((film) => isReleasedOnOrBeforeToday(film.release_date));
+
     const byFilmId = new Map();
-    for (const film of films || []) {
+    for (const film of releasedFilms) {
       byFilmId.set(film.id, { ...film, average: 0, count: 0, myScore: null });
     }
 

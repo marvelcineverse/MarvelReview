@@ -1,5 +1,13 @@
 ﻿import { supabase } from "../supabaseClient.js";
-import { escapeHTML, formatDate, formatScore, getMediaIdFromURL, getScoreClass, setMessage } from "./utils.js";
+import {
+  escapeHTML,
+  formatDate,
+  formatScore,
+  getMediaIdFromURL,
+  getScoreClass,
+  isReleasedOnOrBeforeToday,
+  setMessage
+} from "./utils.js";
 
 const mediaSelectEl = document.querySelector("#media-select");
 
@@ -87,8 +95,10 @@ async function loadMediaRanking(mediaId) {
     .in("user_id", profileIds);
   if (ratingsError) throw ratingsError;
 
+  const releasedFilms = (films || []).filter((film) => isReleasedOnOrBeforeToday(film.release_date));
+
   const byFilmId = new Map();
-  for (const film of films || []) {
+  for (const film of releasedFilms) {
     byFilmId.set(film.id, { ...film, average: 0, count: 0 });
   }
 

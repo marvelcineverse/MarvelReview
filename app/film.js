@@ -6,12 +6,38 @@ import {
   getFilmIdFromURL,
   getScoreClass,
   isQuarterStep,
+  isReleasedOnOrBeforeToday,
   setMessage
 } from "./utils.js";
 import { getCurrentProfile, requireAuth, getSession } from "./auth.js";
 
 let currentProfile = null;
 let currentFilm = null;
+
+function canRateCurrentFilm() {
+  return isReleasedOnOrBeforeToday(currentFilm?.release_date || null);
+}
+
+function applyRatingAvailability() {
+  const canRate = canRateCurrentFilm();
+  const messageEl = document.querySelector("#rating-unavailable-message");
+  const ratingForm = document.querySelector("#rating-form");
+  const adminForm = document.querySelector("#admin-rating-form");
+
+  const message = "Ce film n'est pas encore sorti (ou n'a pas de date de sortie). La notation est desactivee.";
+  if (messageEl) {
+    messageEl.textContent = canRate ? "" : message;
+    messageEl.style.display = canRate ? "none" : "block";
+  }
+
+  for (const form of [ratingForm, adminForm]) {
+    if (!form) continue;
+    const controls = form.querySelectorAll("input, textarea, select, button");
+    for (const control of controls) {
+      control.disabled = !canRate;
+    }
+  }
+}
 
 function renderFilmDetails(film) {
   const container = document.querySelector("#film-details");
@@ -157,6 +183,7 @@ async function loadFilmPage() {
 
     currentFilm = film;
     renderFilmDetails(film);
+    applyRatingAvailability();
 
     const { data: ratings, error: ratingsError } = await supabase
       .from("ratings")
@@ -211,6 +238,11 @@ async function handleRatingSubmit(event) {
   const scoreValue = Number(document.querySelector("#score").value);
   const reviewValue = document.querySelector("#review").value.trim();
 
+  if (!canRateCurrentFilm()) {
+    setMessage("#form-message", "Impossible de noter un film non sorti ou sans date de sortie.", true);
+    return;
+  }
+
   if (!isQuarterStep(scoreValue) || scoreValue < 0 || scoreValue > 10) {
     setMessage("#form-message", "Le score doit etre entre 0 et 10, par pas de 0,25.", true);
     return;
@@ -247,6 +279,11 @@ async function handleAdminRatingSubmit(event) {
   const targetUserId = document.querySelector("#admin-target-user").value;
   const scoreValue = Number(document.querySelector("#admin-score").value);
   const reviewValue = document.querySelector("#admin-review").value.trim();
+
+  if (!canRateCurrentFilm()) {
+    setMessage("#admin-rating-message", "Impossible de noter un film non sorti ou sans date de sortie.", true);
+    return;
+  }
 
   if (!targetUserId) {
     setMessage("#admin-rating-message", "Selectionne un utilisateur cible.", true);
