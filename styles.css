@@ -251,10 +251,39 @@ button:hover {
   gap: 0.3rem;
 }
 
+.season-controls {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.6rem 0 0.9rem;
+}
+
+.season-adjuster strong {
+  min-width: 62px;
+  text-align: center;
+  display: inline-block;
+}
+
+details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 0.55rem;
+}
+
 label {
   display: grid;
   gap: 0.35rem;
   font-weight: 600;
+}
+
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.checkbox-inline input {
+  width: auto;
 }
 
 input,

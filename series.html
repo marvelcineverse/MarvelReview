@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MarvelReview - Series</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  </head>
+  <body>
+    <main class="container">
+      <div id="nav-root"></div>
+
+      <section class="page-intro">
+        <div>
+          <h1>Series Marvel</h1>
+          <p id="series-subtitle">Choisis une serie pour afficher ses saisons et episodes.</p>
+        </div>
+        <p id="auth-status" class="status"></p>
+      </section>
+
+      <p id="page-message" class="message" aria-live="polite"></p>
+
+      <section id="series-list-section">
+        <div id="series-list" class="grid films-grid"></div>
+      </section>
+
+      <section id="series-detail-section" style="display: none;">
+        <div id="series-details"></div>
+        <p id="series-average-message" class="message" aria-live="polite"></p>
+        <section class="card">
+          <h2>Saisons</h2>
+          <div id="series-seasons-list" class="grid"></div>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="/app/common.js"></script>
+    <script type="module" src="/app/series.js"></script>
+  </body>
+</html>
