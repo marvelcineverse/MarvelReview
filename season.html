@@ -20,55 +20,34 @@
       <section id="season-details"></section>
 
       <section class="card">
-        <h2>Moyenne</h2>
-        <p id="season-average" class="score-row"></p>
+        <h2>Saison</h2>
+        <p id="season-rating-unavailable-message" class="message" style="display: none;" aria-live="polite"></p>
+        <div id="season-card-root"></div>
+        <p id="season-form-message" class="message" aria-live="polite"></p>
       </section>
 
       <section class="card">
-        <h2>Ta note et critique</h2>
-        <p id="season-rating-unavailable-message" class="message" style="display: none;" aria-live="polite"></p>
-        <form id="season-rating-form" class="form">
-          <label>
-            Note de saison (optionnelle, 0 a 10 par pas de 0,25)
-            <input id="season-score" type="number" min="0" max="10" step="0.25" />
-          </label>
-
+        <h2>Ta critique saison</h2>
+        <form id="season-review-form" class="form">
           <label>
             Critique (optionnelle)
             <textarea id="season-review" maxlength="1500" placeholder="Ton avis sur la saison..."></textarea>
           </label>
-
           <div class="inline-actions">
-            <button type="submit" class="icon-circle-btn save" aria-label="Enregistrer note et critique saison">
+            <button type="submit" class="icon-circle-btn save" aria-label="Enregistrer la critique saison">
               <i class="fa-solid fa-check" aria-hidden="true"></i>
             </button>
-            <button id="delete-season-rating-button" type="button" class="icon-circle-btn delete" style="display: none;" aria-label="Supprimer note/critique saison">
+            <button id="delete-season-review-button" type="button" class="icon-circle-btn delete" style="display: none;" aria-label="Supprimer la critique saison">
               <i class="fa-solid fa-xmark" aria-hidden="true"></i>
             </button>
           </div>
-          <p id="season-form-message" class="message" aria-live="polite"></p>
+          <p id="season-review-message" class="message" aria-live="polite"></p>
         </form>
       </section>
 
       <section class="card">
         <h2>Dernieres critiques de la saison</h2>
         <div id="season-reviews-list" class="grid"></div>
-      </section>
-
-      <section class="card">
-        <h2>Episodes</h2>
-        <div class="table-wrapper">
-          <table class="ranking-table compact">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Episode</th>
-                <th>Diffusion</th>
-              </tr>
-            </thead>
-            <tbody id="season-episodes-body"></tbody>
-          </table>
-        </div>
       </section>
     </main>
 

@@ -214,6 +214,10 @@ button:hover {
   color: #fff;
 }
 
+.icon-link {
+  text-decoration: none;
+}
+
 .icon-circle-btn.save {
   background: #44b96b;
 }
@@ -271,6 +275,22 @@ button:hover {
 
 .season-manual-help {
   margin: 0;
+}
+
+.season-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.season-card-header h3 {
+  margin: 0;
+}
+
+.season-open-button {
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .bulk-episode-row {

@@ -24,64 +24,60 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
-function canRateSeason() {
+function toFixedNumber(value, digits = 6) {
+  return Number(value.toFixed(digits));
+}
+
+function buildAdjustmentTargets(base) {
+  const minEffective = clamp(base - 2, 0, 10);
+  const maxEffective = clamp(base + 2, 0, 10);
+  const targets = new Set([toFixedNumber(clamp(base, 0, 10))]);
+
+  const startQuarter = Math.ceil((minEffective - 1e-9) * 4);
+  const endQuarter = Math.floor((maxEffective + 1e-9) * 4);
+  for (let quarter = startQuarter; quarter <= endQuarter; quarter += 1) {
+    targets.add(toFixedNumber(quarter / 4));
+  }
+
+  return Array.from(targets).sort((a, b) => a - b);
+}
+
+function isSeasonRateable() {
   return isReleasedOnOrBeforeToday(state.season?.start_date || null);
 }
 
 function applySeasonAvailability() {
-  const canRate = canRateSeason();
+  const canRate = isSeasonRateable();
   const messageEl = document.querySelector("#season-rating-unavailable-message");
-  const form = document.querySelector("#season-rating-form");
   const message = "Cette saison n'est pas encore sortie (ou n'a pas de date de debut). La notation est desactivee.";
-
   if (messageEl) {
     messageEl.textContent = canRate ? "" : message;
     messageEl.style.display = canRate ? "none" : "block";
   }
-
-  if (!form) return;
-  const controls = form.querySelectorAll("input, textarea, button");
-  for (const control of controls) {
-    control.disabled = !canRate;
-  }
 }
 
-function renderSeasonDetails() {
-  const detailsEl = document.querySelector("#season-details");
-  const seasonName = state.season?.name || `Saison ${state.season?.season_number || "-"}`;
-  detailsEl.innerHTML = `
-    <article class="card">
-      <h1>${escapeHTML(seasonName)}</h1>
-      <p>
-        Serie: <a href="/series.html?id=${state.series?.id || ""}" class="film-link">${escapeHTML(state.series?.title || "-")}</a>
-      </p>
-      <p>Phase: ${escapeHTML(state.season?.phase || "-")} | Debut: ${formatDate(state.season?.start_date)} | Fin: ${formatDate(state.season?.end_date)}</p>
-    </article>
-  `;
-}
+function computeSeasonMetrics() {
+  const episodeIds = new Set(state.episodes.map((episode) => episode.id));
 
-function computeSeasonAverages() {
-  const episodeIds = new Set((state.episodes || []).map((episode) => episode.id));
-  const perUserEpisode = new Map();
-
-  for (const rating of state.episodeRatings || []) {
+  const episodeAveragesByUser = new Map();
+  for (const rating of state.episodeRatings) {
     if (!episodeIds.has(rating.episode_id)) continue;
-    const current = perUserEpisode.get(rating.user_id) || { total: 0, count: 0 };
+    const current = episodeAveragesByUser.get(rating.user_id) || { total: 0, count: 0 };
     current.total += Number(rating.score || 0);
     current.count += 1;
-    perUserEpisode.set(rating.user_id, current);
+    episodeAveragesByUser.set(rating.user_id, current);
   }
 
   const perUser = new Map();
-  for (const [userId, values] of perUserEpisode.entries()) {
+  for (const [userId, value] of episodeAveragesByUser.entries()) {
     perUser.set(userId, {
-      episodeAverage: values.count ? values.total / values.count : null,
+      episodeAverage: value.count ? value.total / value.count : null,
       manualScore: null,
       adjustment: 0
     });
   }
 
-  for (const row of state.seasonUserRatings || []) {
+  for (const row of state.seasonUserRatings) {
     const existing = perUser.get(row.user_id) || { episodeAverage: null, manualScore: null, adjustment: 0 };
     existing.manualScore = row.manual_score === null ? null : Number(row.manual_score);
     existing.adjustment = Number(row.adjustment || 0);
@@ -89,65 +85,185 @@ function computeSeasonAverages() {
   }
 
   const effectiveScores = [];
-  for (const values of perUser.values()) {
-    const effective = values.manualScore !== null
-      ? clamp(values.manualScore, 0, 10)
-      : (Number.isFinite(values.episodeAverage) ? clamp(values.episodeAverage + values.adjustment, 0, 10) : null);
+  for (const value of perUser.values()) {
+    const effective = value.manualScore !== null
+      ? clamp(value.manualScore, 0, 10)
+      : (Number.isFinite(value.episodeAverage) ? clamp(value.episodeAverage + value.adjustment, 0, 10) : null);
     if (Number.isFinite(effective)) effectiveScores.push(effective);
   }
 
-  const globalAverage = effectiveScores.length
+  const siteAverage = effectiveScores.length
     ? effectiveScores.reduce((sum, score) => sum + score, 0) / effectiveScores.length
     : null;
 
-  const currentUserValues = perUser.get(state.currentUserId) || { episodeAverage: null, manualScore: null, adjustment: 0 };
-  const myEffective = currentUserValues.manualScore !== null
-    ? clamp(currentUserValues.manualScore, 0, 10)
-    : (Number.isFinite(currentUserValues.episodeAverage) ? clamp(currentUserValues.episodeAverage + currentUserValues.adjustment, 0, 10) : null);
+  const user = perUser.get(state.currentUserId) || { episodeAverage: null, manualScore: null, adjustment: 0 };
+  const userEffective = user.manualScore !== null
+    ? clamp(user.manualScore, 0, 10)
+    : (Number.isFinite(user.episodeAverage) ? clamp(user.episodeAverage + user.adjustment, 0, 10) : null);
 
   return {
-    globalAverage,
-    globalCount: effectiveScores.length,
-    myEffective
+    episodeCount: state.episodes.length,
+    userEpisodeAverage: user.episodeAverage,
+    userManualScore: user.manualScore,
+    userAdjustment: user.adjustment,
+    userEffective,
+    siteAverage
   };
 }
 
-function renderSeasonAverage() {
-  const averageEl = document.querySelector("#season-average");
-  const { globalAverage, globalCount, myEffective } = computeSeasonAverages();
-
-  const globalHtml = globalAverage === null
-    ? `<span class="score-badge stade-neutre">Pas encore de note</span>`
-    : `<span class="score-badge ${getScoreClass(globalAverage)}">${formatScore(globalAverage, 2, 2)} / 10</span>`;
-
-  const myHtml = myEffective === null
-    ? `<span class="score-badge stade-neutre">-</span>`
-    : `<span class="score-badge ${getScoreClass(myEffective)}">${formatScore(myEffective, 2, 2)} / 10</span>`;
-
-  averageEl.innerHTML = `
-    ${globalHtml}
-    <span>${globalCount} note(s)</span>
-    <span>Ta note effective: ${myHtml}</span>
+function renderSeasonDetails() {
+  const detailsEl = document.querySelector("#season-details");
+  detailsEl.innerHTML = `
+    <article class="card">
+      <h1>${escapeHTML(state.series?.title || "Serie")}</h1>
+      <p>
+        Retour serie:
+        <a href="/series.html?id=${state.series?.id || ""}" class="film-link">${escapeHTML(state.series?.title || "-")}</a>
+      </p>
+    </article>
   `;
 }
 
-function renderEpisodes() {
-  const body = document.querySelector("#season-episodes-body");
-  if (!state.episodes.length) {
-    body.innerHTML = `<tr><td colspan="3">Aucun episode pour cette saison.</td></tr>`;
-    return;
+function renderSeasonCard() {
+  const container = document.querySelector("#season-card-root");
+  const metrics = computeSeasonMetrics();
+  const canRateSeason = isSeasonRateable();
+
+  const seasonAverage = metrics.userEpisodeAverage === null
+    ? `Pas de note`
+    : `${formatScore(metrics.userEpisodeAverage, 2, 2)} / 10`;
+
+  const siteAverageBadge = metrics.siteAverage === null
+    ? `<span class="score-badge stade-neutre">Pas de note</span>`
+    : `<span class="score-badge ${getScoreClass(metrics.siteAverage)}">${formatScore(metrics.siteAverage, 2, 2)} / 10</span>`;
+
+  const userAverage = metrics.userEffective === null
+    ? `<span class="score-badge stade-neutre">-</span>`
+    : `<span class="score-badge ${getScoreClass(metrics.userEffective)}">${formatScore(metrics.userEffective, 2, 2)} / 10</span>`;
+
+  const manualValue = metrics.userManualScore === null ? "" : String(metrics.userManualScore);
+  const adjustmentValue = formatScore(metrics.userAdjustment, 2, 2);
+
+  const episodeAverageById = new Map();
+  for (const episode of state.episodes) {
+    const ratings = state.episodeRatings.filter((rating) => rating.episode_id === episode.id);
+    if (!ratings.length) {
+      episodeAverageById.set(episode.id, null);
+      continue;
+    }
+    const total = ratings.reduce((sum, rating) => sum + Number(rating.score || 0), 0);
+    episodeAverageById.set(episode.id, total / ratings.length);
   }
 
-  body.innerHTML = state.episodes
-    .sort((a, b) => a.episode_number - b.episode_number)
-    .map((episode) => `
-      <tr>
-        <td>${episode.episode_number}</td>
-        <td><a href="/episode.html?id=${episode.id}" class="film-link">${escapeHTML(episode.title)}</a></td>
-        <td>${formatDate(episode.air_date)}</td>
-      </tr>
-    `)
-    .join("");
+  container.innerHTML = `
+    <article class="card">
+      <div class="season-card-header">
+        <h3>
+          <a href="/season.html?id=${state.season.id}" class="film-link">${escapeHTML(state.season.name || `Saison ${state.season.season_number}`)}</a>
+          <small>(voir details)</small>
+          - Moyenne du site: ${siteAverageBadge}
+        </h3>
+        <a href="/season.html?id=${state.season.id}" class="ghost-button season-open-button">Ouvrir</a>
+      </div>
+      <p>Phase: ${escapeHTML(state.season.phase || "-")} | Debut: ${formatDate(state.season.start_date)} | Fin: ${formatDate(state.season.end_date)}</p>
+      <p>Moyenne de tes episodes: <b>${seasonAverage}</b></p>
+
+      <div class="inline-actions season-adjuster">
+        <span>Ajusteur de moyenne</span>
+        <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" aria-label="Diminuer l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
+          <i class="fa-solid fa-minus" aria-hidden="true"></i>
+        </button>
+        <strong>${adjustmentValue}</strong>
+        <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" aria-label="Augmenter l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
+          <i class="fa-solid fa-plus" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" aria-label="Reinitialiser l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <p>Ta note effective de saison: ${userAverage}</p>
+      <p class="film-meta">Base perso: ${metrics.userManualScore === null ? "Moyenne de tes episodes" : "Note de saison manuelle"} | Episodes: ${metrics.episodeCount}</p>
+
+      <div class="season-controls">
+        <p class="film-meta season-manual-help">Renseigner une note generale pour toute la saison (optionnel).</p>
+        <div class="inline-actions inline-edit">
+          <input data-field="season-manual-score" type="number" min="0" max="10" step="0.25" value="${manualValue}" placeholder="Note saison (optionnelle)" ${canRateSeason ? "" : "disabled"} />
+          <button type="button" class="icon-circle-btn save" data-action="save-season-manual" aria-label="Valider la note de saison" ${canRateSeason ? "" : "disabled"}>
+            <i class="fa-solid fa-check" aria-hidden="true"></i>
+          </button>
+          ${metrics.userManualScore === null ? "" : `
+            <button type="button" class="icon-circle-btn delete" data-action="delete-season-manual" aria-label="Supprimer la note manuelle de saison" ${canRateSeason ? "" : "disabled"}>
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          `}
+        </div>
+      </div>
+
+      <details class="season-episodes" open>
+        <summary class="season-episodes-summary">
+          <span>Episodes</span>
+          <small>Cliquer pour replier / deplier</small>
+        </summary>
+        <div class="table-wrapper">
+          <table class="ranking-table compact">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Episode</th>
+                <th>Diffusion</th>
+                <th>Moyenne</th>
+                <th>Ta note</th>
+                <th>Modifier</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${state.episodes.sort((a, b) => a.episode_number - b.episode_number).map((episode) => {
+                const userRating = state.episodeRatings.find(
+                  (rating) => rating.episode_id === episode.id && rating.user_id === state.currentUserId
+                );
+                const canRate = isReleasedOnOrBeforeToday(episode.air_date);
+                const scoreValue = userRating ? String(userRating.score) : "";
+                const scoreBadge = userRating
+                  ? `<span class="score-badge ${getScoreClass(userRating.score)}">${formatScore(userRating.score)} / 10</span>`
+                  : `<span class="score-badge stade-neutre">-</span>`;
+                const episodeAverage = episodeAverageById.get(episode.id);
+                const averageBadge = Number.isFinite(episodeAverage)
+                  ? `<span class="score-badge ${getScoreClass(episodeAverage)}">${formatScore(episodeAverage, 2, 2)}</span>`
+                  : `<span class="score-badge stade-neutre">-</span>`;
+
+                return `
+                  <tr>
+                    <td>${episode.episode_number}</td>
+                    <td><a href="/episode.html?id=${episode.id}" class="film-link">${escapeHTML(episode.title)}</a></td>
+                    <td>${formatDate(episode.air_date)}</td>
+                    <td>${averageBadge}</td>
+                    <td>${scoreBadge}</td>
+                    <td class="actions-cell">
+                      <div class="inline-actions inline-edit">
+                        <a href="/episode.html?id=${episode.id}" class="icon-circle-btn neutral small icon-link" aria-label="Ouvrir la page episode">
+                          <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>
+                        </a>
+                        <input data-field="episode-score" data-episode-id="${episode.id}" type="number" min="0" max="10" step="0.25" value="${scoreValue}" placeholder="0 a 10" ${canRate ? "" : "disabled"} />
+                        <button type="button" class="icon-circle-btn save" data-action="save-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Valider la note d'episode">
+                          <i class="fa-solid fa-check" aria-hidden="true"></i>
+                        </button>
+                        ${userRating ? `
+                          <button type="button" class="icon-circle-btn delete" data-action="delete-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Supprimer la note d'episode">
+                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                          </button>
+                        ` : ""}
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </article>
+  `;
 }
 
 async function loadMembershipMapForUsers(userIds) {
@@ -174,7 +290,7 @@ async function loadMembershipMapForUsers(userIds) {
 
 function renderSeasonReviews(mediaByUserId = new Map()) {
   const listEl = document.querySelector("#season-reviews-list");
-  const rows = (state.seasonUserRatings || []).filter((row) => row.review && row.review.trim());
+  const rows = state.seasonUserRatings.filter((row) => row.review && row.review.trim());
 
   if (!rows.length) {
     listEl.innerHTML = "<p>Aucune critique pour cette saison.</p>";
@@ -182,15 +298,14 @@ function renderSeasonReviews(mediaByUserId = new Map()) {
   }
 
   listEl.innerHTML = rows
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
     .map((row) => {
-      const profile = row.profiles || {};
       const mediaNames = mediaByUserId.get(row.user_id) || [];
       const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Independant";
       return `
         <article class="card review-card">
           <div class="review-head">
-            <strong>${escapeHTML(profile.username || "Utilisateur")}</strong>
+            <strong>${escapeHTML(row.profiles?.username || "Utilisateur")}</strong>
             <span>${escapeHTML(mediaLabel)}</span>
           </div>
           <p>${escapeHTML(row.review || "(Pas de commentaire)")}</p>
@@ -201,18 +316,21 @@ function renderSeasonReviews(mediaByUserId = new Map()) {
     .join("");
 }
 
-function fillCurrentUserSeasonRating() {
-  const scoreInput = document.querySelector("#season-score");
-  const reviewInput = document.querySelector("#season-review");
-  const deleteButton = document.querySelector("#delete-season-rating-button");
-  const row = (state.seasonUserRatings || []).find((item) => item.user_id === state.currentUserId);
+function fillCurrentUserSeasonReview() {
+  const textarea = document.querySelector("#season-review");
+  const deleteBtn = document.querySelector("#delete-season-review-button");
+  const row = state.seasonUserRatings.find((item) => item.user_id === state.currentUserId);
+  if (!textarea || !deleteBtn) return;
 
-  scoreInput.value = row?.manual_score === null || row?.manual_score === undefined ? "" : String(row.manual_score);
-  reviewInput.value = row?.review || "";
-  deleteButton.style.display = row?.manual_score !== null || (row?.review && row.review.trim()) ? "inline-flex" : "none";
+  textarea.value = row?.review || "";
+  deleteBtn.style.display = row?.review ? "inline-flex" : "none";
 }
 
-async function loadSeasonPage() {
+function getCurrentSeasonUserRow() {
+  return state.seasonUserRatings.find((row) => row.user_id === state.currentUserId);
+}
+
+async function loadSeasonData() {
   const seasonId = getSeasonIdFromURL();
   if (!seasonId) {
     setMessage("#page-message", "Saison introuvable: parametre id manquant.", true);
@@ -231,9 +349,7 @@ async function loadSeasonPage() {
 
   const [
     { data: series, error: seriesError },
-    { data: episodes, error: episodesError },
-    { data: episodeRatings, error: episodeRatingsError },
-    { data: seasonRows, error: seasonRowsError }
+    { data: episodes, error: episodesError }
   ] = await Promise.all([
     supabase
       .from("series")
@@ -243,63 +359,259 @@ async function loadSeasonPage() {
     supabase
       .from("series_episodes")
       .select("id, season_id, episode_number, title, air_date")
-      .eq("season_id", seasonId),
-    supabase
-      .from("episode_ratings")
-      .select("episode_id, user_id, score"),
-    supabase
-      .from("season_user_ratings")
-      .select("id, season_id, user_id, manual_score, adjustment, review, created_at, profiles(username)")
-      .eq("season_id", seasonId)
+      .eq("season_id", season.id)
   ]);
 
   if (seriesError) throw seriesError;
   if (episodesError) throw episodesError;
-  if (episodeRatingsError) throw episodeRatingsError;
-  if (seasonRowsError) throw seasonRowsError;
-
-  const episodeIds = new Set((episodes || []).map((episode) => episode.id));
 
   state.season = season;
   state.series = series;
   state.episodes = episodes || [];
-  state.episodeRatings = (episodeRatings || []).filter((row) => episodeIds.has(row.episode_id));
-  state.seasonUserRatings = seasonRows || [];
+}
+
+async function loadRatingsData() {
+  const episodeIds = state.episodes.map((episode) => episode.id);
+  const [
+    { data: episodeRatings, error: episodeRatingsError },
+    { data: seasonUserRatings, error: seasonUserRatingsError }
+  ] = await Promise.all([
+    episodeIds.length
+      ? supabase
+        .from("episode_ratings")
+        .select("id, episode_id, user_id, score, review, created_at, profiles(username)")
+        .in("episode_id", episodeIds)
+      : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from("season_user_ratings")
+      .select("id, season_id, user_id, manual_score, adjustment, review, created_at, profiles(username)")
+      .eq("season_id", state.season.id)
+  ]);
+
+  if (episodeRatingsError) throw episodeRatingsError;
+  if (seasonUserRatingsError) throw seasonUserRatingsError;
+
+  state.episodeRatings = episodeRatings || [];
+  state.seasonUserRatings = seasonUserRatings || [];
+}
+
+async function refreshAll() {
+  await loadSeasonData();
+  await loadRatingsData();
 
   renderSeasonDetails();
   applySeasonAvailability();
-  renderSeasonAverage();
-  fillCurrentUserSeasonRating();
-  renderEpisodes();
-
+  renderSeasonCard();
+  fillCurrentUserSeasonReview();
   const userIds = [...new Set(state.seasonUserRatings.map((row) => row.user_id))];
   const mediaByUserId = await loadMembershipMapForUsers(userIds);
   renderSeasonReviews(mediaByUserId);
 }
 
-async function saveSeasonRatingAndReview(event) {
+async function saveEpisodeRating(episodeId) {
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+
+  const episode = state.episodes.find((item) => item.id === episodeId);
+  if (!isReleasedOnOrBeforeToday(episode?.air_date || null)) {
+    setMessage("#season-form-message", "Impossible de noter un episode non diffuse ou sans date de diffusion.", true);
+    return;
+  }
+
+  const scoreInput = document.querySelector(`[data-field="episode-score"][data-episode-id="${episodeId}"]`);
+  const scoreRaw = scoreInput?.value.trim() || "";
+  if (!scoreRaw) {
+    setMessage("#season-form-message", "Le score est obligatoire.", true);
+    return;
+  }
+
+  const score = Number(scoreRaw.replace(",", "."));
+  if (!Number.isFinite(score) || score < 0 || score > 10 || !isQuarterStep(score)) {
+    setMessage("#season-form-message", "Le score doit etre entre 0 et 10, par pas de 0,25.", true);
+    return;
+  }
+
+  const existing = state.episodeRatings.find((row) => row.episode_id === episodeId && row.user_id === session.user.id);
+  const { error } = await supabase.from("episode_ratings").upsert(
+    {
+      user_id: session.user.id,
+      episode_id: episodeId,
+      score,
+      review: existing?.review ?? null
+    },
+    { onConflict: "user_id,episode_id" }
+  );
+  if (error) throw error;
+}
+
+async function deleteEpisodeRating(episodeId) {
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+
+  const { error } = await supabase
+    .from("episode_ratings")
+    .delete()
+    .eq("user_id", session.user.id)
+    .eq("episode_id", episodeId);
+  if (error) throw error;
+}
+
+async function saveSeasonManualScore() {
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+
+  if (!isSeasonRateable()) {
+    setMessage("#season-form-message", "Impossible de noter une saison non sortie ou sans date de debut.", true);
+    return;
+  }
+
+  const raw = document.querySelector(`[data-field="season-manual-score"]`)?.value?.trim() || "";
+  if (!raw) {
+    setMessage("#season-form-message", "Saisis une note de saison ou utilise suppression.", true);
+    return;
+  }
+
+  const score = Number(raw.replace(",", "."));
+  if (!Number.isFinite(score) || score < 0 || score > 10 || !isQuarterStep(score)) {
+    setMessage("#season-form-message", "La note de saison doit etre entre 0 et 10, par pas de 0,25.", true);
+    return;
+  }
+
+  const existing = getCurrentSeasonUserRow();
+  const { error } = await supabase.from("season_user_ratings").upsert(
+    {
+      user_id: session.user.id,
+      season_id: state.season.id,
+      manual_score: score,
+      adjustment: 0,
+      review: existing?.review ?? null
+    },
+    { onConflict: "user_id,season_id" }
+  );
+  if (error) throw error;
+}
+
+async function deleteSeasonManualScore() {
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+
+  const existing = getCurrentSeasonUserRow();
+  if (!existing) return;
+
+  if (Number(existing.adjustment || 0) === 0 && !existing.review) {
+    const { error } = await supabase
+      .from("season_user_ratings")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("season_id", state.season.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase
+    .from("season_user_ratings")
+    .update({ manual_score: null })
+    .eq("user_id", session.user.id)
+    .eq("season_id", state.season.id);
+  if (error) throw error;
+}
+
+async function adjustSeason(delta) {
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+
+  if (!isSeasonRateable()) {
+    setMessage("#season-form-message", "Impossible d'ajuster une saison non sortie ou sans date de debut.", true);
+    return;
+  }
+
+  const existing = getCurrentSeasonUserRow();
+  const metrics = computeSeasonMetrics();
+  const base = Number.isFinite(metrics.userEpisodeAverage) ? toFixedNumber(metrics.userEpisodeAverage, 2) : null;
+
+  if (metrics.userManualScore !== null) {
+    setMessage("#season-form-message", "L'ajusteur est desactive quand une note manuelle de saison est definie.", true);
+    return;
+  }
+
+  if (!Number.isFinite(base)) {
+    setMessage("#season-form-message", "Il faut noter des episodes pour utiliser l'ajusteur.", true);
+    return;
+  }
+
+  const currentAdjustment = Number(existing?.adjustment ?? metrics.userAdjustment ?? 0);
+  const currentEffective = clamp(base + currentAdjustment, 0, 10);
+  const targets = buildAdjustmentTargets(base);
+  const epsilon = 0.000001;
+
+  let nextEffective = currentEffective;
+  if (delta > 0) {
+    nextEffective = targets.find((value) => value > currentEffective + epsilon) ?? currentEffective;
+  } else if (delta < 0) {
+    for (let idx = targets.length - 1; idx >= 0; idx -= 1) {
+      if (targets[idx] < currentEffective - epsilon) {
+        nextEffective = targets[idx];
+        break;
+      }
+    }
+  }
+
+  nextEffective = clamp(nextEffective, 0, 10);
+  const nextAdjustment = toFixedNumber(clamp(nextEffective - base, -2, 2), 2);
+
+  const payload = {
+    user_id: session.user.id,
+    season_id: state.season.id,
+    manual_score: existing?.manual_score ?? null,
+    adjustment: nextAdjustment,
+    review: existing?.review ?? null
+  };
+
+  if (payload.manual_score === null && payload.adjustment === 0 && !payload.review) {
+    const { error } = await supabase
+      .from("season_user_ratings")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("season_id", state.season.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase.from("season_user_ratings").upsert(payload, { onConflict: "user_id,season_id" });
+  if (error) throw error;
+}
+
+async function resetSeasonAdjustment() {
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+
+  const existing = getCurrentSeasonUserRow();
+  if (!existing) return;
+
+  const { error } = await supabase
+    .from("season_user_ratings")
+    .upsert(
+      {
+        user_id: session.user.id,
+        season_id: state.season.id,
+        manual_score: existing.manual_score ?? null,
+        adjustment: 0,
+        review: existing.review ?? null
+      },
+      { onConflict: "user_id,season_id" }
+    );
+  if (error) throw error;
+}
+
+async function saveSeasonReview(event) {
   event.preventDefault();
   const session = await requireAuth("/login.html");
   if (!session) return;
 
-  if (!canRateSeason()) {
-    setMessage("#season-form-message", "Impossible de noter/commenter une saison non sortie ou sans date de debut.", true);
-    return;
-  }
-
-  const scoreRaw = document.querySelector("#season-score").value.trim();
   const reviewValue = document.querySelector("#season-review").value.trim();
-  const manualScore = scoreRaw ? Number(scoreRaw.replace(",", ".")) : null;
+  const existing = getCurrentSeasonUserRow();
 
-  if (manualScore !== null && (!Number.isFinite(manualScore) || manualScore < 0 || manualScore > 10 || !isQuarterStep(manualScore))) {
-    setMessage("#season-form-message", "La note doit etre entre 0 et 10, par pas de 0,25.", true);
-    return;
-  }
-
-  const existing = state.seasonUserRatings.find((row) => row.user_id === session.user.id);
-  const adjustment = manualScore === null ? Number(existing?.adjustment || 0) : 0;
-
-  if (manualScore === null && !reviewValue && adjustment === 0) {
+  if (!reviewValue && existing?.manual_score === null && Number(existing?.adjustment || 0) === 0) {
     const { error } = await supabase
       .from("season_user_ratings")
       .delete()
@@ -313,8 +625,8 @@ async function saveSeasonRatingAndReview(event) {
         {
           user_id: session.user.id,
           season_id: state.season.id,
-          manual_score: manualScore,
-          adjustment,
+          manual_score: existing?.manual_score ?? null,
+          adjustment: Number(existing?.adjustment || 0),
           review: reviewValue || null
         },
         { onConflict: "user_id,season_id" }
@@ -322,18 +634,18 @@ async function saveSeasonRatingAndReview(event) {
     if (error) throw error;
   }
 
-  setMessage("#season-form-message", "Note/critique enregistree.");
-  await loadSeasonPage();
+  setMessage("#season-review-message", "Critique saison enregistree.");
+  await refreshAll();
 }
 
-async function deleteSeasonRatingAndReview() {
+async function deleteSeasonReview() {
   const session = await requireAuth("/login.html");
   if (!session) return;
 
-  const existing = state.seasonUserRatings.find((row) => row.user_id === session.user.id);
+  const existing = getCurrentSeasonUserRow();
   if (!existing) return;
 
-  if (Number(existing.adjustment || 0) === 0) {
+  if (existing.manual_score === null && Number(existing.adjustment || 0) === 0) {
     const { error } = await supabase
       .from("season_user_ratings")
       .delete()
@@ -343,32 +655,75 @@ async function deleteSeasonRatingAndReview() {
   } else {
     const { error } = await supabase
       .from("season_user_ratings")
-      .update({ manual_score: null, review: null })
+      .update({ review: null })
       .eq("user_id", session.user.id)
       .eq("season_id", state.season.id);
     if (error) throw error;
   }
 
-  setMessage("#season-form-message", "Note/critique supprimee.");
-  await loadSeasonPage();
+  setMessage("#season-review-message", "Critique saison supprimee.");
+  await refreshAll();
 }
 
-document.querySelector("#season-rating-form")?.addEventListener("submit", async (event) => {
-  try {
-    await saveSeasonRatingAndReview(event);
-  } catch (error) {
-    setMessage("#season-form-message", error.message || "Enregistrement impossible.", true);
-  }
-});
+function bindSeasonCardEvents() {
+  const root = document.querySelector("#season-card-root");
+  root.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
 
-document.querySelector("#delete-season-rating-button")?.addEventListener("click", async () => {
-  try {
-    await deleteSeasonRatingAndReview();
-  } catch (error) {
-    setMessage("#season-form-message", error.message || "Suppression impossible.", true);
-  }
-});
+    const action = button.dataset.action;
+    const episodeId = button.dataset.episodeId;
 
-loadSeasonPage().catch((error) => {
-  setMessage("#page-message", error.message || "Erreur de chargement de la saison.", true);
-});
+    try {
+      if (action === "save-episode-rating" && episodeId) {
+        await saveEpisodeRating(episodeId);
+      } else if (action === "delete-episode-rating" && episodeId) {
+        await deleteEpisodeRating(episodeId);
+      } else if (action === "save-season-manual") {
+        await saveSeasonManualScore();
+      } else if (action === "delete-season-manual") {
+        await deleteSeasonManualScore();
+      } else if (action === "adjust-season-up") {
+        await adjustSeason(0.25);
+      } else if (action === "adjust-season-down") {
+        await adjustSeason(-0.25);
+      } else if (action === "reset-season-adjustment") {
+        await resetSeasonAdjustment();
+      } else {
+        return;
+      }
+
+      setMessage("#season-form-message", "Sauvegarde reussie.");
+      await refreshAll();
+    } catch (error) {
+      setMessage("#season-form-message", error.message || "Operation impossible.", true);
+    }
+  });
+}
+
+async function initPage() {
+  try {
+    await refreshAll();
+    bindSeasonCardEvents();
+
+    document.querySelector("#season-review-form")?.addEventListener("submit", async (event) => {
+      try {
+        await saveSeasonReview(event);
+      } catch (error) {
+        setMessage("#season-review-message", error.message || "Impossible d'enregistrer la critique saison.", true);
+      }
+    });
+
+    document.querySelector("#delete-season-review-button")?.addEventListener("click", async () => {
+      try {
+        await deleteSeasonReview();
+      } catch (error) {
+        setMessage("#season-review-message", error.message || "Impossible de supprimer la critique saison.", true);
+      }
+    });
+  } catch (error) {
+    setMessage("#page-message", error.message || "Erreur de chargement de la saison.", true);
+  }
+}
+
+initPage();

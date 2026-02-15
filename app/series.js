@@ -378,11 +378,14 @@ function renderSeasons(openSeasonIds = null) {
 
       return `
         <article class="card">
-          <h3>
-            <a href="/season.html?id=${season.id}" class="film-link">${escapeHTML(season.name || `Saison ${season.season_number}`)}</a>
-            <small>(voir details)</small>
-            - Moyenne du site: ${siteAverageBadge}
-          </h3>
+          <div class="season-card-header">
+            <h3>
+              <a href="/season.html?id=${season.id}" class="film-link">${escapeHTML(season.name || `Saison ${season.season_number}`)}</a>
+              <small>(voir details)</small>
+              - Moyenne du site: ${siteAverageBadge}
+            </h3>
+            <a href="/season.html?id=${season.id}" class="ghost-button season-open-button">Ouvrir</a>
+          </div>
           <p>Phase: ${escapeHTML(season.phase || "-")} | Debut: ${formatDate(season.start_date)} | Fin: ${formatDate(season.end_date)}</p>
           <p>Moyenne de tes episodes: <b>${seasonAverage}</b></p>
 
@@ -446,17 +449,22 @@ function renderSeasons(openSeasonIds = null) {
                       ? `<span class="score-badge ${getScoreClass(userRating.score)}">${formatScore(userRating.score)} / 10</span>`
                       : `<span class="score-badge stade-neutre">-</span>`;
                     const episodeAverage = episodeAverageById.get(episode.id);
-                    const averageText = Number.isFinite(episodeAverage) ? formatScore(episodeAverage, 2, 2) : "-";
+                    const averageBadge = Number.isFinite(episodeAverage)
+                      ? `<span class="score-badge ${getScoreClass(episodeAverage)}">${formatScore(episodeAverage, 2, 2)}</span>`
+                      : `<span class="score-badge stade-neutre">-</span>`;
 
                     return `
                       <tr>
                         <td>${episode.episode_number}</td>
                         <td><a href="/episode.html?id=${episode.id}" class="film-link">${escapeHTML(episode.title)}</a></td>
                         <td>${formatDate(episode.air_date)}</td>
-                        <td>${averageText}</td>
+                        <td>${averageBadge}</td>
                         <td>${scoreBadge}</td>
                         <td class="actions-cell">
                           <div class="inline-actions inline-edit">
+                            <a href="/episode.html?id=${episode.id}" class="icon-circle-btn neutral small icon-link" aria-label="Ouvrir la page episode">
+                              <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>
+                            </a>
                             <input data-field="episode-score" data-episode-id="${episode.id}" type="number" min="0" max="10" step="0.25" value="${scoreValue}" placeholder="0 a 10" ${canRate ? "" : "disabled"} />
                             <button type="button" class="icon-circle-btn save" data-action="save-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Valider la note d'episode">
                               <i class="fa-solid fa-check" aria-hidden="true"></i>
