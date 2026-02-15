@@ -546,7 +546,9 @@ async function adjustSeason(seasonId, delta) {
 
   const existing = getCurrentSeasonUserRow(seasonId);
   const metrics = computeSeasonMetrics(seasonId);
-  const base = metrics.userEpisodeAverage;
+  const base = Number.isFinite(metrics.userEpisodeAverage)
+    ? toFixedNumber(metrics.userEpisodeAverage, 2)
+    : null;
 
   if (metrics.userManualScore !== null) {
     setMessage("#page-message", "L'ajusteur est desactive quand une note manuelle de saison est definie.", true);
@@ -558,7 +560,8 @@ async function adjustSeason(seasonId, delta) {
     return;
   }
 
-  const currentEffective = Number.isFinite(metrics.userEffective) ? metrics.userEffective : base;
+  const currentAdjustment = Number(existing?.adjustment ?? metrics.userAdjustment ?? 0);
+  const currentEffective = clamp(base + currentAdjustment, 0, 10);
   const targets = buildAdjustmentTargets(base);
   const epsilon = 0.000001;
 
@@ -575,7 +578,7 @@ async function adjustSeason(seasonId, delta) {
   }
 
   nextEffective = clamp(nextEffective, 0, 10);
-  const nextAdjustment = toFixedNumber(clamp(nextEffective - base, -2, 2), 4);
+  const nextAdjustment = toFixedNumber(clamp(nextEffective - base, -2, 2), 2);
 
   const payload = {
     user_id: session.user.id,
