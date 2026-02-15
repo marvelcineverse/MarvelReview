@@ -276,9 +276,9 @@ function renderSeasons(openSeasonIds = null) {
 
       return `
         <article class="card">
-          <h3>${escapeHTML(season.name || `Saison ${season.season_number}`)}</h3>
+          <h3>${escapeHTML(season.name || `Saison ${season.season_number}`)} - Moyenne du site: ${siteAverage}</h3>
           <p>Phase: ${escapeHTML(season.phase || "-")} | Debut: ${formatDate(season.start_date)} | Fin: ${formatDate(season.end_date)}</p>
-          <p>Moyenne de tes episodes: ${seasonAverage} &mdash; Site: ${siteAverage}</p>
+          <p>Moyenne de tes episodes: <b>${seasonAverage}</b> &mdash; Site: ${siteAverage}</p>
 
           <div class="inline-actions season-adjuster">
             <span>Ajusteur de moyenne</span>
