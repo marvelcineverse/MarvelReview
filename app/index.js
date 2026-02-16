@@ -7,7 +7,8 @@ const state = {
     search: "",
     franchise: "",
     phase: "",
-    type: ""
+    type: "",
+    sort: "date_desc"
   }
 };
 
@@ -15,16 +16,43 @@ const listEl = document.querySelector("#films-list");
 const franchiseFilterEl = document.querySelector("#franchise-filter");
 const phaseFilterEl = document.querySelector("#phase-filter");
 const typeFilterEl = document.querySelector("#type-filter");
+const sortFilterEl = document.querySelector("#sort-filter");
 const phaseFilterWrapEl = document.querySelector("#phase-filter-wrap");
 const titleSearchEl = document.querySelector("#title-search");
 
-function sortChronologicallyDescending(films) {
-  return [...films].sort((a, b) => {
-    const aTs = a.release_date ? new Date(a.release_date).getTime() : Number.NEGATIVE_INFINITY;
-    const bTs = b.release_date ? new Date(b.release_date).getTime() : Number.NEGATIVE_INFINITY;
-    if (aTs !== bTs) return bTs - aTs;
+function getDateSortValue(value) {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+}
+
+function sortFilms(rows) {
+  const sorted = [...rows];
+  const sortMode = state.filters.sort || "date_desc";
+
+  sorted.sort((a, b) => {
+    if (sortMode === "date_asc" || sortMode === "date_desc") {
+      const aTs = getDateSortValue(a.release_date);
+      const bTs = getDateSortValue(b.release_date);
+      if (aTs !== bTs) return sortMode === "date_asc" ? aTs - bTs : bTs - aTs;
+      return (a.title || "").localeCompare(b.title || "", "fr");
+    }
+
+    const aAverage = Number.isFinite(a.average) ? a.average : null;
+    const bAverage = Number.isFinite(b.average) ? b.average : null;
+
+    if (aAverage === null && bAverage === null) {
+      return (a.title || "").localeCompare(b.title || "", "fr");
+    }
+    if (aAverage === null) return 1;
+    if (bAverage === null) return -1;
+    if (aAverage !== bAverage) {
+      return sortMode === "rating_asc" ? aAverage - bAverage : bAverage - aAverage;
+    }
     return (a.title || "").localeCompare(b.title || "", "fr");
   });
+
+  return sorted;
 }
 
 function fillSelect(selectEl, values, allLabel) {
@@ -60,11 +88,7 @@ function setupFilters() {
   fillSelect(franchiseFilterEl, franchises, "Toutes les franchises");
   fillSelect(phaseFilterEl, phases, "Toutes les phases");
   fillSelect(typeFilterEl, types, "Tous les types");
-
-  if (franchises.includes("MCU")) {
-    state.filters.franchise = "MCU";
-    franchiseFilterEl.value = "MCU";
-  }
+  if (sortFilterEl) sortFilterEl.value = state.filters.sort;
 
   updatePhaseVisibility();
 
@@ -83,6 +107,11 @@ function setupFilters() {
     state.filters.type = typeFilterEl.value;
     renderFilms();
   });
+
+  sortFilterEl?.addEventListener("change", () => {
+    state.filters.sort = sortFilterEl.value || "date_desc";
+    renderFilms();
+  });
 }
 
 function renderFilms() {
@@ -95,12 +124,14 @@ function renderFilms() {
     return matchesFranchise && matchesPhase && matchesType && matchesSearch;
   });
 
-  if (!filtered.length) {
+  const sorted = sortFilms(filtered);
+
+  if (!sorted.length) {
     listEl.innerHTML = "<p>Aucun contenu ne correspond aux filtres.</p>";
     return;
   }
 
-  listEl.innerHTML = filtered
+  listEl.innerHTML = sorted
     .map(
       (film) => `
         <article class="card film-card">
@@ -149,7 +180,7 @@ async function loadFilms() {
       scoreByFilmId.set(rating.film_id, existing);
     }
 
-    state.films = sortChronologicallyDescending(films).map((film) => {
+    state.films = (films || []).map((film) => {
       const ratingData = scoreByFilmId.get(film.id) || { total: 0, count: 0 };
       return {
         ...film,

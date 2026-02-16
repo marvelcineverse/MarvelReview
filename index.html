@@ -40,6 +40,15 @@
             Type
             <select id="type-filter"></select>
           </label>
+          <label>
+            Tri
+            <select id="sort-filter">
+              <option value="date_desc">Date (dechronologique)</option>
+              <option value="date_asc">Date (chronologique)</option>
+              <option value="rating_desc">Note (plus haute d'abord)</option>
+              <option value="rating_asc">Note (plus basse d'abord)</option>
+            </select>
+          </label>
         </div>
       </section>
       <section id="films-list" class="grid films-grid"></section>

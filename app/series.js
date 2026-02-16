@@ -16,9 +16,16 @@ const state = {
   series: null,
   seasons: [],
   episodes: [],
+  listSeriesRows: [],
   episodeRatings: [],
   seasonUserRatings: [],
   seriesReviews: [],
+  listFilters: {
+    franchise: "",
+    phase: "",
+    type: "",
+    sort: "date_desc"
+  },
   socialExpanded: {
     reviews: false,
     activity: false
@@ -27,6 +34,11 @@ const state = {
 
 const SOCIAL_MOBILE_QUERY = "(max-width: 700px)";
 const SOCIAL_MOBILE_VISIBLE_ITEMS = 4;
+const listFranchiseFilterEl = document.querySelector("#series-franchise-filter");
+const listPhaseFilterEl = document.querySelector("#series-phase-filter");
+const listPhaseFilterWrapEl = document.querySelector("#series-phase-filter-wrap");
+const listTypeFilterEl = document.querySelector("#series-type-filter");
+const listSortFilterEl = document.querySelector("#series-sort-filter");
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -36,6 +48,14 @@ function getDateSortValue(value) {
   if (!value) return Number.NEGATIVE_INFINITY;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+}
+
+function fillSelect(selectEl, values, allLabel) {
+  if (!selectEl) return;
+  selectEl.innerHTML = [
+    `<option value="">${allLabel}</option>`,
+    ...values.map((value) => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`)
+  ].join("");
 }
 
 function toFixedNumber(value, digits = 6) {
@@ -372,6 +392,103 @@ function computeSeriesListAverages(seriesList, seasons, episodes, episodeRatings
   }
 
   return averageBySeriesId;
+}
+
+function updateListPhaseVisibility() {
+  const showPhase = state.listFilters.franchise === "MCU";
+  if (listPhaseFilterWrapEl) {
+    listPhaseFilterWrapEl.style.display = showPhase ? "grid" : "none";
+  }
+  if (!showPhase) {
+    state.listFilters.phase = "";
+    if (listPhaseFilterEl) listPhaseFilterEl.value = "";
+  }
+}
+
+function sortSeriesRows(rows) {
+  const sorted = [...rows];
+  const sortMode = state.listFilters.sort || "date_desc";
+
+  sorted.sort((a, b) => {
+    if (sortMode === "date_asc" || sortMode === "date_desc") {
+      const aTs = getDateSortValue(a.start_date);
+      const bTs = getDateSortValue(b.start_date);
+      if (aTs !== bTs) return sortMode === "date_asc" ? aTs - bTs : bTs - aTs;
+      return (a.title || "").localeCompare(b.title || "", "fr");
+    }
+
+    const aAverage = Number.isFinite(a.average) ? a.average : null;
+    const bAverage = Number.isFinite(b.average) ? b.average : null;
+    if (aAverage === null && bAverage === null) {
+      return (a.title || "").localeCompare(b.title || "", "fr");
+    }
+    if (aAverage === null) return 1;
+    if (bAverage === null) return -1;
+    if (aAverage !== bAverage) {
+      return sortMode === "rating_asc" ? aAverage - bAverage : bAverage - aAverage;
+    }
+    return (a.title || "").localeCompare(b.title || "", "fr");
+  });
+
+  return sorted;
+}
+
+function renderSeriesListWithFilters() {
+  const filtered = state.listSeriesRows.filter((item) => {
+    const franchise = (item.franchise || "").trim();
+    const hasFranchise = franchise.length > 0;
+    const matchesFranchise = !state.listFilters.franchise
+      || (state.listFilters.franchise === "__OTHER__"
+        ? !hasFranchise || (franchise !== "MCU" && franchise !== "SSU")
+        : franchise === state.listFilters.franchise);
+    const matchesType = !state.listFilters.type || (item.type || "") === state.listFilters.type;
+    const matchesPhase = !state.listFilters.phase || (item.mcuPhases || []).includes(state.listFilters.phase);
+
+    return matchesFranchise && matchesType && matchesPhase;
+  });
+
+  renderSeriesList(sortSeriesRows(filtered));
+}
+
+function setupSeriesListFilters() {
+  const types = Array.from(
+    new Set(state.listSeriesRows.map((row) => row.type).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b, "fr"));
+
+  const mcuPhases = Array.from(
+    new Set(
+      state.listSeriesRows
+        .filter((row) => row.franchise === "MCU")
+        .flatMap((row) => row.mcuPhases || [])
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, "fr"));
+
+  fillSelect(listTypeFilterEl, types, "Tous les types");
+  fillSelect(listPhaseFilterEl, mcuPhases, "Toutes les phases");
+  if (listSortFilterEl) listSortFilterEl.value = state.listFilters.sort;
+  updateListPhaseVisibility();
+
+  listFranchiseFilterEl?.addEventListener("change", () => {
+    state.listFilters.franchise = listFranchiseFilterEl.value || "";
+    updateListPhaseVisibility();
+    renderSeriesListWithFilters();
+  });
+
+  listPhaseFilterEl?.addEventListener("change", () => {
+    state.listFilters.phase = listPhaseFilterEl.value || "";
+    renderSeriesListWithFilters();
+  });
+
+  listTypeFilterEl?.addEventListener("change", () => {
+    state.listFilters.type = listTypeFilterEl.value || "";
+    renderSeriesListWithFilters();
+  });
+
+  listSortFilterEl?.addEventListener("change", () => {
+    state.listFilters.sort = listSortFilterEl.value || "date_desc";
+    renderSeriesListWithFilters();
+  });
 }
 
 function renderSeriesList(rows) {
@@ -1248,7 +1365,7 @@ async function initPage() {
           .order("start_date", { ascending: false, nullsFirst: false }),
         supabase
           .from("series_seasons")
-          .select("id, series_id"),
+          .select("id, series_id, phase"),
         supabase
           .from("series_episodes")
           .select("id, season_id"),
@@ -1277,20 +1394,25 @@ async function initPage() {
       const rows = (seriesList || [])
         .map((serie) => {
           const averageData = averageBySeriesId.get(serie.id) || { average: null, count: 0 };
+          const serieSeasons = (seasons || []).filter((season) => season.series_id === serie.id);
+          const mcuPhases = Array.from(
+            new Set(
+              serieSeasons
+                .map((season) => String(season.phase || "").trim())
+                .filter(Boolean)
+            )
+          );
           return {
             ...serie,
             average: averageData.average,
-            rating_count: averageData.count
+            rating_count: averageData.count,
+            mcuPhases
           };
-        })
-        .sort((a, b) => {
-          const aTs = getDateSortValue(a.start_date);
-          const bTs = getDateSortValue(b.start_date);
-          if (aTs !== bTs) return bTs - aTs;
-          return (a.title || "").localeCompare(b.title || "", "fr");
         });
 
-      renderSeriesList(rows);
+      state.listSeriesRows = rows;
+      setupSeriesListFilters();
+      renderSeriesListWithFilters();
       return;
     }
 

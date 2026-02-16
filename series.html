@@ -22,6 +22,37 @@
       <p id="page-message" class="message" aria-live="polite"></p>
 
       <section id="series-list-section">
+        <section class="card filters-card">
+          <h2>Filtres</h2>
+          <div class="filters-grid">
+            <label>
+              Franchise
+              <select id="series-franchise-filter">
+                <option value="">Toutes les franchises</option>
+                <option value="MCU">MCU</option>
+                <option value="SSU">SSU</option>
+                <option value="__OTHER__">Autres</option>
+              </select>
+            </label>
+            <label id="series-phase-filter-wrap">
+              Phase
+              <select id="series-phase-filter"></select>
+            </label>
+            <label>
+              Type
+              <select id="series-type-filter"></select>
+            </label>
+            <label>
+              Tri
+              <select id="series-sort-filter">
+                <option value="date_desc">Date (dechronologique)</option>
+                <option value="date_asc">Date (chronologique)</option>
+                <option value="rating_desc">Note (plus haute d'abord)</option>
+                <option value="rating_asc">Note (plus basse d'abord)</option>
+              </select>
+            </label>
+          </div>
+        </section>
         <div id="series-list" class="grid films-grid"></div>
       </section>
 
