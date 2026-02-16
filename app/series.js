@@ -32,6 +32,12 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function getDateSortValue(value) {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+}
+
 function toFixedNumber(value, digits = 6) {
   return Number(value.toFixed(digits));
 }
@@ -269,6 +275,105 @@ function computeSeriesAverages() {
   };
 }
 
+function computeSeriesListAverages(seriesList, seasons, episodes, episodeRatings, seasonUserRatings) {
+  const seasonsBySeriesId = new Map();
+  for (const season of seasons || []) {
+    const rows = seasonsBySeriesId.get(season.series_id) || [];
+    rows.push(season);
+    seasonsBySeriesId.set(season.series_id, rows);
+  }
+
+  const episodesBySeasonId = new Map();
+  for (const episode of episodes || []) {
+    const rows = episodesBySeasonId.get(episode.season_id) || [];
+    rows.push(episode);
+    episodesBySeasonId.set(episode.season_id, rows);
+  }
+
+  const episodeRatingsByEpisodeId = new Map();
+  for (const rating of episodeRatings || []) {
+    const rows = episodeRatingsByEpisodeId.get(rating.episode_id) || [];
+    rows.push(rating);
+    episodeRatingsByEpisodeId.set(rating.episode_id, rows);
+  }
+
+  const seasonRowsBySeasonId = new Map();
+  for (const row of seasonUserRatings || []) {
+    const rows = seasonRowsBySeasonId.get(row.season_id) || [];
+    rows.push(row);
+    seasonRowsBySeasonId.set(row.season_id, rows);
+  }
+
+  const averageBySeriesId = new Map();
+  for (const serie of seriesList || []) {
+    const serieSeasons = seasonsBySeriesId.get(serie.id) || [];
+    const totalSeasons = serieSeasons.length;
+    if (!totalSeasons) {
+      averageBySeriesId.set(serie.id, { average: null, count: 0 });
+      continue;
+    }
+
+    const userSeasonScores = new Map();
+
+    for (const season of serieSeasons) {
+      const seasonEpisodes = episodesBySeasonId.get(season.id) || [];
+      const episodeByUser = new Map();
+
+      for (const episode of seasonEpisodes) {
+        const ratings = episodeRatingsByEpisodeId.get(episode.id) || [];
+        for (const rating of ratings) {
+          const current = episodeByUser.get(rating.user_id) || { total: 0, count: 0 };
+          current.total += Number(rating.score || 0);
+          current.count += 1;
+          episodeByUser.set(rating.user_id, current);
+        }
+      }
+
+      const seasonRows = seasonRowsBySeasonId.get(season.id) || [];
+      const allUserIds = new Set([...episodeByUser.keys(), ...seasonRows.map((row) => row.user_id)]);
+
+      for (const userId of allUserIds) {
+        const manualRow = seasonRows.find((row) => row.user_id === userId);
+        const episodeValues = episodeByUser.get(userId);
+        const episodeAverage = episodeValues ? episodeValues.total / episodeValues.count : null;
+        const manual = manualRow?.manual_score === null || manualRow?.manual_score === undefined
+          ? null
+          : Number(manualRow.manual_score);
+        const adjustment = Number(manualRow?.adjustment || 0);
+        const effective = manual !== null
+          ? clamp(manual, 0, 10)
+          : (Number.isFinite(episodeAverage) ? clamp(episodeAverage + adjustment, 0, 10) : null);
+        if (!Number.isFinite(effective)) continue;
+
+        const current = userSeasonScores.get(userId) || [];
+        current.push(effective);
+        userSeasonScores.set(userId, current);
+      }
+    }
+
+    const weightedScores = [];
+    let weightedSum = 0;
+    let coverageWeightSum = 0;
+
+    for (const seasonScores of userSeasonScores.values()) {
+      if (!seasonScores.length) continue;
+      const userAverage = seasonScores.reduce((sum, value) => sum + value, 0) / seasonScores.length;
+      const coverage = seasonScores.length / totalSeasons;
+      weightedScores.push(userAverage);
+      weightedSum += userAverage * coverage;
+      coverageWeightSum += coverage;
+    }
+
+    const average = weightedScores.length && coverageWeightSum > 0
+      ? weightedSum / coverageWeightSum
+      : null;
+
+    averageBySeriesId.set(serie.id, { average, count: weightedScores.length });
+  }
+
+  return averageBySeriesId;
+}
+
 function renderSeriesList(rows) {
   const listEl = document.querySelector("#series-list");
   if (!rows.length) {
@@ -282,6 +387,11 @@ function renderSeriesList(rows) {
         <img src="${escapeHTML(item.poster_url || "https://via.placeholder.com/240x360?text=Serie")}" alt="Affiche de ${escapeHTML(item.title)}" />
         <div>
           <h3>${escapeHTML(item.title)}</h3>
+          <p class="film-average">${
+            item.rating_count > 0
+              ? `Moyenne: <span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span>`
+              : `Moyenne: <span class="score-badge film-average-badge stade-neutre">pas de note</span>`
+          }</p>
           <p>Debut: ${formatDate(item.start_date)}</p>
           <p>Fin: ${formatDate(item.end_date)}</p>
           <p class="film-meta">${escapeHTML(item.franchise || "-")} - ${escapeHTML(item.type || "Serie")}</p>
@@ -1125,12 +1235,62 @@ async function initPage() {
 
     const seriesId = getSeriesIdFromURL();
     if (!seriesId) {
-      const { data, error } = await supabase
-        .from("series")
-        .select("id, title, poster_url, start_date, end_date, franchise, type")
-        .order("start_date", { ascending: true, nullsFirst: false });
-      if (error) throw error;
-      renderSeriesList(data || []);
+      const [
+        { data: seriesList, error: seriesError },
+        { data: seasons, error: seasonsError },
+        { data: episodes, error: episodesError },
+        { data: episodeRatings, error: episodeRatingsError },
+        { data: seasonUserRatings, error: seasonUserRatingsError }
+      ] = await Promise.all([
+        supabase
+          .from("series")
+          .select("id, title, poster_url, start_date, end_date, franchise, type")
+          .order("start_date", { ascending: false, nullsFirst: false }),
+        supabase
+          .from("series_seasons")
+          .select("id, series_id"),
+        supabase
+          .from("series_episodes")
+          .select("id, season_id"),
+        supabase
+          .from("episode_ratings")
+          .select("episode_id, user_id, score"),
+        supabase
+          .from("season_user_ratings")
+          .select("season_id, user_id, manual_score, adjustment")
+      ]);
+
+      if (seriesError) throw seriesError;
+      if (seasonsError) throw seasonsError;
+      if (episodesError) throw episodesError;
+      if (episodeRatingsError) throw episodeRatingsError;
+      if (seasonUserRatingsError) throw seasonUserRatingsError;
+
+      const averageBySeriesId = computeSeriesListAverages(
+        seriesList || [],
+        seasons || [],
+        episodes || [],
+        episodeRatings || [],
+        seasonUserRatings || []
+      );
+
+      const rows = (seriesList || [])
+        .map((serie) => {
+          const averageData = averageBySeriesId.get(serie.id) || { average: null, count: 0 };
+          return {
+            ...serie,
+            average: averageData.average,
+            rating_count: averageData.count
+          };
+        })
+        .sort((a, b) => {
+          const aTs = getDateSortValue(a.start_date);
+          const bTs = getDateSortValue(b.start_date);
+          if (aTs !== bTs) return bTs - aTs;
+          return (a.title || "").localeCompare(b.title || "", "fr");
+        });
+
+      renderSeriesList(rows);
       return;
     }
 

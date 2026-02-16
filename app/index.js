@@ -18,11 +18,11 @@ const typeFilterEl = document.querySelector("#type-filter");
 const phaseFilterWrapEl = document.querySelector("#phase-filter-wrap");
 const titleSearchEl = document.querySelector("#title-search");
 
-function sortChronologically(films) {
+function sortChronologicallyDescending(films) {
   return [...films].sort((a, b) => {
-    const aTs = a.release_date ? new Date(a.release_date).getTime() : Number.POSITIVE_INFINITY;
-    const bTs = b.release_date ? new Date(b.release_date).getTime() : Number.POSITIVE_INFINITY;
-    if (aTs !== bTs) return aTs - bTs;
+    const aTs = a.release_date ? new Date(a.release_date).getTime() : Number.NEGATIVE_INFINITY;
+    const bTs = b.release_date ? new Date(b.release_date).getTime() : Number.NEGATIVE_INFINITY;
+    if (aTs !== bTs) return bTs - aTs;
     return (a.title || "").localeCompare(b.title || "", "fr");
   });
 }
@@ -149,7 +149,7 @@ async function loadFilms() {
       scoreByFilmId.set(rating.film_id, existing);
     }
 
-    state.films = sortChronologically(films).map((film) => {
+    state.films = sortChronologicallyDescending(films).map((film) => {
       const ratingData = scoreByFilmId.get(film.id) || { total: 0, count: 0 };
       return {
         ...film,
