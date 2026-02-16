@@ -3,10 +3,38 @@ import { getCurrentProfile, requireAuth } from "./auth.js";
 import { escapeHTML, setMessage } from "./utils.js";
 
 const state = {
+  films: [],
   series: [],
   seasons: [],
   episodes: []
 };
+
+function bindCreationTabs() {
+  const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
+  const panels = Array.from(document.querySelectorAll("[data-tab-panel]"));
+  if (!tabButtons.length || !panels.length) return;
+
+  const activate = (target) => {
+    tabButtons.forEach((button) => {
+      const isActive = button.dataset.tabTarget === target;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
+    panels.forEach((panel) => {
+      panel.classList.toggle("is-active", panel.dataset.tabPanel === target);
+    });
+  };
+
+  tabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      activate(button.dataset.tabTarget || "film");
+    });
+  });
+
+  const defaultTab = tabButtons.find((button) => button.classList.contains("is-active"))?.dataset.tabTarget || "film";
+  activate(defaultTab);
+}
 
 async function ensureAdmin() {
   const session = await requireAuth("/login.html");
@@ -66,6 +94,26 @@ function bindCreateMedia() {
       setMessage("#create-media-message", error.message || "Creation media impossible.", true);
     }
   });
+}
+
+function renderFilmOptions() {
+  document.querySelector("#film-id").innerHTML = [
+    `<option value="">Nouveau film</option>`,
+    ...state.films.map((film) => `<option value="${film.id}">${escapeHTML(film.title)}</option>`)
+  ].join("");
+}
+
+function fillFilmForm(filmId) {
+  const row = state.films.find((item) => item.id === filmId);
+
+  document.querySelector("#film-title").value = row?.title || "";
+  document.querySelector("#film-slug").value = row?.slug || "";
+  document.querySelector("#film-release-date").value = row?.release_date || "";
+  document.querySelector("#film-franchise").value = row?.franchise || "MCU";
+  document.querySelector("#film-phase").value = row?.phase || "";
+  document.querySelector("#film-type").value = row?.type || "Film";
+  document.querySelector("#film-poster-url").value = row?.poster_url || "";
+  document.querySelector("#film-synopsis").value = row?.synopsis || "";
 }
 
 function renderSeriesOptions() {
@@ -166,7 +214,16 @@ function fillEpisodeForm(episodeId) {
 }
 
 async function refreshSeriesData() {
-  const [{ data: series, error: seriesError }, { data: seasons, error: seasonsError }, { data: episodes, error: episodesError }] = await Promise.all([
+  const [
+    { data: films, error: filmsError },
+    { data: series, error: seriesError },
+    { data: seasons, error: seasonsError },
+    { data: episodes, error: episodesError }
+  ] = await Promise.all([
+    supabase
+      .from("films")
+      .select("id, title, slug, release_date, franchise, phase, type, poster_url, synopsis")
+      .order("release_date", { ascending: true, nullsFirst: false }),
     supabase
       .from("series")
       .select("id, title, slug, synopsis, poster_url, start_date, end_date, franchise, type")
@@ -181,20 +238,27 @@ async function refreshSeriesData() {
       .order("episode_number", { ascending: true })
   ]);
 
+  if (filmsError) throw filmsError;
   if (seriesError) throw seriesError;
   if (seasonsError) throw seasonsError;
   if (episodesError) throw episodesError;
 
+  state.films = films || [];
   state.series = series || [];
   state.seasons = seasons || [];
   state.episodes = episodes || [];
 
+  const selectedFilmId = document.querySelector("#film-id")?.value || "";
   const selectedSeriesId = document.querySelector("#series-id")?.value || "";
   const selectedSeasonSeriesId = document.querySelector("#season-series-id")?.value || "";
   const selectedSeasonId = document.querySelector("#season-id")?.value || "";
   const selectedEpisodeSeasonId = document.querySelector("#episode-season-id")?.value || "";
   const selectedEpisodeId = document.querySelector("#episode-id")?.value || "";
   const selectedBulkEpisodeSeasonId = document.querySelector("#episode-bulk-season-id")?.value || "";
+
+  renderFilmOptions();
+  document.querySelector("#film-id").value = state.films.some((f) => f.id === selectedFilmId) ? selectedFilmId : "";
+  fillFilmForm(document.querySelector("#film-id").value || "");
 
   renderSeriesOptions();
   document.querySelector("#series-id").value = state.series.some((s) => s.id === selectedSeriesId) ? selectedSeriesId : "";
@@ -251,11 +315,12 @@ function renderBulkEpisodeRows(count, previousRows = []) {
     const title = escapeHTML(row.title || "");
     const airDate = escapeHTML(row.air_date || "");
     return `
-      <div class="bulk-episode-row" data-bulk-row>
-        <input data-field="episode-number" type="number" min="1" step="1" value="${escapeHTML(episodeNumber)}" placeholder="Numero" />
-        <input data-field="episode-title" type="text" value="${title}" placeholder="Titre episode" />
-        <input data-field="episode-air-date" type="text" value="${airDate}" placeholder="Date (YYYY-MM-DD ou DD/MM/YYYY)" />
-      </div>
+      <tr class="bulk-episode-row" data-bulk-row>
+        <td class="bulk-episode-index">${idx + 1}</td>
+        <td><input data-field="episode-number" type="number" min="1" step="1" value="${escapeHTML(episodeNumber)}" placeholder="Numero" /></td>
+        <td><input data-field="episode-title" type="text" value="${title}" placeholder="Titre episode" /></td>
+        <td><input data-field="episode-air-date" type="text" value="${airDate}" placeholder="Date (YYYY-MM-DD ou DD/MM/YYYY)" /></td>
+      </tr>
     `;
   }).join("");
 
@@ -300,7 +365,90 @@ function parseBulkEpisodesRows() {
   return parsed.sort((a, b) => a.episode_number - b.episode_number);
 }
 
+function fillBulkTableFromPaste(event) {
+  const input = event.target;
+  if (!(input instanceof HTMLInputElement)) return;
+  if (!input.dataset.field) return;
+
+  const raw = event.clipboardData?.getData("text/plain") || "";
+  if (!raw.includes("\n") && !raw.includes("\t")) return;
+
+  const matrix = raw
+    .replace(/\r/g, "")
+    .split("\n")
+    .filter((line) => line.trim().length > 0)
+    .map((line) => line.split("\t"));
+  if (!matrix.length) return;
+
+  const fields = ["episode-number", "episode-title", "episode-air-date"];
+  const startFieldIndex = fields.indexOf(input.dataset.field);
+  if (startFieldIndex === -1) return;
+
+  const previousRows = getBulkRowsValues();
+  let rowEls = Array.from(document.querySelectorAll("[data-bulk-row]"));
+  const startRowEl = input.closest("[data-bulk-row]");
+  const startRowIndex = rowEls.indexOf(startRowEl);
+  if (startRowIndex < 0) return;
+
+  const neededRows = startRowIndex + matrix.length;
+  if (neededRows > previousRows.length) {
+    renderBulkEpisodeRows(neededRows, previousRows);
+    rowEls = Array.from(document.querySelectorAll("[data-bulk-row]"));
+  }
+
+  event.preventDefault();
+
+  matrix.forEach((columns, rowOffset) => {
+    const rowEl = rowEls[startRowIndex + rowOffset];
+    if (!rowEl) return;
+
+    columns.forEach((value, columnOffset) => {
+      const field = fields[startFieldIndex + columnOffset];
+      if (!field) return;
+      const cellInput = rowEl.querySelector(`[data-field='${field}']`);
+      if (cellInput) cellInput.value = value.trim();
+    });
+  });
+}
+
 function bindSeriesForms() {
+  document.querySelector("#film-id")?.addEventListener("change", () => {
+    fillFilmForm(document.querySelector("#film-id").value || "");
+  });
+
+  document.querySelector("#film-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const id = document.querySelector("#film-id").value || null;
+    const payload = {
+      id: id || undefined,
+      title: document.querySelector("#film-title").value.trim(),
+      slug: document.querySelector("#film-slug").value.trim() || null,
+      release_date: document.querySelector("#film-release-date").value || null,
+      franchise: document.querySelector("#film-franchise").value.trim() || "MCU",
+      phase: document.querySelector("#film-phase").value.trim() || null,
+      type: document.querySelector("#film-type").value.trim() || "Film",
+      poster_url: document.querySelector("#film-poster-url").value.trim() || null,
+      synopsis: document.querySelector("#film-synopsis").value.trim() || null
+    };
+
+    if (!payload.title) {
+      setMessage("#film-message", "Le titre est obligatoire.", true);
+      return;
+    }
+
+    if (!id) delete payload.id;
+
+    try {
+      const { error } = await supabase.from("films").upsert(payload);
+      if (error) throw error;
+      setMessage("#film-message", "Film enregistre.");
+      await refreshSeriesData();
+    } catch (error) {
+      setMessage("#film-message", error.message || "Enregistrement film impossible.", true);
+    }
+  });
+
   document.querySelector("#series-id")?.addEventListener("change", () => {
     fillSeriesForm(document.querySelector("#series-id").value || "");
   });
@@ -475,6 +623,10 @@ function bindSeriesForms() {
     renderBulkEpisodeRows(count, previousRows);
   });
 
+  document.querySelector("#episode-bulk-rows")?.addEventListener("paste", (event) => {
+    fillBulkTableFromPaste(event);
+  });
+
   renderBulkEpisodeRows(Number(document.querySelector("#episode-bulk-count")?.value || 6));
 }
 
@@ -482,6 +634,7 @@ async function initAdminPage() {
   const session = await ensureAdmin();
   if (!session) return;
 
+  bindCreationTabs();
   await loadUsers();
   bindCreateMedia();
   bindSeriesForms();

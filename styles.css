@@ -293,11 +293,94 @@ button:hover {
   white-space: nowrap;
 }
 
-.bulk-episode-row {
-  display: grid;
-  grid-template-columns: 110px 1fr 230px;
-  gap: 0.5rem;
-  align-items: center;
+.content-creation-card {
+  padding-top: 0.85rem;
+}
+
+.creation-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.creation-tab {
+  background: #eef2f6;
+  color: #435465;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  padding: 0.58rem 0.9rem;
+  font-weight: 700;
+}
+
+.creation-tab:hover {
+  background: #dfe7ef;
+}
+
+.creation-tab.is-active {
+  background: #ffffff;
+  color: var(--text);
+  position: relative;
+  top: 1px;
+}
+
+.creation-panel {
+  display: none;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  padding: 1rem 0.9rem 0.9rem;
+  background: #fff;
+}
+
+.creation-panel.is-active {
+  display: block;
+}
+
+.episode-bulk-form {
+  max-width: none;
+}
+
+.bulk-episodes-table {
+  min-width: 760px;
+}
+
+.bulk-episodes-table th:nth-child(1),
+.bulk-episodes-table td:nth-child(1) {
+  width: 64px;
+  text-align: center;
+}
+
+.bulk-episodes-table th:nth-child(2),
+.bulk-episodes-table td:nth-child(2) {
+  width: 170px;
+  text-align: left;
+}
+
+.bulk-episodes-table th:nth-child(3),
+.bulk-episodes-table td:nth-child(3) {
+  text-align: left;
+}
+
+.bulk-episodes-table th:nth-child(4),
+.bulk-episodes-table td:nth-child(4) {
+  width: 250px;
+  text-align: left;
+}
+
+.bulk-episodes-table input {
+  min-width: 100%;
+  border-radius: 8px;
+  padding: 0.45rem 0.58rem;
+}
+
+.bulk-episode-index {
+  font-weight: 700;
+  color: var(--muted);
 }
 
 .bulk-episode-row input {
@@ -612,6 +695,15 @@ textarea {
 @media (max-width: 700px) {
   .container {
     width: min(100% - 1.2rem, 1100px);
+  }
+
+  .creation-tab {
+    padding: 0.5rem 0.72rem;
+    white-space: nowrap;
+  }
+
+  .creation-panel {
+    padding: 0.85rem 0.75rem 0.75rem;
   }
 
   .film-hero {
