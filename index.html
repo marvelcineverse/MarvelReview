@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MarvelReview - Films</title>
+    <title>MarvelReview - Accueil</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -12,49 +12,40 @@
 
       <section class="page-intro">
         <div>
-          <h1>Liste des films Marvel</h1>
-          <p>Choisis un film pour voir les notes et critiques.</p>
+          <h1>MarvelReview</h1>
+          <p>Bienvenue sur la plateforme de notation et de critiques Marvel.</p>
+          <p class="film-meta">Version: 2.0 - nouvelle page d'accueil</p>
         </div>
         <p id="auth-status" class="status"></p>
       </section>
 
       <p id="page-message" class="message" aria-live="polite"></p>
-      <section class="card search-card">
-        <label>
-          Recherche film
-          <input id="title-search" type="search" placeholder="Rechercher par nom..." />
-        </label>
+
+      <section class="card home-intro-card">
+        <h2>Fonctionnement des notes</h2>
+        <p>
+          Films et episodes: note individuelle sur 10 (pas de 0,25), avec critique optionnelle.
+        </p>
+        <p>
+          Saisons: la note effective vient de ta note manuelle, ou de la moyenne de tes episodes (plus ajusteur) uniquement quand tous les episodes de la saison sont notes.
+        </p>
+        <p class="film-meta">
+          Tant qu'une saison n'est pas complete, la moyenne partielle reste visible dans "Moyenne de tes episodes" mais n'est pas comptabilisee comme note effective.
+        </p>
       </section>
-      <section class="card filters-card">
-        <h2>Filtres</h2>
-        <div class="filters-grid">
-          <label>
-            Franchise
-            <select id="franchise-filter"></select>
-          </label>
-          <label id="phase-filter-wrap">
-            Phase
-            <select id="phase-filter"></select>
-          </label>
-          <label>
-            Type
-            <select id="type-filter"></select>
-          </label>
-          <label>
-            Tri
-            <select id="sort-filter">
-              <option value="date_desc">Date (dechronologique)</option>
-              <option value="date_asc">Date (chronologique)</option>
-              <option value="rating_desc">Note (plus haute d'abord)</option>
-              <option value="rating_asc">Note (plus basse d'abord)</option>
-            </select>
-          </label>
-        </div>
+
+      <section class="card">
+        <h2>Derniers contenus sortis</h2>
+        <div id="home-latest-content-list" class="grid films-grid"></div>
       </section>
-      <section id="films-list" class="grid films-grid"></section>
+
+      <section class="card">
+        <h2>Dernieres notes/critiques enregistrees</h2>
+        <div id="home-latest-activity-list" class="grid social-feed"></div>
+      </section>
     </main>
 
     <script type="module" src="/app/common.js"></script>
-    <script type="module" src="/app/index.js"></script>
+    <script type="module" src="/app/home.js"></script>
   </body>
 </html>

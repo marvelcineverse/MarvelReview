@@ -15,7 +15,8 @@ Mini webapp de notation + mini-critiques de films Marvel.
 
 ## 2) Structure des fichiers
 
-- `index.html`: liste des films
+- `index.html`: page d'accueil
+- `films.html`: liste des films
 - `film.html?id=...`: detail film + moyenne + critiques + formulaire de note
 - `ranking.html`: classement par moyenne
 - `login.html`: connexion

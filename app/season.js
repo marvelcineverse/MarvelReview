@@ -56,57 +56,76 @@ function applySeasonAvailability() {
   }
 }
 
-function computeSeasonMetrics() {
+function buildSeasonComputationContext() {
+  const episodeCount = state.episodes.length;
   const episodeIds = new Set(state.episodes.map((episode) => episode.id));
+  const episodeStatsByUser = new Map();
 
-  const episodeAveragesByUser = new Map();
   for (const rating of state.episodeRatings) {
     if (!episodeIds.has(rating.episode_id)) continue;
-    const current = episodeAveragesByUser.get(rating.user_id) || { total: 0, count: 0 };
+    const current = episodeStatsByUser.get(rating.user_id) || { total: 0, count: 0 };
     current.total += Number(rating.score || 0);
     current.count += 1;
-    episodeAveragesByUser.set(rating.user_id, current);
+    episodeStatsByUser.set(rating.user_id, current);
   }
 
-  const perUser = new Map();
-  for (const [userId, value] of episodeAveragesByUser.entries()) {
-    perUser.set(userId, {
-      episodeAverage: value.count ? value.total / value.count : null,
-      manualScore: null,
-      adjustment: 0
-    });
-  }
-
+  const seasonRowsByUser = new Map();
   for (const row of state.seasonUserRatings) {
-    const existing = perUser.get(row.user_id) || { episodeAverage: null, manualScore: null, adjustment: 0 };
-    existing.manualScore = row.manual_score === null ? null : Number(row.manual_score);
-    existing.adjustment = Number(row.adjustment || 0);
-    perUser.set(row.user_id, existing);
+    seasonRowsByUser.set(row.user_id, row);
   }
 
+  return {
+    episodeCount,
+    episodeStatsByUser,
+    seasonRowsByUser
+  };
+}
+
+function resolveSeasonUserScoreFromContext(context, userId) {
+  const stats = context.episodeStatsByUser.get(userId) || { total: 0, count: 0 };
+  const seasonRow = context.seasonRowsByUser.get(userId);
+  const manualScore = seasonRow?.manual_score === null || seasonRow?.manual_score === undefined
+    ? null
+    : Number(seasonRow.manual_score);
+  const adjustment = Number(seasonRow?.adjustment || 0);
+  const episodeAverage = stats.count ? stats.total / stats.count : null;
+  const isComplete = context.episodeCount > 0 && stats.count === context.episodeCount;
+
+  const effectiveScore = Number.isFinite(manualScore)
+    ? clamp(manualScore, 0, 10)
+    : (isComplete && Number.isFinite(episodeAverage) ? clamp(episodeAverage + adjustment, 0, 10) : null);
+
+  return {
+    episodeAverage,
+    manualScore,
+    adjustment,
+    effectiveScore,
+    isComplete
+  };
+}
+
+function computeSeasonMetrics() {
+  const context = buildSeasonComputationContext();
+  const allUserIds = new Set([...context.episodeStatsByUser.keys(), ...context.seasonRowsByUser.keys()]);
   const effectiveScores = [];
-  for (const value of perUser.values()) {
-    const effective = value.manualScore !== null
-      ? clamp(value.manualScore, 0, 10)
-      : (Number.isFinite(value.episodeAverage) ? clamp(value.episodeAverage + value.adjustment, 0, 10) : null);
-    if (Number.isFinite(effective)) effectiveScores.push(effective);
+  for (const userId of allUserIds) {
+    const resolved = resolveSeasonUserScoreFromContext(context, userId);
+    if (Number.isFinite(resolved.effectiveScore)) effectiveScores.push(resolved.effectiveScore);
   }
 
   const siteAverage = effectiveScores.length
     ? effectiveScores.reduce((sum, score) => sum + score, 0) / effectiveScores.length
     : null;
 
-  const user = perUser.get(state.currentUserId) || { episodeAverage: null, manualScore: null, adjustment: 0 };
-  const userEffective = user.manualScore !== null
-    ? clamp(user.manualScore, 0, 10)
-    : (Number.isFinite(user.episodeAverage) ? clamp(user.episodeAverage + user.adjustment, 0, 10) : null);
+  const user = resolveSeasonUserScoreFromContext(context, state.currentUserId);
 
   return {
-    episodeCount: state.episodes.length,
+    episodeCount: context.episodeCount,
     userEpisodeAverage: user.episodeAverage,
     userManualScore: user.manualScore,
     userAdjustment: user.adjustment,
-    userEffective,
+    userEffective: user.effectiveScore,
+    userHasAllEpisodeRatings: user.isComplete,
     siteAverage
   };
 }
@@ -534,8 +553,8 @@ async function adjustSeason(delta) {
     return;
   }
 
-  if (!Number.isFinite(base)) {
-    setMessage("#season-form-message", "Il faut noter des episodes pour utiliser l'ajusteur.", true);
+  if (!Number.isFinite(base) || !metrics.userHasAllEpisodeRatings) {
+    setMessage("#season-form-message", "Il faut noter tous les episodes pour utiliser l'ajusteur.", true);
     return;
   }
 
