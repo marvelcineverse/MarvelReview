@@ -8,8 +8,12 @@ import {
   setMessage
 } from "./utils.js";
 
-const LATEST_CONTENT_LIMIT = 8;
+const LATEST_CONTENT_INITIAL_LIMIT = 4;
+const LATEST_CONTENT_EXPANDED_LIMIT = 8;
 const LATEST_ACTIVITY_LIMIT = 20;
+const state = {
+  latestContentExpanded: false
+};
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -19,6 +23,20 @@ function getTimeValue(value) {
   if (!value) return 0;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getSeriesHighlightDate(seriesRow, seasonsBySeriesId) {
+  const seasons = seasonsBySeriesId.get(seriesRow.id) || [];
+  const releasedSeasonDates = seasons
+    .map((season) => season.start_date || null)
+    .filter((date) => isReleasedOnOrBeforeToday(date));
+
+  if (releasedSeasonDates.length) {
+    releasedSeasonDates.sort((a, b) => getTimeValue(b) - getTimeValue(a));
+    return releasedSeasonDates[0];
+  }
+
+  return seriesRow.start_date || null;
 }
 
 function computeSeriesListAverages(seriesList, seasons, episodes, episodeRatings, seasonUserRatings) {
@@ -144,21 +162,28 @@ async function loadMembershipMapForUsers(userIds) {
   return map;
 }
 
-function renderLatestContent(items) {
+function renderLatestContent(allItems) {
   const listEl = document.querySelector("#home-latest-content-list");
+  const toggleEl = document.querySelector("#home-latest-content-toggle");
   if (!listEl) return;
 
-  if (!items.length) {
+  if (!allItems.length) {
     listEl.innerHTML = "<p>Aucun contenu sorti pour le moment.</p>";
+    if (toggleEl) toggleEl.style.display = "none";
     return;
   }
+
+  const visibleLimit = state.latestContentExpanded
+    ? LATEST_CONTENT_EXPANDED_LIMIT
+    : LATEST_CONTENT_INITIAL_LIMIT;
+  const items = allItems.slice(0, visibleLimit);
 
   listEl.innerHTML = items
     .map((item) => {
       const averageLabel = item.rating_count > 0
         ? `<span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span>`
         : `<span class="score-badge film-average-badge stade-neutre">pas de note</span>`;
-      const dateLabel = item.kind === "film" ? "Sortie" : "Debut";
+      const dateLabel = item.kind === "film" ? "Sortie" : "Derniere sortie";
       const secondDate = item.kind === "series" ? `<p>Fin: ${formatDate(item.end_date)}</p>` : "";
       const linkLabel = item.kind === "film" ? "Voir la page film" : "Voir la page serie";
       const linkHref = item.kind === "film" ? `/film.html?id=${item.id}` : `/series.html?id=${item.id}`;
@@ -178,6 +203,11 @@ function renderLatestContent(items) {
       `;
     })
     .join("");
+
+  if (!toggleEl) return;
+  const canExpand = allItems.length > LATEST_CONTENT_INITIAL_LIMIT;
+  toggleEl.style.display = canExpand ? "inline-flex" : "none";
+  toggleEl.textContent = state.latestContentExpanded ? "Voir moins" : "Voir plus";
 }
 
 function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRatings) {
@@ -330,7 +360,7 @@ async function loadHomePage() {
       supabase.from("films").select("id, title, release_date, poster_url, franchise, type"),
       supabase.from("ratings").select("film_id, score"),
       supabase.from("series").select("id, title, start_date, end_date, poster_url, franchise, type"),
-      supabase.from("series_seasons").select("id, series_id, name, season_number"),
+      supabase.from("series_seasons").select("id, series_id, name, season_number, start_date"),
       supabase.from("series_episodes").select("id, season_id, title, episode_number"),
       supabase.from("episode_ratings").select("id, user_id, episode_id, score, review, created_at, profiles(username)"),
       supabase.from("season_user_ratings").select("id, user_id, season_id, manual_score, adjustment, review, created_at, profiles(username)"),
@@ -382,9 +412,17 @@ async function loadHomePage() {
         };
       });
 
+    const seasonsBySeriesId = new Map();
+    for (const season of seasons || []) {
+      const current = seasonsBySeriesId.get(season.series_id) || [];
+      current.push(season);
+      seasonsBySeriesId.set(season.series_id, current);
+    }
+
     const releasedSeries = (series || [])
-      .filter((row) => isReleasedOnOrBeforeToday(row.start_date))
       .map((row) => {
+        const highlightDate = getSeriesHighlightDate(row, seasonsBySeriesId);
+        if (!isReleasedOnOrBeforeToday(highlightDate)) return null;
         const averageData = seriesAverageById.get(row.id) || { average: null, count: 0 };
         return {
           kind: "series",
@@ -393,18 +431,24 @@ async function loadHomePage() {
           poster_url: row.poster_url,
           franchise: row.franchise,
           type: row.type,
-          date: row.start_date,
+          date: highlightDate,
           end_date: row.end_date,
           rating_count: averageData.count,
           average: averageData.average
         };
-      });
+      })
+      .filter(Boolean);
 
     const latestContent = [...releasedFilms, ...releasedSeries]
       .sort((a, b) => getTimeValue(b.date) - getTimeValue(a.date))
-      .slice(0, LATEST_CONTENT_LIMIT);
+      .slice(0, LATEST_CONTENT_EXPANDED_LIMIT);
 
     renderLatestContent(latestContent);
+    const contentToggleEl = document.querySelector("#home-latest-content-toggle");
+    contentToggleEl?.addEventListener("click", () => {
+      state.latestContentExpanded = !state.latestContentExpanded;
+      renderLatestContent(latestContent);
+    });
 
     const filmById = new Map((films || []).map((film) => [film.id, film]));
     const seriesById = new Map((series || []).map((row) => [row.id, row]));

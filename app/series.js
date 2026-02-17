@@ -513,9 +513,14 @@ function renderSeriesHeader() {
     <article class="card film-hero">
       <div class="film-hero-content">
         <h1>${escapeHTML(series.title)}</h1>
-        <p>Debut: ${formatDate(series.start_date)} - Fin: ${formatDate(series.end_date)}</p>
+        <p><u>Début</u> : ${formatDate(series.start_date)} - <u>Fin</u> : ${formatDate(series.end_date)}</p>
         <p>${escapeHTML(series.synopsis || "Aucun synopsis.")}</p>
       </div>
+
+      <p>Pour les séries, la note effective vient de ta note manuelle, ou de la moyenne de tes episodes (plus ajusteur) uniquement quand tous les episodes de la saison sont notes.</p>
+        <p class="film-meta">
+          Tant qu'une saison n'est pas complete, la moyenne partielle reste visible dans "Moyenne de tes episodes" mais n'est pas comptabilisee comme note effective.
+        </p>
       <img class="film-hero-poster" src="${escapeHTML(series.poster_url || "https://via.placeholder.com/260x390?text=Serie")}" alt="Affiche de ${escapeHTML(series.title)}" />
     </article>
   `;

@@ -13,8 +13,8 @@
       <section class="page-intro">
         <div>
           <h1>MarvelReview</h1>
-          <p>Bienvenue sur la plateforme de notation et de critiques Marvel.</p>
-          <p class="film-meta">Version: 2.0 - nouvelle page d'accueil</p>
+          <p>Bienvenue sur la plateforme de notation et de critiques des films et séries Marvel pour la communauté française 🇫🇷 !</p>
+          <p class="film-meta"><small>Version : 2.0 - 17/02/2026</small></p>
         </div>
         <p id="auth-status" class="status"></p>
       </section>
@@ -22,13 +22,11 @@
       <p id="page-message" class="message" aria-live="polite"></p>
 
       <section class="card home-intro-card">
-        <h2>Fonctionnement des notes</h2>
-        <p>
-          Films et episodes: note individuelle sur 10 (pas de 0,25), avec critique optionnelle.
-        </p>
-        <p>
-          Saisons: la note effective vient de ta note manuelle, ou de la moyenne de tes episodes (plus ajusteur) uniquement quand tous les episodes de la saison sont notes.
-        </p>
+        <h2>Fonctionnement de la plateforme</h2>
+        <p>Marvel Review est une plateforme interactive destinée à la communauté francophone de Marvel.
+          Le but est de ressembler les passionnés pour noter et critiquer avec nuance et objectivité les différents contenus Marvel au cinéma et à la télévision.</p>
+        <p>Notez sur 10 les différents films et séries Marvel, avec une critique optionnelle. N'oubliez pas, les choses sont rarement parfaites, et rarement 100% horribles 😂.</p>
+        <p>Pour les séries, la note effective vient de ta note manuelle, ou de la moyenne de tes episodes (plus ajusteur) uniquement quand tous les episodes de la saison sont notes.</p>
         <p class="film-meta">
           Tant qu'une saison n'est pas complete, la moyenne partielle reste visible dans "Moyenne de tes episodes" mais n'est pas comptabilisee comme note effective.
         </p>
@@ -37,11 +35,14 @@
       <section class="card">
         <h2>Derniers contenus sortis</h2>
         <div id="home-latest-content-list" class="grid films-grid"></div>
+        <button id="home-latest-content-toggle" type="button" class="ghost-button social-more-button" style="display: none;">
+          Voir plus
+        </button>
       </section>
 
       <section class="card">
         <h2>Dernieres notes/critiques enregistrees</h2>
-        <div id="home-latest-activity-list" class="grid social-feed"></div>
+        <div id="home-latest-activity-list" class="grid home-activity-grid"></div>
       </section>
     </main>
 
