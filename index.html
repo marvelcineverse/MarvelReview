@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MarvelReview - Films</title>
+    <title>MarvelReview - Accueil</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -12,49 +12,41 @@
 
       <section class="page-intro">
         <div>
-          <h1>Liste des films Marvel</h1>
-          <p>Choisis un film pour voir les notes et critiques.</p>
+          <h1>MarvelReview</h1>
+          <p>Bienvenue sur la plateforme de notation et de critiques des films et séries Marvel pour la communauté française 🇫🇷 !</p>
+          <p class="film-meta"><small>Version : 2.0 - 17/02/2026</small></p>
         </div>
         <p id="auth-status" class="status"></p>
       </section>
 
       <p id="page-message" class="message" aria-live="polite"></p>
-      <section class="card search-card">
-        <label>
-          Recherche film
-          <input id="title-search" type="search" placeholder="Rechercher par nom..." />
-        </label>
+
+      <section class="card home-intro-card">
+        <h2>Fonctionnement de la plateforme</h2>
+        <p>Marvel Review est une plateforme interactive destinée à la communauté francophone de Marvel.
+          Le but est de ressembler les passionnés pour noter et critiquer avec nuance et objectivité les différents contenus Marvel au cinéma et à la télévision.</p>
+        <p>Notez sur 10 les différents films et séries Marvel, avec une critique optionnelle. N'oubliez pas, les choses sont rarement parfaites, et rarement 100% horribles 😂.</p>
+        <p>Pour les séries, la note effective vient de ta note manuelle, ou de la moyenne de tes episodes (plus ajusteur) uniquement quand tous les episodes de la saison sont notes.</p>
+        <p class="film-meta">
+          Tant qu'une saison n'est pas complete, la moyenne partielle reste visible dans "Moyenne de tes episodes" mais n'est pas comptabilisee comme note effective.
+        </p>
       </section>
-      <section class="card filters-card">
-        <h2>Filtres</h2>
-        <div class="filters-grid">
-          <label>
-            Franchise
-            <select id="franchise-filter"></select>
-          </label>
-          <label id="phase-filter-wrap">
-            Phase
-            <select id="phase-filter"></select>
-          </label>
-          <label>
-            Type
-            <select id="type-filter"></select>
-          </label>
-          <label>
-            Tri
-            <select id="sort-filter">
-              <option value="date_desc">Date (dechronologique)</option>
-              <option value="date_asc">Date (chronologique)</option>
-              <option value="rating_desc">Note (plus haute d'abord)</option>
-              <option value="rating_asc">Note (plus basse d'abord)</option>
-            </select>
-          </label>
-        </div>
+
+      <section class="card">
+        <h2>Derniers contenus sortis</h2>
+        <div id="home-latest-content-list" class="grid films-grid"></div>
       </section>
-      <section id="films-list" class="grid films-grid"></section>
+
+      <section class="card">
+        <h2>Dernieres notes/critiques enregistrees</h2>
+        <div id="home-latest-activity-list" class="grid home-activity-grid"></div>
+        <button id="home-latest-activity-toggle" type="button" class="ghost-button social-more-button" style="display: none;">
+          Voir plus
+        </button>
+      </section>
     </main>
 
     <script type="module" src="/app/common.js"></script>
-    <script type="module" src="/app/index.js"></script>
+    <script type="module" src="/app/home.js"></script>
   </body>
 </html>

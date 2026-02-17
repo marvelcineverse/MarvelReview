@@ -2,7 +2,8 @@
   <header class="site-header">
     <a class="brand" href="/index.html">MarvelReview</a>
     <nav class="top-nav">
-      <a href="/index.html">Films</a>
+      <a href="/index.html">Accueil</a>
+      <a href="/films.html">Films</a>
       <a href="/series.html">Series</a>
       <a href="/ranking.html">Classement</a>
       <a href="/profile.html">Profil</a>

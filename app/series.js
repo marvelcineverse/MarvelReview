@@ -110,108 +110,127 @@ function isSeasonRateable(season) {
   return isReleasedOnOrBeforeToday(season?.start_date || null);
 }
 
-function computeSeasonMetrics(seasonId) {
+function buildSeasonComputationContext(seasonId) {
   const seasonEpisodes = state.episodes.filter((episode) => episode.season_id === seasonId);
+  const episodeCount = seasonEpisodes.length;
   const episodeIds = new Set(seasonEpisodes.map((episode) => episode.id));
 
-  const episodeAveragesByUser = new Map();
+  const episodeStatsByUser = new Map();
   for (const rating of state.episodeRatings) {
     if (!episodeIds.has(rating.episode_id)) continue;
-    const current = episodeAveragesByUser.get(rating.user_id) || { total: 0, count: 0 };
+    const current = episodeStatsByUser.get(rating.user_id) || {
+      total: 0,
+      count: 0,
+      lastCreatedAt: null,
+      lastCreatedAtTs: 0,
+      username: null
+    };
     current.total += Number(rating.score || 0);
     current.count += 1;
-    episodeAveragesByUser.set(rating.user_id, current);
-  }
-
-  const perUser = new Map();
-  for (const [userId, value] of episodeAveragesByUser.entries()) {
-    perUser.set(userId, {
-      episodeAverage: value.count ? value.total / value.count : null,
-      manualScore: null,
-      adjustment: 0
-    });
-  }
-
-  for (const row of state.seasonUserRatings.filter((item) => item.season_id === seasonId)) {
-    const existing = perUser.get(row.user_id) || { episodeAverage: null, manualScore: null, adjustment: 0 };
-    existing.manualScore = row.manual_score === null ? null : Number(row.manual_score);
-    existing.adjustment = Number(row.adjustment || 0);
-    perUser.set(row.user_id, existing);
-  }
-
-  const effectiveScores = [];
-  for (const value of perUser.values()) {
-    if (value.manualScore !== null) {
-      const effective = clamp(value.manualScore, 0, 10);
-      effectiveScores.push(effective);
-      continue;
+    const createdAtTs = getSocialTimeValue(rating.created_at);
+    if (createdAtTs >= current.lastCreatedAtTs) {
+      current.lastCreatedAtTs = createdAtTs;
+      current.lastCreatedAt = rating.created_at || null;
+      current.username = rating.profiles?.username || current.username;
     }
-    if (!Number.isFinite(value.episodeAverage)) continue;
-    const effective = clamp(value.episodeAverage + value.adjustment, 0, 10);
-    effectiveScores.push(effective);
+    episodeStatsByUser.set(rating.user_id, current);
+  }
+
+  const seasonRowsByUser = new Map();
+  for (const row of state.seasonUserRatings) {
+    if (row.season_id !== seasonId) continue;
+    seasonRowsByUser.set(row.user_id, row);
+  }
+
+  return {
+    episodeCount,
+    episodeStatsByUser,
+    seasonRowsByUser
+  };
+}
+
+function resolveSeasonUserScoreFromContext(context, userId) {
+  const stats = context.episodeStatsByUser.get(userId) || {
+    total: 0,
+    count: 0,
+    lastCreatedAt: null,
+    username: null
+  };
+  const seasonRow = context.seasonRowsByUser.get(userId);
+  const manualScore = seasonRow?.manual_score === null || seasonRow?.manual_score === undefined
+    ? null
+    : Number(seasonRow.manual_score);
+  const adjustment = Number(seasonRow?.adjustment || 0);
+  const episodeAverage = stats.count ? stats.total / stats.count : null;
+  const isComplete = context.episodeCount > 0 && stats.count === context.episodeCount;
+
+  const effectiveScore = Number.isFinite(manualScore)
+    ? clamp(manualScore, 0, 10)
+    : (isComplete && Number.isFinite(episodeAverage) ? clamp(episodeAverage + adjustment, 0, 10) : null);
+
+  return {
+    episodeAverage,
+    manualScore,
+    adjustment,
+    effectiveScore,
+    isComplete,
+    statementAt: seasonRow?.created_at || stats.lastCreatedAt || null,
+    username: seasonRow?.profiles?.username || stats.username || "Utilisateur"
+  };
+}
+
+function computeSeasonMetrics(seasonId) {
+  const context = buildSeasonComputationContext(seasonId);
+  const allUserIds = new Set([...context.episodeStatsByUser.keys(), ...context.seasonRowsByUser.keys()]);
+  const effectiveScores = [];
+  for (const userId of allUserIds) {
+    const resolved = resolveSeasonUserScoreFromContext(context, userId);
+    if (Number.isFinite(resolved.effectiveScore)) {
+      effectiveScores.push(resolved.effectiveScore);
+    }
   }
 
   const siteAverage = effectiveScores.length
     ? effectiveScores.reduce((sum, score) => sum + score, 0) / effectiveScores.length
     : null;
 
-  const user = perUser.get(state.currentUserId) || { episodeAverage: null, manualScore: null, adjustment: 0 };
-  const userEffective = user.manualScore !== null
-    ? clamp(user.manualScore, 0, 10)
-    : (Number.isFinite(user.episodeAverage) ? clamp(user.episodeAverage + user.adjustment, 0, 10) : null);
+  const user = resolveSeasonUserScoreFromContext(context, state.currentUserId);
 
   return {
-    episodeCount: seasonEpisodes.length,
+    episodeCount: context.episodeCount,
     userEpisodeAverage: user.episodeAverage,
     userManualScore: user.manualScore,
     userAdjustment: user.adjustment,
-    userEffective,
+    userEffective: user.effectiveScore,
+    userHasAllEpisodeRatings: user.isComplete,
     siteAverage
   };
 }
 
-function computeSeriesAverageByUserId() {
-  const totalSeasons = state.seasons.length;
-  const userAverageById = new Map();
-  if (!totalSeasons) {
-    return userAverageById;
-  }
-
+function computeSeriesSeasonScoresByUser() {
   const userSeasonScores = new Map();
-  for (const season of state.seasons) {
-    const seasonEpisodes = state.episodes.filter((episode) => episode.season_id === season.id);
-    const episodeIds = new Set(seasonEpisodes.map((episode) => episode.id));
-
-    const episodeByUser = new Map();
-    for (const rating of state.episodeRatings) {
-      if (!episodeIds.has(rating.episode_id)) continue;
-      const current = episodeByUser.get(rating.user_id) || { total: 0, count: 0 };
-      current.total += Number(rating.score || 0);
-      current.count += 1;
-      episodeByUser.set(rating.user_id, current);
-    }
-
-      const seasonRows = state.seasonUserRatings.filter((row) => row.season_id === season.id);
-      const allUserIds = new Set([...episodeByUser.keys(), ...seasonRows.map((row) => row.user_id)]);
-
-      for (const userId of allUserIds) {
-        const manualRow = seasonRows.find((row) => row.user_id === userId);
-        const episodeValues = episodeByUser.get(userId);
-        const episodeAverage = episodeValues ? episodeValues.total / episodeValues.count : null;
-        const manual = manualRow?.manual_score === null || manualRow?.manual_score === undefined
-          ? null
-          : Number(manualRow.manual_score);
-        const adjustment = Number(manualRow?.adjustment || 0);
-        const effective = manual !== null
-          ? clamp(manual, 0, 10)
-          : (Number.isFinite(episodeAverage) ? clamp(episodeAverage + adjustment, 0, 10) : null);
-        if (!Number.isFinite(effective)) continue;
-
-        const current = userSeasonScores.get(userId) || [];
-        current.push(effective);
-        userSeasonScores.set(userId, current);
-      }
+  if (!state.seasons.length) {
+    return userSeasonScores;
   }
+
+  for (const season of state.seasons) {
+    const context = buildSeasonComputationContext(season.id);
+    const allUserIds = new Set([...context.episodeStatsByUser.keys(), ...context.seasonRowsByUser.keys()]);
+    for (const userId of allUserIds) {
+      const resolved = resolveSeasonUserScoreFromContext(context, userId);
+      if (!Number.isFinite(resolved.effectiveScore)) continue;
+      const current = userSeasonScores.get(userId) || [];
+      current.push(resolved.effectiveScore);
+      userSeasonScores.set(userId, current);
+    }
+  }
+
+  return userSeasonScores;
+}
+
+function computeSeriesAverageByUserId() {
+  const userAverageById = new Map();
+  const userSeasonScores = computeSeriesSeasonScoresByUser();
 
   for (const [userId, seasonScores] of userSeasonScores.entries()) {
     if (!seasonScores.length) continue;
@@ -233,41 +252,7 @@ function computeSeriesAverages() {
     };
   }
 
-  const userSeasonScores = new Map();
-  for (const season of state.seasons) {
-    const seasonEpisodes = state.episodes.filter((episode) => episode.season_id === season.id);
-    const episodeIds = new Set(seasonEpisodes.map((episode) => episode.id));
-
-    const episodeByUser = new Map();
-    for (const rating of state.episodeRatings) {
-      if (!episodeIds.has(rating.episode_id)) continue;
-      const current = episodeByUser.get(rating.user_id) || { total: 0, count: 0 };
-      current.total += Number(rating.score || 0);
-      current.count += 1;
-      episodeByUser.set(rating.user_id, current);
-    }
-
-    const seasonRows = state.seasonUserRatings.filter((row) => row.season_id === season.id);
-    const allUserIds = new Set([...episodeByUser.keys(), ...seasonRows.map((row) => row.user_id)]);
-
-    for (const userId of allUserIds) {
-      const manualRow = seasonRows.find((row) => row.user_id === userId);
-      const episodeValues = episodeByUser.get(userId);
-      const episodeAverage = episodeValues ? episodeValues.total / episodeValues.count : null;
-      const manual = manualRow?.manual_score === null || manualRow?.manual_score === undefined
-        ? null
-        : Number(manualRow.manual_score);
-      const adjustment = Number(manualRow?.adjustment || 0);
-      const effective = manual !== null
-        ? clamp(manual, 0, 10)
-        : (Number.isFinite(episodeAverage) ? clamp(episodeAverage + adjustment, 0, 10) : null);
-      if (!Number.isFinite(effective)) continue;
-
-      const current = userSeasonScores.get(userId) || [];
-      current.push(effective);
-      userSeasonScores.set(userId, current);
-    }
-  }
+  const userSeasonScores = computeSeriesSeasonScoresByUser();
 
   let weightedSum = 0;
   let coverageWeightSum = 0;
@@ -337,6 +322,7 @@ function computeSeriesListAverages(seriesList, seasons, episodes, episodeRatings
 
     for (const season of serieSeasons) {
       const seasonEpisodes = episodesBySeasonId.get(season.id) || [];
+      const seasonEpisodeCount = seasonEpisodes.length;
       const episodeByUser = new Map();
 
       for (const episode of seasonEpisodes) {
@@ -356,13 +342,14 @@ function computeSeriesListAverages(seriesList, seasons, episodes, episodeRatings
         const manualRow = seasonRows.find((row) => row.user_id === userId);
         const episodeValues = episodeByUser.get(userId);
         const episodeAverage = episodeValues ? episodeValues.total / episodeValues.count : null;
+        const hasAllEpisodeRatings = seasonEpisodeCount > 0 && Number(episodeValues?.count || 0) === seasonEpisodeCount;
         const manual = manualRow?.manual_score === null || manualRow?.manual_score === undefined
           ? null
           : Number(manualRow.manual_score);
         const adjustment = Number(manualRow?.adjustment || 0);
         const effective = manual !== null
           ? clamp(manual, 0, 10)
-          : (Number.isFinite(episodeAverage) ? clamp(episodeAverage + adjustment, 0, 10) : null);
+          : (hasAllEpisodeRatings && Number.isFinite(episodeAverage) ? clamp(episodeAverage + adjustment, 0, 10) : null);
         if (!Number.isFinite(effective)) continue;
 
         const current = userSeasonScores.get(userId) || [];
@@ -526,9 +513,14 @@ function renderSeriesHeader() {
     <article class="card film-hero">
       <div class="film-hero-content">
         <h1>${escapeHTML(series.title)}</h1>
-        <p>Debut: ${formatDate(series.start_date)} - Fin: ${formatDate(series.end_date)}</p>
+        <p><u>Début</u> : ${formatDate(series.start_date)} - <u>Fin</u> : ${formatDate(series.end_date)}</p>
         <p>${escapeHTML(series.synopsis || "Aucun synopsis.")}</p>
       </div>
+
+      <p>Pour les séries, la note effective vient de ta note manuelle, ou de la moyenne de tes episodes (plus ajusteur) uniquement quand tous les episodes de la saison sont notes.</p>
+        <p class="film-meta">
+          Tant qu'une saison n'est pas complete, la moyenne partielle reste visible dans "Moyenne de tes episodes" mais n'est pas comptabilisee comme note effective.
+        </p>
       <img class="film-hero-poster" src="${escapeHTML(series.poster_url || "https://via.placeholder.com/260x390?text=Serie")}" alt="Affiche de ${escapeHTML(series.title)}" />
     </article>
   `;
@@ -581,41 +573,10 @@ function getSocialTimeValue(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function computeSeasonEffectiveScoreForUser(seasonId, userId) {
-  const seasonEpisodeIds = new Set(
-    state.episodes
-      .filter((episode) => episode.season_id === seasonId)
-      .map((episode) => episode.id)
-  );
-
-  let episodeTotal = 0;
-  let episodeCount = 0;
-  for (const rating of state.episodeRatings) {
-    if (rating.user_id !== userId || !seasonEpisodeIds.has(rating.episode_id)) continue;
-    const score = Number(rating.score);
-    if (!Number.isFinite(score)) continue;
-    episodeTotal += score;
-    episodeCount += 1;
-  }
-
-  const seasonRow = state.seasonUserRatings.find(
-    (row) => row.season_id === seasonId && row.user_id === userId
-  );
-  const manualScore = seasonRow?.manual_score === null || seasonRow?.manual_score === undefined
-    ? null
-    : Number(seasonRow.manual_score);
-  const adjustment = Number(seasonRow?.adjustment || 0);
-
-  if (Number.isFinite(manualScore)) {
-    return clamp(manualScore, 0, 10);
-  }
-
-  if (!episodeCount) {
-    return null;
-  }
-
-  const episodeAverage = episodeTotal / episodeCount;
-  return clamp(episodeAverage + adjustment, 0, 10);
+function computeSeasonEffectiveScoreForUser(seasonId, userId, context = null) {
+  const seasonContext = context || buildSeasonComputationContext(seasonId);
+  const resolved = resolveSeasonUserScoreFromContext(seasonContext, userId);
+  return Number.isFinite(resolved.effectiveScore) ? resolved.effectiveScore : null;
 }
 
 function buildSeriesSocialActivityRows() {
@@ -642,26 +603,36 @@ function buildSeriesSocialActivityRows() {
     });
   }
 
-  for (const rating of state.seasonUserRatings) {
-    const hasManual = Number.isFinite(Number(rating.manual_score));
-    const hasAdjustment = Number(rating.adjustment || 0) !== 0;
-    const hasReview = String(rating.review || "").trim().length > 0;
-    if (!hasManual && !hasAdjustment && !hasReview) continue;
-    const season = seasonsById.get(rating.season_id);
-    const effectiveScore = computeSeasonEffectiveScoreForUser(rating.season_id, rating.user_id);
-    rows.push({
-      id: `season-${rating.id}`,
-      type: "season",
-      user_id: rating.user_id,
-      username: rating.profiles?.username || "Utilisateur",
-      created_at: rating.created_at || null,
-      score: Number.isFinite(effectiveScore) ? effectiveScore : null,
-      adjustment: Number(rating.adjustment || 0),
-      review: rating.review || "",
-      href: `/season.html?id=${rating.season_id}`,
-      title: season?.name || "Saison",
-      seasonLabel: season?.season_number ? `S${season.season_number}` : "Saison"
-    });
+  for (const season of state.seasons) {
+    const seasonContext = buildSeasonComputationContext(season.id);
+    const allUserIds = new Set([...seasonContext.episodeStatsByUser.keys(), ...seasonContext.seasonRowsByUser.keys()]);
+
+    for (const userId of allUserIds) {
+      const seasonRow = seasonContext.seasonRowsByUser.get(userId);
+      const resolved = resolveSeasonUserScoreFromContext(seasonContext, userId);
+      const hasManual = Number.isFinite(Number(seasonRow?.manual_score));
+      const hasAdjustment = Number(seasonRow?.adjustment || 0) !== 0;
+      const hasReview = String(seasonRow?.review || "").trim().length > 0;
+      const hasAutoStatement = Number.isFinite(resolved.effectiveScore)
+        && resolved.manualScore === null
+        && resolved.adjustment === 0
+        && resolved.isComplete;
+      if (!hasManual && !hasAdjustment && !hasReview && !hasAutoStatement) continue;
+
+      rows.push({
+        id: seasonRow?.id ? `season-${seasonRow.id}` : `season-auto-${season.id}-${userId}`,
+        type: "season",
+        user_id: userId,
+        username: resolved.username,
+        created_at: seasonRow?.created_at || resolved.statementAt,
+        score: Number.isFinite(resolved.effectiveScore) ? resolved.effectiveScore : null,
+        adjustment: resolved.adjustment,
+        review: seasonRow?.review || "",
+        href: `/season.html?id=${season.id}`,
+        title: season?.name || "Saison",
+        seasonLabel: season?.season_number ? `S${season.season_number}` : "Saison"
+      });
+    }
   }
 
   return rows.sort((a, b) => getSocialTimeValue(b.created_at) - getSocialTimeValue(a.created_at));
@@ -1224,8 +1195,8 @@ async function adjustSeason(seasonId, delta) {
     return;
   }
 
-  if (!Number.isFinite(base)) {
-    setMessage("#page-message", "Il faut noter des episodes pour utiliser l'ajusteur.", true);
+  if (!Number.isFinite(base) || !metrics.userHasAllEpisodeRatings) {
+    setMessage("#page-message", "Il faut noter tous les episodes pour utiliser l'ajusteur.", true);
     return;
   }
 
