@@ -8,11 +8,11 @@ import {
   setMessage
 } from "./utils.js";
 
-const LATEST_CONTENT_INITIAL_LIMIT = 4;
-const LATEST_CONTENT_EXPANDED_LIMIT = 8;
+const LATEST_CONTENT_LIMIT = 8;
+const LATEST_ACTIVITY_INITIAL_LIMIT = 6;
 const LATEST_ACTIVITY_LIMIT = 20;
 const state = {
-  latestContentExpanded: false
+  latestActivityExpanded: false
 };
 
 function clamp(value, min, max) {
@@ -162,21 +162,14 @@ async function loadMembershipMapForUsers(userIds) {
   return map;
 }
 
-function renderLatestContent(allItems) {
+function renderLatestContent(items) {
   const listEl = document.querySelector("#home-latest-content-list");
-  const toggleEl = document.querySelector("#home-latest-content-toggle");
   if (!listEl) return;
 
-  if (!allItems.length) {
+  if (!items.length) {
     listEl.innerHTML = "<p>Aucun contenu sorti pour le moment.</p>";
-    if (toggleEl) toggleEl.style.display = "none";
     return;
   }
-
-  const visibleLimit = state.latestContentExpanded
-    ? LATEST_CONTENT_EXPANDED_LIMIT
-    : LATEST_CONTENT_INITIAL_LIMIT;
-  const items = allItems.slice(0, visibleLimit);
 
   listEl.innerHTML = items
     .map((item) => {
@@ -203,11 +196,6 @@ function renderLatestContent(allItems) {
       `;
     })
     .join("");
-
-  if (!toggleEl) return;
-  const canExpand = allItems.length > LATEST_CONTENT_INITIAL_LIMIT;
-  toggleEl.style.display = canExpand ? "inline-flex" : "none";
-  toggleEl.textContent = state.latestContentExpanded ? "Voir moins" : "Voir plus";
 }
 
 function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRatings) {
@@ -301,14 +289,21 @@ function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRa
   return rows;
 }
 
-function renderLatestActivity(rows, mediaByUserId) {
+function renderLatestActivity(allRows, mediaByUserId) {
   const listEl = document.querySelector("#home-latest-activity-list");
+  const toggleEl = document.querySelector("#home-latest-activity-toggle");
   if (!listEl) return;
 
-  if (!rows.length) {
+  if (!allRows.length) {
     listEl.innerHTML = "<p>Aucune note ou critique enregistree pour le moment.</p>";
+    if (toggleEl) toggleEl.style.display = "none";
     return;
   }
+
+  const visibleLimit = state.latestActivityExpanded
+    ? LATEST_ACTIVITY_LIMIT
+    : LATEST_ACTIVITY_INITIAL_LIMIT;
+  const rows = allRows.slice(0, visibleLimit);
 
   listEl.innerHTML = rows
     .map((row) => {
@@ -342,6 +337,11 @@ function renderLatestActivity(rows, mediaByUserId) {
       `;
     })
     .join("");
+
+  if (!toggleEl) return;
+  const canExpand = allRows.length > LATEST_ACTIVITY_INITIAL_LIMIT;
+  toggleEl.style.display = canExpand ? "inline-flex" : "none";
+  toggleEl.textContent = state.latestActivityExpanded ? "Voir moins" : "Voir plus";
 }
 
 async function loadHomePage() {
@@ -441,14 +441,9 @@ async function loadHomePage() {
 
     const latestContent = [...releasedFilms, ...releasedSeries]
       .sort((a, b) => getTimeValue(b.date) - getTimeValue(a.date))
-      .slice(0, LATEST_CONTENT_EXPANDED_LIMIT);
+      .slice(0, LATEST_CONTENT_LIMIT);
 
     renderLatestContent(latestContent);
-    const contentToggleEl = document.querySelector("#home-latest-content-toggle");
-    contentToggleEl?.addEventListener("click", () => {
-      state.latestContentExpanded = !state.latestContentExpanded;
-      renderLatestContent(latestContent);
-    });
 
     const filmById = new Map((films || []).map((film) => [film.id, film]));
     const seriesById = new Map((series || []).map((row) => [row.id, row]));
@@ -528,6 +523,11 @@ async function loadHomePage() {
     const userIds = [...new Set(latestActivity.map((row) => row.user_id).filter(Boolean))];
     const mediaByUserId = await loadMembershipMapForUsers(userIds);
     renderLatestActivity(latestActivity, mediaByUserId);
+    const activityToggleEl = document.querySelector("#home-latest-activity-toggle");
+    activityToggleEl?.addEventListener("click", () => {
+      state.latestActivityExpanded = !state.latestActivityExpanded;
+      renderLatestActivity(latestActivity, mediaByUserId);
+    });
   } catch (error) {
     setMessage("#page-message", error.message || "Erreur de chargement de la page d'accueil.", true);
   }
