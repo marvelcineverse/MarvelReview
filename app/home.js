@@ -8,7 +8,7 @@ import {
   setMessage
 } from "./utils.js";
 
-const LATEST_CONTENT_LIMIT = 8;
+const LATEST_CONTENT_LIMIT = 4;
 const LATEST_ACTIVITY_INITIAL_LIMIT = 6;
 const LATEST_ACTIVITY_LIMIT = 20;
 const state = {
