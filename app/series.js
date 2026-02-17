@@ -513,19 +513,13 @@ function renderSeriesHeader() {
     <article class="card film-hero">
       <div class="film-hero-content">
         <h1>${escapeHTML(series.title)}</h1>
-        <p><u>Début</u> : ${formatDate(series.start_date)} - <u>Fin</u> : ${formatDate(series.end_date)}</p>
+        <p><u>Debut</u> : ${formatDate(series.start_date)} - <u>Fin</u> : ${formatDate(series.end_date)}</p>
         <p>${escapeHTML(series.synopsis || "Aucun synopsis.")}</p>
       </div>
-
-      <p>Pour les séries, la note effective vient de ta note manuelle, ou de la moyenne de tes episodes (plus ajusteur) uniquement quand tous les episodes de la saison sont notes.</p>
-        <p class="film-meta">
-          Tant qu'une saison n'est pas complete, la moyenne partielle reste visible dans "Moyenne de tes episodes" mais n'est pas comptabilisee comme note effective.
-        </p>
       <img class="film-hero-poster" src="${escapeHTML(series.poster_url || "https://via.placeholder.com/260x390?text=Serie")}" alt="Affiche de ${escapeHTML(series.title)}" />
     </article>
   `;
 }
-
 async function loadMembershipMapForUsers(userIds) {
   if (!userIds.length) return new Map();
 
@@ -1323,6 +1317,11 @@ async function initPage() {
 
     const seriesId = getSeriesIdFromURL();
     if (!seriesId) {
+      const subtitleEl = document.querySelector("#series-subtitle");
+      const subtitleNoteEl = document.querySelector("#series-subtitle-note");
+      if (subtitleEl) subtitleEl.textContent = "Choisis une serie pour afficher ses saisons et episodes.";
+      if (subtitleNoteEl) subtitleNoteEl.textContent = "";
+
       const [
         { data: seriesList, error: seriesError },
         { data: seasons, error: seasonsError },
@@ -1389,7 +1388,14 @@ async function initPage() {
 
     document.querySelector("#series-list-section").style.display = "none";
     document.querySelector("#series-detail-section").style.display = "block";
-    document.querySelector("#series-subtitle").textContent = "Saisons, episodes et notation.";
+    const subtitleEl = document.querySelector("#series-subtitle");
+    const subtitleNoteEl = document.querySelector("#series-subtitle-note");
+    if (subtitleEl) {
+      subtitleEl.textContent = "Pour les series, la note effective vient de ta note manuelle, ou de la moyenne de tes episodes (plus ajusteur) uniquement quand tous les episodes de la saison sont notes.";
+    }
+    if (subtitleNoteEl) {
+      subtitleNoteEl.textContent = "Tant qu'une saison n'est pas complete, la moyenne partielle reste visible dans \"Moyenne de tes episodes\" mais n'est pas comptabilisee comme note effective.";
+    }
 
     await reloadSeriesDetails(seriesId);
     bindDetailEvents();
@@ -1418,3 +1424,4 @@ async function initPage() {
 }
 
 initPage();
+
