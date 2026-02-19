@@ -528,6 +528,31 @@ button:hover {
   margin: 0.6rem 0 0.9rem;
 }
 
+.season-rating-separator {
+  margin: 0.6rem 0 0.7rem;
+  border-top: 1px solid #d9e3ef;
+}
+
+.season-rating-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin: 0.25rem 0 0.9rem;
+}
+
+.season-rating-panel {
+  border: 1px solid #d9e3ef;
+  border-radius: var(--radius-sm);
+  padding: 0.7rem;
+  background: #f9fcff;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.season-rating-panel p {
+  margin: 0;
+}
+
 .season-adjuster strong {
   min-width: 48px;
   text-align: center;
@@ -535,7 +560,7 @@ button:hover {
 }
 
 .season-adjuster {
-  margin-left: 10px;
+  margin-left: 0;
   font-size: 0.9rem;
   gap: 0.4rem;
 }
@@ -558,6 +583,16 @@ button:hover {
 .season-open-button {
   margin-left: auto;
   white-space: nowrap;
+}
+
+.episode-title-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.episode-open-link {
+  text-decoration: none;
 }
 
 .content-creation-card {
@@ -860,7 +895,7 @@ textarea {
 }
 
 .ranking-table th {
-  background: linear-gradient(180deg, #5f7388 0%, #4e647b 100%);
+  background: linear-gradient(180deg, #7a8693 0%, #697684 100%);
   color: #fff;
   font-weight: 700;
 }
@@ -1175,6 +1210,10 @@ textarea {
   .film-hero {
     display: grid;
     gap: 1rem;
+  }
+
+  .season-rating-layout {
+    grid-template-columns: 1fr;
   }
 
   .film-hero-poster {
