@@ -11,6 +11,16 @@ import {
 } from "./utils.js";
 import { getSession, requireAuth } from "./auth.js";
 
+const SERIES_LIST_FILTERS_STORAGE_KEY = "marvelreview:series:list-filters:v1";
+const VALID_SERIES_SORT_MODES = new Set(["date_desc", "date_asc", "rating_desc", "rating_asc"]);
+const DEFAULT_SERIES_LIST_FILTERS = Object.freeze({
+  search: "",
+  franchise: "",
+  phase: "",
+  type: "",
+  sort: "date_desc"
+});
+
 const state = {
   currentUserId: null,
   series: null,
@@ -20,13 +30,7 @@ const state = {
   episodeRatings: [],
   seasonUserRatings: [],
   seriesReviews: [],
-  listFilters: {
-    search: "",
-    franchise: "",
-    phase: "",
-    type: "",
-    sort: "date_desc"
-  },
+  listFilters: { ...DEFAULT_SERIES_LIST_FILTERS },
   socialExpanded: {
     reviews: false,
     activity: false
@@ -41,6 +45,77 @@ const listPhaseFilterWrapEl = document.querySelector("#series-phase-filter-wrap"
 const listTypeFilterEl = document.querySelector("#series-type-filter");
 const listSortFilterEl = document.querySelector("#series-sort-filter");
 const listTitleSearchEl = document.querySelector("#series-title-search");
+const resetSeriesFiltersEl = document.querySelector("#series-reset-filters");
+
+function normalizeSeriesListFilters(filters) {
+  const source = filters && typeof filters === "object" ? filters : {};
+  return {
+    search: typeof source.search === "string" ? source.search : "",
+    franchise: typeof source.franchise === "string" ? source.franchise : "",
+    phase: typeof source.phase === "string" ? source.phase : "",
+    type: typeof source.type === "string" ? source.type : "",
+    sort: typeof source.sort === "string" && VALID_SERIES_SORT_MODES.has(source.sort)
+      ? source.sort
+      : DEFAULT_SERIES_LIST_FILTERS.sort
+  };
+}
+
+function loadSeriesListFilters() {
+  try {
+    const raw = window.localStorage.getItem(SERIES_LIST_FILTERS_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_SERIES_LIST_FILTERS };
+    const parsed = JSON.parse(raw);
+    return normalizeSeriesListFilters(parsed);
+  } catch (_error) {
+    return { ...DEFAULT_SERIES_LIST_FILTERS };
+  }
+}
+
+function saveSeriesListFilters() {
+  try {
+    window.localStorage.setItem(
+      SERIES_LIST_FILTERS_STORAGE_KEY,
+      JSON.stringify(normalizeSeriesListFilters(state.listFilters))
+    );
+  } catch (_error) {
+    // Ignore storage failures (private mode, quota, etc).
+  }
+}
+
+function setSeriesSelectValue(selectEl, value) {
+  if (!selectEl) return "";
+  const nextValue = Array.from(selectEl.options).some((option) => option.value === value)
+    ? value
+    : "";
+  selectEl.value = nextValue;
+  return nextValue;
+}
+
+function applySeriesListFiltersToControls() {
+  state.listFilters.franchise = setSeriesSelectValue(listFranchiseFilterEl, state.listFilters.franchise);
+  state.listFilters.phase = setSeriesSelectValue(listPhaseFilterEl, state.listFilters.phase);
+  state.listFilters.type = setSeriesSelectValue(listTypeFilterEl, state.listFilters.type);
+
+  const selectedSort = setSeriesSelectValue(listSortFilterEl, state.listFilters.sort);
+  state.listFilters.sort = selectedSort || DEFAULT_SERIES_LIST_FILTERS.sort;
+  if (listSortFilterEl && !selectedSort) {
+    listSortFilterEl.value = state.listFilters.sort;
+  }
+
+  if (listTitleSearchEl) {
+    listTitleSearchEl.value = state.listFilters.search;
+  }
+}
+
+function resetSeriesListFilters() {
+  Object.assign(state.listFilters, DEFAULT_SERIES_LIST_FILTERS);
+  applySeriesListFiltersToControls();
+  updateListPhaseVisibility();
+  saveSeriesListFilters();
+  renderSeriesListWithFilters();
+}
+
+Object.assign(state.listFilters, loadSeriesListFilters());
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -457,34 +532,42 @@ function setupSeriesListFilters() {
 
   fillSelect(listTypeFilterEl, types, "Tous les types");
   fillSelect(listPhaseFilterEl, mcuPhases, "Toutes les phases");
-  if (listSortFilterEl) listSortFilterEl.value = state.listFilters.sort;
+  applySeriesListFiltersToControls();
   updateListPhaseVisibility();
+  saveSeriesListFilters();
 
   listFranchiseFilterEl?.addEventListener("change", () => {
     state.listFilters.franchise = listFranchiseFilterEl.value || "";
     updateListPhaseVisibility();
+    saveSeriesListFilters();
     renderSeriesListWithFilters();
   });
 
   listPhaseFilterEl?.addEventListener("change", () => {
     state.listFilters.phase = listPhaseFilterEl.value || "";
+    saveSeriesListFilters();
     renderSeriesListWithFilters();
   });
 
   listTypeFilterEl?.addEventListener("change", () => {
     state.listFilters.type = listTypeFilterEl.value || "";
+    saveSeriesListFilters();
     renderSeriesListWithFilters();
   });
 
   listSortFilterEl?.addEventListener("change", () => {
     state.listFilters.sort = listSortFilterEl.value || "date_desc";
+    saveSeriesListFilters();
     renderSeriesListWithFilters();
   });
 
   listTitleSearchEl?.addEventListener("input", () => {
     state.listFilters.search = listTitleSearchEl.value || "";
+    saveSeriesListFilters();
     renderSeriesListWithFilters();
   });
+
+  resetSeriesFiltersEl?.addEventListener("click", resetSeriesListFilters);
 }
 
 function renderSeriesList(rows) {

@@ -53,12 +53,17 @@
             <label>
               Tri
               <select id="series-sort-filter">
-                <option value="date_desc">Date (d&eacute;chronologique)</option>
-                <option value="date_asc">Date (chronologique)</option>
+                <option value="date_desc">Date (plus r&eacute;cent d'abord)</option>
+                <option value="date_asc">Date (plus ancien d'abord)</option>
                 <option value="rating_desc">Note (plus haute d'abord)</option>
                 <option value="rating_asc">Note (plus basse d'abord)</option>
               </select>
             </label>
+          </div>
+          <div class="filters-actions">
+            <button id="series-reset-filters" type="button" class="ghost-button filters-reset-button">
+              R&eacute;initialiser les filtres
+            </button>
           </div>
         </div>
 

@@ -1,15 +1,19 @@
 import { supabase } from "../supabaseClient.js";
 import { escapeHTML, formatDate, formatScore, getScoreClass, setMessage } from "./utils.js";
 
+const FILMS_FILTERS_STORAGE_KEY = "marvelreview:films:list-filters:v1";
+const VALID_FILM_SORT_MODES = new Set(["date_desc", "date_asc", "rating_desc", "rating_asc"]);
+const DEFAULT_FILM_FILTERS = Object.freeze({
+  search: "",
+  franchise: "",
+  phase: "",
+  type: "",
+  sort: "date_desc"
+});
+
 const state = {
   films: [],
-  filters: {
-    search: "",
-    franchise: "",
-    phase: "",
-    type: "",
-    sort: "date_desc"
-  }
+  filters: { ...DEFAULT_FILM_FILTERS }
 };
 
 const listEl = document.querySelector("#films-list");
@@ -19,6 +23,79 @@ const typeFilterEl = document.querySelector("#type-filter");
 const sortFilterEl = document.querySelector("#sort-filter");
 const phaseFilterWrapEl = document.querySelector("#phase-filter-wrap");
 const titleSearchEl = document.querySelector("#title-search");
+const resetFiltersEl = document.querySelector("#reset-filters");
+
+function normalizeFilmFilters(filters) {
+  const source = filters && typeof filters === "object" ? filters : {};
+  const normalized = {
+    search: typeof source.search === "string" ? source.search : "",
+    franchise: typeof source.franchise === "string" ? source.franchise : "",
+    phase: typeof source.phase === "string" ? source.phase : "",
+    type: typeof source.type === "string" ? source.type : "",
+    sort: typeof source.sort === "string" && VALID_FILM_SORT_MODES.has(source.sort)
+      ? source.sort
+      : DEFAULT_FILM_FILTERS.sort
+  };
+
+  return normalized;
+}
+
+function loadFilmFilters() {
+  try {
+    const raw = window.localStorage.getItem(FILMS_FILTERS_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_FILM_FILTERS };
+    const parsed = JSON.parse(raw);
+    return normalizeFilmFilters(parsed);
+  } catch (_error) {
+    return { ...DEFAULT_FILM_FILTERS };
+  }
+}
+
+function saveFilmFilters() {
+  try {
+    window.localStorage.setItem(
+      FILMS_FILTERS_STORAGE_KEY,
+      JSON.stringify(normalizeFilmFilters(state.filters))
+    );
+  } catch (_error) {
+    // Ignore storage failures (private mode, quota, etc).
+  }
+}
+
+function setSelectValue(selectEl, value) {
+  if (!selectEl) return "";
+  const nextValue = Array.from(selectEl.options).some((option) => option.value === value)
+    ? value
+    : "";
+  selectEl.value = nextValue;
+  return nextValue;
+}
+
+function applyFiltersToControls() {
+  state.filters.franchise = setSelectValue(franchiseFilterEl, state.filters.franchise);
+  state.filters.phase = setSelectValue(phaseFilterEl, state.filters.phase);
+  state.filters.type = setSelectValue(typeFilterEl, state.filters.type);
+
+  const selectedSort = setSelectValue(sortFilterEl, state.filters.sort);
+  state.filters.sort = selectedSort || DEFAULT_FILM_FILTERS.sort;
+  if (sortFilterEl && !selectedSort) {
+    sortFilterEl.value = state.filters.sort;
+  }
+
+  if (titleSearchEl) {
+    titleSearchEl.value = state.filters.search;
+  }
+}
+
+function resetFilmFilters() {
+  Object.assign(state.filters, DEFAULT_FILM_FILTERS);
+  applyFiltersToControls();
+  updatePhaseVisibility();
+  saveFilmFilters();
+  renderFilms();
+}
+
+Object.assign(state.filters, loadFilmFilters());
 
 function getDateSortValue(value) {
   if (!value) return Number.NEGATIVE_INFINITY;
@@ -88,30 +165,36 @@ function setupFilters() {
   fillSelect(franchiseFilterEl, franchises, "Toutes les franchises");
   fillSelect(phaseFilterEl, phases, "Toutes les phases");
   fillSelect(typeFilterEl, types, "Tous les types");
-  if (sortFilterEl) sortFilterEl.value = state.filters.sort;
-
+  applyFiltersToControls();
   updatePhaseVisibility();
+  saveFilmFilters();
 
   franchiseFilterEl.addEventListener("change", () => {
     state.filters.franchise = franchiseFilterEl.value;
     updatePhaseVisibility();
+    saveFilmFilters();
     renderFilms();
   });
 
   phaseFilterEl.addEventListener("change", () => {
     state.filters.phase = phaseFilterEl.value;
+    saveFilmFilters();
     renderFilms();
   });
 
   typeFilterEl.addEventListener("change", () => {
     state.filters.type = typeFilterEl.value;
+    saveFilmFilters();
     renderFilms();
   });
 
   sortFilterEl?.addEventListener("change", () => {
     state.filters.sort = sortFilterEl.value || "date_desc";
+    saveFilmFilters();
     renderFilms();
   });
+
+  resetFiltersEl?.addEventListener("click", resetFilmFilters);
 }
 
 function renderFilms() {
@@ -201,6 +284,7 @@ async function loadFilms() {
 
 titleSearchEl?.addEventListener("input", () => {
   state.filters.search = titleSearchEl.value || "";
+  saveFilmFilters();
   renderFilms();
 });
 

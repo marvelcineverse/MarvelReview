@@ -333,6 +333,24 @@ select:focus-visible {
   gap: 0.9rem;
 }
 
+.filters-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.9rem;
+}
+
+.filters-actions .filters-reset-button {
+  min-width: 220px;
+}
+
+.filters-actions .filters-reset-button:hover {
+  background: #eaf1f8;
+  border-color: #c5d3e2;
+  color: var(--text);
+  transform: none;
+  box-shadow: none;
+}
+
 .card {
   background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
   border: 1px solid var(--border);
@@ -1179,6 +1197,15 @@ textarea {
 @media (max-width: 560px) {
   .films-grid {
     grid-template-columns: 1fr;
+  }
+
+  .filters-actions {
+    justify-content: center;
+  }
+
+  .filters-actions .filters-reset-button {
+    width: 100%;
+    max-width: 320px;
   }
 
   .score-row {
