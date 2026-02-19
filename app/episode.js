@@ -23,35 +23,49 @@ function canRateEpisode() {
   return isReleasedOnOrBeforeToday(state.episode?.air_date || null);
 }
 
+function applyEpisodeAuthVisibility() {
+  const ratingSection = document.querySelector("#episode-rating-section");
+  if (ratingSection) {
+    ratingSection.style.display = state.currentUserId ? "" : "none";
+  }
+
+  if (!state.currentUserId) {
+    setMessage("#episode-form-message", "");
+  }
+}
+
 function applyEpisodeAvailability() {
+  const canManageRating = Boolean(state.currentUserId);
   const canRate = canRateEpisode();
   const messageEl = document.querySelector("#episode-rating-unavailable-message");
   const form = document.querySelector("#episode-rating-form");
   const message = "Cet episode n'est pas encore diffuse (ou n'a pas de date de diffusion). La notation est desactivee.";
 
   if (messageEl) {
-    messageEl.textContent = canRate ? "" : message;
-    messageEl.style.display = canRate ? "none" : "block";
+    const shouldShow = canManageRating && !canRate;
+    messageEl.textContent = shouldShow ? message : "";
+    messageEl.style.display = shouldShow ? "block" : "none";
   }
 
   if (!form) return;
   const controls = form.querySelectorAll("input, textarea, button");
   for (const control of controls) {
-    control.disabled = !canRate;
+    control.disabled = !canRate || !canManageRating;
   }
 }
 
 function renderEpisodeDetails() {
   const detailsEl = document.querySelector("#episode-details");
+  if (!detailsEl) return;
+
+  const seasonLabel = state.season?.name || `Saison ${state.season?.season_number || "?"}`;
   detailsEl.innerHTML = `
-    <article class="card">
-      <h1>Ep. ${state.episode?.episode_number || "-"} - ${escapeHTML(state.episode?.title || "Episode")}</h1>
-      <p>
-        Serie: <a href="/series.html?id=${state.series?.id || ""}" class="film-link">${escapeHTML(state.series?.title || "-")}</a>
-        | Saison: <a href="/season.html?id=${state.season?.id || ""}" class="film-link">${escapeHTML(state.season?.name || "-")}</a>
-      </p>
-      <p>Date de diffusion: ${formatDate(state.episode?.air_date)}</p>
-    </article>
+    <h1>Ep. ${state.episode?.episode_number || "-"} - ${escapeHTML(state.episode?.title || "Episode")}</h1>
+    <p>
+      S&eacute;rie: <a href="/series.html?id=${state.series?.id || ""}" class="film-link">${escapeHTML(state.series?.title || "-")}</a>
+      | Saison: <a href="/season.html?id=${state.season?.id || ""}" class="film-link">${escapeHTML(seasonLabel)}</a>
+    </p>
+    <p>Date de diffusion: ${formatDate(state.episode?.air_date)}</p>
   `;
 }
 
@@ -122,6 +136,8 @@ function fillCurrentUserRating() {
   const scoreInput = document.querySelector("#episode-score");
   const reviewInput = document.querySelector("#episode-review");
   const deleteBtn = document.querySelector("#delete-episode-rating-button");
+  if (!scoreInput || !reviewInput || !deleteBtn) return;
+
   const row = state.ratings.find((rating) => rating.user_id === state.currentUserId);
 
   scoreInput.value = row ? String(row.score) : "";
@@ -152,7 +168,7 @@ async function loadEpisodePage() {
   ] = await Promise.all([
     supabase
       .from("series_seasons")
-      .select("id, series_id, name")
+      .select("id, series_id, name, season_number")
       .eq("id", episode.season_id)
       .single(),
     supabase
@@ -177,6 +193,7 @@ async function loadEpisodePage() {
   state.series = series;
   state.ratings = ratings || [];
 
+  applyEpisodeAuthVisibility();
   renderEpisodeDetails();
   applyEpisodeAvailability();
   renderAverage();

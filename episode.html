@@ -11,48 +11,47 @@
     <main class="container">
       <div id="nav-root"></div>
 
-      <section class="page-intro">
-        <h1>Page episode</h1>
-        <p id="auth-status" class="status"></p>
-      </section>
-
       <p id="page-message" class="message" aria-live="polite"></p>
-      <section id="episode-details"></section>
+      <section id="episode-main-section" class="card home-stack-card">
+        <div class="home-stack-chunk">
+          <section id="episode-details"></section>
+        </div>
 
-      <section class="card">
-        <h2>Moyenne</h2>
-        <p id="episode-average" class="score-row"></p>
-      </section>
+        <section class="home-stack-chunk">
+          <h2>Moyenne</h2>
+          <p id="episode-average" class="score-row"></p>
+        </section>
 
-      <section class="card">
-        <h2>Ta note et critique</h2>
-        <p id="episode-rating-unavailable-message" class="message" style="display: none;" aria-live="polite"></p>
-        <form id="episode-rating-form" class="form">
-          <label>
-            Score (0 a 10, par pas de 0,25)
-            <input id="episode-score" type="number" min="0" max="10" step="0.25" required />
-          </label>
+        <section id="episode-rating-section" class="home-stack-chunk" style="display: none;">
+          <h2>Ta note et critique</h2>
+          <p id="episode-rating-unavailable-message" class="message" style="display: none;" aria-live="polite"></p>
+          <form id="episode-rating-form" class="form">
+            <label>
+              Score (0 a 10, par pas de 0,25)
+              <input id="episode-score" type="number" min="0" max="10" step="0.25" required />
+            </label>
 
-          <label>
-            Critique (optionnelle)
-            <textarea id="episode-review" maxlength="1500" placeholder="Ton avis sur l'episode..."></textarea>
-          </label>
+            <label>
+              Critique (optionnelle)
+              <textarea id="episode-review" maxlength="1500" placeholder="Ton avis sur l'episode..."></textarea>
+            </label>
 
-          <div class="inline-actions">
-            <button type="submit" class="icon-circle-btn save" aria-label="Enregistrer note episode">
-              <i class="fa-solid fa-check" aria-hidden="true"></i>
-            </button>
-            <button id="delete-episode-rating-button" type="button" class="icon-circle-btn delete" style="display: none;" aria-label="Supprimer note episode">
-              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-            </button>
-          </div>
-          <p id="episode-form-message" class="message" aria-live="polite"></p>
-        </form>
-      </section>
+            <div class="inline-actions">
+              <button type="submit" class="icon-circle-btn save" aria-label="Enregistrer note episode">
+                <i class="fa-solid fa-check" aria-hidden="true"></i>
+              </button>
+              <button id="delete-episode-rating-button" type="button" class="icon-circle-btn delete" style="display: none;" aria-label="Supprimer note episode">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p id="episode-form-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
 
-      <section class="card">
-        <h2>Dernieres critiques de l'episode</h2>
-        <div id="episode-reviews-list" class="grid"></div>
+        <section class="home-stack-chunk">
+          <h2>Derni&egrave;res critiques de l'episode</h2>
+          <div id="episode-reviews-list" class="grid"></div>
+        </section>
       </section>
     </main>
 
