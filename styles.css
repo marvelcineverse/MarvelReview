@@ -32,6 +32,30 @@ a {
   text-underline-offset: 2px;
 }
 
+h1,
+h2,
+h3 {
+  margin: 0 0 0.65rem;
+  line-height: 1.2;
+  color: #0f1823;
+  letter-spacing: 0.15px;
+}
+
+h1 {
+  font-size: clamp(1.65rem, 2.8vw, 2.3rem);
+  font-weight: 800;
+}
+
+h2 {
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  font-weight: 750;
+}
+
+h3 {
+  font-size: clamp(1.05rem, 1.4vw, 1.2rem);
+  font-weight: 700;
+}
+
 .container {
   width: min(100% - 2rem, 1100px);
   margin-inline: auto;
