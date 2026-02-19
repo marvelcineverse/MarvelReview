@@ -804,6 +804,23 @@ button:hover {
   gap: 0.4rem;
 }
 
+.series-compact-list-scroll {
+  max-height: 560px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: #bfcbda transparent;
+}
+
+.series-compact-list-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.series-compact-list-scroll::-webkit-scrollbar-thumb {
+  background: #bfcbda;
+  border-radius: 999px;
+}
+
 .series-compact-row {
   display: grid;
   grid-template-columns: 26px 1fr auto auto;
@@ -833,24 +850,6 @@ button:hover {
   font-weight: 700;
   color: #48617a;
   text-align: center;
-}
-
-.series-compact-more {
-  margin-top: 0.55rem;
-  border: 1px solid #d9e3ef;
-  border-radius: 10px;
-  background: #fff;
-  padding: 0.38rem 0.48rem;
-}
-
-.series-compact-more > summary {
-  cursor: pointer;
-  font-weight: 600;
-  color: #304a63;
-}
-
-.series-compact-more[open] > summary {
-  margin-bottom: 0.45rem;
 }
 
 label {

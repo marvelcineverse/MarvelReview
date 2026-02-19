@@ -978,28 +978,14 @@ function renderSeriesCompactRankings() {
     episodeListEl.innerHTML = `<p class="film-meta">Aucune note d'\u00E9pisode pour le moment.</p>`;
   } else {
     const episodeRankLabels = buildDenseRankLabels(episodeRows, (row) => row.average, 2);
-    const featuredRows = episodeRows.slice(0, 8);
-    const remainingRows = episodeRows.slice(8);
     episodeListEl.innerHTML = `
-      <div class="series-compact-list">
-        ${renderSeriesCompactRows(featuredRows, {
+      <div class="series-compact-list series-compact-list-scroll">
+        ${renderSeriesCompactRows(episodeRows, {
           showEpisodeMeta: true,
           rankLabels: episodeRankLabels,
           startIndex: 0
         })}
       </div>
-      ${remainingRows.length > 0 ? `
-        <details class="series-compact-more">
-          <summary>Voir les autres \u00E9pisodes (${remainingRows.length})</summary>
-          <div class="series-compact-list">
-            ${renderSeriesCompactRows(remainingRows, {
-              showEpisodeMeta: true,
-              rankLabels: episodeRankLabels,
-              startIndex: featuredRows.length
-            })}
-          </div>
-        </details>
-      ` : ""}
     `;
   }
 
