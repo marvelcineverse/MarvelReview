@@ -14,6 +14,13 @@ import { getCurrentProfile, requireAuth, getSession } from "./auth.js";
 let currentProfile = null;
 let currentFilm = null;
 
+function applyFilmAuthVisibility(isLoggedIn) {
+  const ratingSectionEl = document.querySelector("#film-rating-section");
+  if (ratingSectionEl) {
+    ratingSectionEl.style.display = isLoggedIn ? "" : "none";
+  }
+}
+
 function canRateCurrentFilm() {
   return isReleasedOnOrBeforeToday(currentFilm?.release_date || null);
 }
@@ -42,7 +49,7 @@ function applyRatingAvailability() {
 function renderFilmDetails(film) {
   const container = document.querySelector("#film-details");
   container.innerHTML = `
-    <article class="card film-hero">
+    <article class="film-hero">
       <div class="film-hero-content">
         <h1>${escapeHTML(film.title)}</h1>
         <p>Date de sortie: ${formatDate(film.release_date)}</p>
@@ -190,6 +197,9 @@ async function loadFilmPage() {
     renderFilmDetails(film);
     applyRatingAvailability();
 
+    document.querySelector("#admin-film-editor").style.display = "none";
+    document.querySelector("#admin-rating-editor").style.display = "none";
+
     const { data: ratings, error: ratingsError } = await supabase
       .from("ratings")
       .select("id, user_id, score, review, created_at, profiles(username)")
@@ -204,6 +214,9 @@ async function loadFilmPage() {
     renderRatings(ratings || [], mediaByUserId);
 
     const session = await getSession();
+    applyFilmAuthVisibility(Boolean(session));
+    currentProfile = null;
+
     if (session) {
       currentProfile = await getCurrentProfile();
       await fillExistingUserRating(filmId, session.user.id, "score", "review");
