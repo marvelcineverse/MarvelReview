@@ -879,6 +879,110 @@ function renderSeriesAverage() {
     : `<span class="score-badge ${getScoreClass(metrics.myAverage)}">${formatScore(metrics.myAverage, 2, 2)} / 10</span>`;
 }
 
+function computeEpisodeSiteRankingRows() {
+  const seasonById = new Map(state.seasons.map((season) => [season.id, season]));
+  const rows = [];
+
+  for (const episode of state.episodes) {
+    const ratings = state.episodeRatings.filter((rating) => rating.episode_id === episode.id);
+    if (!ratings.length) continue;
+
+    const total = ratings.reduce((sum, rating) => sum + Number(rating.score || 0), 0);
+    const average = total / ratings.length;
+    const season = seasonById.get(episode.season_id);
+
+    rows.push({
+      id: episode.id,
+      title: episode.title || "Episode",
+      seasonLabel: season?.season_number ? `S${season.season_number}` : "Saison",
+      average,
+      count: ratings.length,
+      href: `/episode.html?id=${episode.id}`
+    });
+  }
+
+  return rows.sort((a, b) => {
+    if (b.average !== a.average) return b.average - a.average;
+    if (b.count !== a.count) return b.count - a.count;
+    return a.title.localeCompare(b.title, "fr");
+  });
+}
+
+function computeSeasonSiteRankingRows() {
+  const rows = state.seasons.map((season) => {
+    const context = buildSeasonComputationContext(season.id);
+    const allUserIds = new Set([...context.episodeStatsByUser.keys(), ...context.seasonRowsByUser.keys()]);
+    const scores = [];
+
+    for (const userId of allUserIds) {
+      const resolved = resolveSeasonUserScoreFromContext(context, userId);
+      if (Number.isFinite(resolved.effectiveScore)) {
+        scores.push(resolved.effectiveScore);
+      }
+    }
+
+    const average = scores.length
+      ? scores.reduce((sum, value) => sum + value, 0) / scores.length
+      : null;
+
+    return {
+      id: season.id,
+      title: season.name || `Saison ${season.season_number}`,
+      average,
+      count: scores.length,
+      href: `/season.html?id=${season.id}`
+    };
+  });
+
+  return rows.sort((a, b) => {
+    const aAverage = a.average ?? -1;
+    const bAverage = b.average ?? -1;
+    if (bAverage !== aAverage) return bAverage - aAverage;
+    if (b.count !== a.count) return b.count - a.count;
+    return a.title.localeCompare(b.title, "fr");
+  });
+}
+
+function renderSeriesCompactRankings() {
+  const episodeListEl = document.querySelector("#series-episode-ranking-list");
+  const seasonListEl = document.querySelector("#series-season-ranking-list");
+  if (!episodeListEl || !seasonListEl) return;
+
+  const episodeRows = computeEpisodeSiteRankingRows().slice(0, 8);
+  const seasonRows = computeSeasonSiteRankingRows();
+
+  if (!episodeRows.length) {
+    episodeListEl.innerHTML = `<p class="film-meta">Aucune note d'episode pour le moment.</p>`;
+  } else {
+    episodeListEl.innerHTML = episodeRows
+      .map((row, index) => `
+        <article class="series-compact-row">
+          <span class="series-compact-rank">${index + 1}</span>
+          <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>
+          <small>${escapeHTML(row.seasonLabel)}</small>
+          <span class="score-badge ${getScoreClass(row.average)}">${formatScore(row.average, 2, 2)}</span>
+        </article>
+      `)
+      .join("");
+  }
+
+  if (state.seasons.length < 2) {
+    seasonListEl.innerHTML = `<p class="film-meta">Classement disponible a partir de 2 saisons.</p>`;
+  } else {
+    seasonListEl.innerHTML = seasonRows
+      .map((row, index) => `
+        <article class="series-compact-row">
+          <span class="series-compact-rank">${index + 1}</span>
+          <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>
+          ${row.average === null
+            ? `<span class="score-badge stade-neutre">Pas de note</span>`
+            : `<span class="score-badge ${getScoreClass(row.average)}">${formatScore(row.average, 2, 2)}</span>`}
+        </article>
+      `)
+      .join("");
+  }
+}
+
 function renderSeasons(openSeasonIds = null) {
   const container = document.querySelector("#series-seasons-list");
   if (!state.seasons.length) {
@@ -1129,6 +1233,7 @@ async function reloadSeriesDetails(seriesId) {
   applySeriesReviewAvailability();
   fillCurrentUserSeriesReview();
   renderSeriesAverage();
+  renderSeriesCompactRankings();
   const userIds = getSeriesSocialUserIds();
   const mediaByUserId = await loadMembershipMapForUsers(userIds);
   renderSeriesReviews(mediaByUserId);
@@ -1143,6 +1248,7 @@ async function refreshRatingsOnly() {
   applySeriesReviewAvailability();
   fillCurrentUserSeriesReview();
   renderSeriesAverage();
+  renderSeriesCompactRankings();
   const userIds = getSeriesSocialUserIds();
   const mediaByUserId = await loadMembershipMapForUsers(userIds);
   renderSeriesReviews(mediaByUserId);
@@ -1450,9 +1556,11 @@ async function initPage() {
   try {
     const session = await getSession();
     state.currentUserId = session?.user?.id || null;
+    const pageTitleEl = document.querySelector("#series-page-title");
 
     const seriesId = getSeriesIdFromURL();
     if (!seriesId) {
+      if (pageTitleEl) pageTitleEl.style.display = "";
       const subtitleEl = document.querySelector("#series-subtitle");
       const subtitleNoteEl = document.querySelector("#series-subtitle-note");
       if (subtitleEl) subtitleEl.textContent = "Choisis une s\u00E9rie pour afficher ses saisons et \u00E9pisodes.";
@@ -1524,6 +1632,7 @@ async function initPage() {
 
     document.querySelector("#series-list-section").style.display = "none";
     document.querySelector("#series-detail-section").style.display = "block";
+    if (pageTitleEl) pageTitleEl.style.display = "none";
     const subtitleEl = document.querySelector("#series-subtitle");
     const subtitleNoteEl = document.querySelector("#series-subtitle-note");
     if (subtitleEl) {

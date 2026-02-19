@@ -333,6 +333,10 @@ select:focus-visible {
   gap: 0.9rem;
 }
 
+.ranking-filters-grid {
+  margin-top: 0.9rem;
+}
+
 .filters-actions {
   display: flex;
   justify-content: flex-end;
@@ -729,6 +733,74 @@ button:hover {
 
 .season-episodes[open] .season-episodes-summary {
   margin-bottom: 0.45rem;
+}
+
+.series-compact-rankings {
+  margin-top: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  padding: 0.45rem 0.6rem 0.6rem;
+}
+
+.series-compact-rankings > summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #304a63;
+}
+
+.series-compact-rankings[open] > summary {
+  margin-bottom: 0.6rem;
+}
+
+.series-compact-rankings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.series-compact-panel {
+  border: 1px solid #d9e3ef;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  padding: 0.55rem;
+}
+
+.series-compact-panel h3 {
+  margin: 0 0 0.45rem;
+  font-size: 1rem;
+}
+
+.series-compact-list {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.series-compact-row {
+  display: grid;
+  grid-template-columns: 26px 1fr auto auto;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid #e0e8f1;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 0.32rem 0.45rem;
+}
+
+.series-compact-row small {
+  color: var(--muted);
+}
+
+.series-compact-row .score-badge {
+  min-width: 0;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.86rem;
+}
+
+.series-compact-rank {
+  font-weight: 700;
+  color: #48617a;
+  text-align: center;
 }
 
 label {
@@ -1226,6 +1298,10 @@ textarea {
     max-height: none;
     overflow: visible;
     padding-right: 0;
+  }
+
+  .series-compact-rankings-grid {
+    grid-template-columns: 1fr;
   }
 
   .home-activity-grid {

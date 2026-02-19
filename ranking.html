@@ -20,33 +20,45 @@
 
       <p id="page-message" class="message" aria-live="polite"></p>
 
-      <section class="card">
-        <h2>Filtres</h2>
-        <div class="inline-actions">
-          <label class="checkbox-inline">
-            <input id="filter-films" type="checkbox" checked />
-            Films
-          </label>
-          <label class="checkbox-inline">
-            <input id="filter-series" type="checkbox" checked />
-            Series
-          </label>
+      <section class="card home-stack-card">
+        <div class="home-stack-chunk">
+          <h2>Filtres</h2>
+          <div class="inline-actions">
+            <label class="checkbox-inline">
+              <input id="filter-films" type="checkbox" checked />
+              Films
+            </label>
+            <label class="checkbox-inline">
+              <input id="filter-series" type="checkbox" checked />
+              S&eacute;ries
+            </label>
+          </div>
+          <div class="filters-grid ranking-filters-grid">
+            <label>
+              Franchise
+              <select id="ranking-franchise-filter">
+                <option value="">Toutes les franchises</option>
+              </select>
+            </label>
+            <label id="ranking-phase-filter-wrap">
+              Phase
+              <select id="ranking-phase-filter">
+                <option value="">Toutes les phases</option>
+              </select>
+            </label>
+          </div>
         </div>
-      </section>
 
-      <section class="table-wrapper card">
-        <table class="ranking-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Contenu</th>
-              <th>Moyenne</th>
-              <th>Ta note</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody id="ranking-body"></tbody>
-        </table>
+        <div class="home-stack-chunk">
+          <div class="table-wrapper">
+            <table id="ranking-table" class="ranking-table">
+              <thead>
+                <tr id="ranking-head-row"></tr>
+              </thead>
+              <tbody id="ranking-body"></tbody>
+            </table>
+          </div>
+        </div>
       </section>
     </main>
 

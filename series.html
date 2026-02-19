@@ -13,7 +13,7 @@
 
       <section class="page-intro">
         <div>
-          <h1>S&eacute;ries Marvel</h1>
+          <h1 id="series-page-title">S&eacute;ries Marvel</h1>
           <p id="series-subtitle">Choisis une s&eacute;rie pour afficher ses saisons et &eacute;pisodes.</p>
           <p id="series-subtitle-note" class="film-meta"></p>
         </div>
@@ -80,6 +80,19 @@
         <section class="home-stack-chunk">
           <h2>Moyenne g&eacute;n&eacute;rale</h2>
           <p id="series-global-average" class="score-row"></p>
+          <details id="series-compact-rankings" class="series-compact-rankings">
+            <summary>Classements d&eacute;taill&eacute;s (compact)</summary>
+            <div class="series-compact-rankings-grid">
+              <section class="series-compact-panel">
+                <h3>&Eacute;pisodes les mieux not&eacute;s</h3>
+                <div id="series-episode-ranking-list" class="series-compact-list"></div>
+              </section>
+              <section class="series-compact-panel">
+                <h3>Classement des saisons</h3>
+                <div id="series-season-ranking-list" class="series-compact-list"></div>
+              </section>
+            </div>
+          </details>
           <div id="series-my-average-block" style="display: none;">
             <h2>Ma moyenne</h2>
             <p id="series-my-average" class="score-row"></p>
