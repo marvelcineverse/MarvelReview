@@ -176,13 +176,13 @@ function renderLatestContent(items) {
       const averageLabel = item.rating_count > 0
         ? `<span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span>`
         : `<span class="score-badge film-average-badge stade-neutre">pas de note</span>`;
-      const dateLabel = item.kind === "film" ? "Sortie" : "Derniere sortie";
+      const dateLabel = item.kind === "film" ? "Sortie" : "Derni\u00E8re sortie";
       const secondDate = item.kind === "series" ? `<p>Fin: ${formatDate(item.end_date)}</p>` : "";
-      const linkLabel = item.kind === "film" ? "Voir la page film" : "Voir la page serie";
+      const linkLabel = item.kind === "film" ? "Voir la page film" : "Voir la page s\u00E9rie";
       const linkHref = item.kind === "film" ? `/film.html?id=${item.id}` : `/series.html?id=${item.id}`;
 
       return `
-        <article class="card film-card">
+        <article class="card film-card home-latest-card">
           <img src="${escapeHTML(item.poster_url || "https://via.placeholder.com/240x360?text=Marvel")}" alt="Affiche de ${escapeHTML(item.title)}" />
           <div>
             <h3>${escapeHTML(item.title)}</h3>
@@ -190,7 +190,9 @@ function renderLatestContent(items) {
             <p>${dateLabel}: ${formatDate(item.date)}</p>
             ${secondDate}
             <p class="film-meta">${escapeHTML(item.franchise || "-")} - ${escapeHTML(item.type || "-")}</p>
-            <a class="button" href="${linkHref}">${linkLabel}</a>
+            <div class="home-latest-card-action">
+              <a class="button" href="${linkHref}">${linkLabel}</a>
+            </div>
           </div>
         </article>
       `;
@@ -318,10 +320,13 @@ function renderLatestActivity(allRows, mediaByUserId) {
       const typeLabel = row.type === "film"
         ? "Film"
         : row.type === "series"
-          ? "Serie"
+          ? "S\u00E9rie"
           : row.type === "episode"
-            ? "Episode"
+            ? "\u00C9pisode"
             : "Saison";
+      const detailLabel = row.type === "film" || row.type === "series"
+        ? `${typeLabel} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`
+        : `${typeLabel} - ${escapeHTML(row.seasonLabel || "-")} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`;
 
       return `
         <article class="card review-card">
@@ -329,7 +334,7 @@ function renderLatestActivity(allRows, mediaByUserId) {
             <strong>${escapeHTML(row.username || "Utilisateur")}</strong>
             <span>${escapeHTML(mediaLabel)}</span>
           </div>
-          <p class="film-meta">${typeLabel} - ${escapeHTML(row.seasonLabel || "-")} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a></p>
+          <p class="film-meta">${detailLabel}</p>
           <p>${scorePart}<span class="film-meta">${escapeHTML(adjustmentPart)}</span></p>
           <p>${escapeHTML(row.review || "(Pas de commentaire)")}</p>
           <small>${formatDate(row.created_at)}</small>
@@ -481,8 +486,8 @@ async function loadHomePage() {
         created_at: review.created_at || null,
         score: null,
         review: review.review || "",
-        seasonLabel: "Serie",
-        title: serie.title || "Serie",
+        seasonLabel: "S\u00E9rie",
+        title: serie.title || "S\u00E9rie",
         href: `/series.html?id=${serie.id}`,
         adjustment: 0
       });

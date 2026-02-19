@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+
 :root {
   --bg: #f3f6fa;
   --bg-soft: #edf2f7;
@@ -32,7 +34,7 @@ html {
 
 body {
   margin: 0;
-  font-family: "Trebuchet MS", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Inter", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.55;
   color: var(--text);
   background:
@@ -304,6 +306,10 @@ select:focus-visible {
   color: #8f2323;
 }
 
+.message:empty {
+  display: none;
+}
+
 .grid {
   display: grid;
   gap: 1rem;
@@ -333,6 +339,22 @@ select:focus-visible {
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   padding: 1.1rem;
+}
+
+.home-stack-card {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.home-stack-chunk + .home-stack-chunk {
+  padding-top: 1rem;
+  border-top: 1px solid #d9e3ef;
+}
+
+.home-latest-card-action {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.25rem;
 }
 
 .film-card img {
