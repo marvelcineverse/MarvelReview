@@ -11,43 +11,41 @@
     <main class="container">
       <div id="nav-root"></div>
 
-      <section class="page-intro">
-        <h1>Page saison</h1>
-        <p id="auth-status" class="status"></p>
-      </section>
-
       <p id="page-message" class="message" aria-live="polite"></p>
-      <section id="season-details"></section>
+      <section id="season-main-section" class="card home-stack-card">
+        <div class="home-stack-chunk">
+          <section id="season-details"></section>
+        </div>
 
-      <section class="card">
-        <h2>Saison</h2>
-        <p id="season-rating-unavailable-message" class="message" style="display: none;" aria-live="polite"></p>
-        <div id="season-card-root"></div>
-        <p id="season-form-message" class="message" aria-live="polite"></p>
-      </section>
+        <section class="home-stack-chunk">
+          <p id="season-rating-unavailable-message" class="message" style="display: none;" aria-live="polite"></p>
+          <div id="season-card-root"></div>
+          <p id="season-form-message" class="message" aria-live="polite"></p>
+        </section>
 
-      <section class="card">
-        <h2>Ta critique saison</h2>
-        <form id="season-review-form" class="form">
-          <label>
-            Critique (optionnelle)
-            <textarea id="season-review" maxlength="1500" placeholder="Ton avis sur la saison..."></textarea>
-          </label>
-          <div class="inline-actions">
-            <button type="submit" class="icon-circle-btn save" aria-label="Enregistrer la critique saison">
-              <i class="fa-solid fa-check" aria-hidden="true"></i>
-            </button>
-            <button id="delete-season-review-button" type="button" class="icon-circle-btn delete" style="display: none;" aria-label="Supprimer la critique saison">
-              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-            </button>
-          </div>
-          <p id="season-review-message" class="message" aria-live="polite"></p>
-        </form>
-      </section>
+        <section id="season-review-section" class="home-stack-chunk" style="display: none;">
+          <h2>Ta critique saison</h2>
+          <form id="season-review-form" class="form">
+            <label>
+              Critique (optionnelle)
+              <textarea id="season-review" maxlength="1500" placeholder="Ton avis sur la saison..."></textarea>
+            </label>
+            <div class="inline-actions">
+              <button type="submit" class="icon-circle-btn save" aria-label="Enregistrer la critique saison">
+                <i class="fa-solid fa-check" aria-hidden="true"></i>
+              </button>
+              <button id="delete-season-review-button" type="button" class="icon-circle-btn delete" style="display: none;" aria-label="Supprimer la critique saison">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p id="season-review-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
 
-      <section class="card">
-        <h2>Dernieres critiques de la saison</h2>
-        <div id="season-reviews-list" class="grid"></div>
+        <section class="home-stack-chunk">
+          <h2>Derni&egrave;res critiques de la saison</h2>
+          <div id="season-reviews-list" class="grid"></div>
+        </section>
       </section>
     </main>
 

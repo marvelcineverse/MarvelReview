@@ -47,12 +47,26 @@ function isSeasonRateable() {
 }
 
 function applySeasonAvailability() {
+  const canManageSeasonRating = Boolean(state.currentUserId);
   const canRate = isSeasonRateable();
   const messageEl = document.querySelector("#season-rating-unavailable-message");
   const message = "Cette saison n'est pas encore sortie (ou n'a pas de date de debut). La notation est desactivee.";
   if (messageEl) {
-    messageEl.textContent = canRate ? "" : message;
-    messageEl.style.display = canRate ? "none" : "block";
+    const shouldShow = canManageSeasonRating && !canRate;
+    messageEl.textContent = shouldShow ? message : "";
+    messageEl.style.display = shouldShow ? "block" : "none";
+  }
+}
+
+function applyAuthVisibility() {
+  const reviewSection = document.querySelector("#season-review-section");
+  if (reviewSection) {
+    reviewSection.style.display = state.currentUserId ? "" : "none";
+  }
+
+  if (!state.currentUserId) {
+    setMessage("#season-form-message", "");
+    setMessage("#season-review-message", "");
   }
 }
 
@@ -132,20 +146,24 @@ function computeSeasonMetrics() {
 
 function renderSeasonDetails() {
   const detailsEl = document.querySelector("#season-details");
+  if (!detailsEl) return;
+
+  const seasonLabel = state.season?.name || `Saison ${state.season?.season_number || "?"}`;
   detailsEl.innerHTML = `
-    <article class="card">
-      <h1>${escapeHTML(state.series?.title || "Serie")}</h1>
-      <p>
-        Retour serie:
-        <a href="/series.html?id=${state.series?.id || ""}" class="film-link">${escapeHTML(state.series?.title || "-")}</a>
-      </p>
-    </article>
+    <h1>${escapeHTML(seasonLabel)}</h1>
+    <p>
+      S&eacute;rie:
+      <a href="/series.html?id=${state.series?.id || ""}" class="film-link">${escapeHTML(state.series?.title || "-")}</a>
+    </p>
   `;
 }
 
 function renderSeasonCard() {
   const container = document.querySelector("#season-card-root");
+  if (!container) return;
+
   const metrics = computeSeasonMetrics();
+  const showUserEpisodeActions = Boolean(state.currentUserId);
   const canRateSeason = isSeasonRateable();
 
   const seasonAverage = metrics.userEpisodeAverage === null
@@ -162,9 +180,18 @@ function renderSeasonCard() {
 
   const manualValue = metrics.userManualScore === null ? "" : String(metrics.userManualScore);
   const adjustmentValue = formatScore(metrics.userAdjustment, 2, 2);
+  const phaseLabel = String(state.season?.phase || "").trim();
+  const seasonMetaParts = [];
+  if (phaseLabel) {
+    seasonMetaParts.push(`Phase: ${escapeHTML(phaseLabel)}`);
+  }
+  seasonMetaParts.push(`D&eacute;but: ${formatDate(state.season?.start_date)}`);
+  seasonMetaParts.push(`Fin: ${formatDate(state.season?.end_date)}`);
+  const seasonMetaLine = seasonMetaParts.join(" | ");
+  const sortedEpisodes = [...state.episodes].sort((a, b) => a.episode_number - b.episode_number);
 
   const episodeAverageById = new Map();
-  for (const episode of state.episodes) {
+  for (const episode of sortedEpisodes) {
     const ratings = state.episodeRatings.filter((rating) => rating.episode_id === episode.id);
     if (!ratings.length) {
       episodeAverageById.set(episode.id, null);
@@ -175,72 +202,83 @@ function renderSeasonCard() {
   }
 
   container.innerHTML = `
-    <article class="card">
+    <article>
       <div class="season-card-header">
         <h3>
-          <a href="/season.html?id=${state.season.id}" class="film-link">${escapeHTML(state.season.name || `Saison ${state.season.season_number}`)}</a>
-          <small>(voir details)</small>
+          ${escapeHTML(state.season.name || `Saison ${state.season.season_number}`)}
           - Moyenne du site: ${siteAverageBadge}
         </h3>
-        <a href="/season.html?id=${state.season.id}" class="ghost-button season-open-button">Ouvrir</a>
+        <a href="/series.html?id=${state.series?.id || ""}" class="button season-open-button">Voir page s&eacute;rie</a>
       </div>
-      <p>Phase: ${escapeHTML(state.season.phase || "-")} | Debut: ${formatDate(state.season.start_date)} | Fin: ${formatDate(state.season.end_date)}</p>
-      <p>Moyenne de tes episodes: <b>${seasonAverage}</b></p>
+      <p>${seasonMetaLine}</p>
 
-      <div class="inline-actions season-adjuster">
-        <span>Ajusteur de moyenne</span>
-        <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" aria-label="Diminuer l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
-          <i class="fa-solid fa-minus" aria-hidden="true"></i>
-        </button>
-        <strong>${adjustmentValue}</strong>
-        <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" aria-label="Augmenter l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
-          <i class="fa-solid fa-plus" aria-hidden="true"></i>
-        </button>
-        <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" aria-label="Reinitialiser l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
-          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-        </button>
-      </div>
+      ${showUserEpisodeActions ? `
+        <div class="season-rating-separator" aria-hidden="true"></div>
+        <p>Ta note effective de la saison: ${userAverage}</p>
+        <p class="film-meta">Base utilis&eacute;e pour ta note : ${metrics.userManualScore === null ? "Moyenne de tes &eacute;pisodes" : "Note manuelle de saison"} | &Eacute;pisodes: ${metrics.episodeCount}</p>
 
-      <p>Ta note effective de saison: ${userAverage}</p>
-      <p class="film-meta">Base perso: ${metrics.userManualScore === null ? "Moyenne de tes episodes" : "Note de saison manuelle"} | Episodes: ${metrics.episodeCount}</p>
+        <div class="season-rating-layout">
+          <section class="season-rating-panel">
+            <p class="film-meta season-manual-help">Renseigne une note g&eacute;n&eacute;rale pour toute la saison (optionnel).</p>
+            <div class="inline-actions inline-edit">
+              <input data-field="season-manual-score" type="number" min="0" max="10" step="0.25" value="${manualValue}" placeholder="Note saison (optionnelle)" ${canRateSeason ? "" : "disabled"} />
+              <button type="button" class="icon-circle-btn save" data-action="save-season-manual" aria-label="Valider la note de saison" ${canRateSeason ? "" : "disabled"}>
+                <i class="fa-solid fa-check" aria-hidden="true"></i>
+              </button>
+              ${metrics.userManualScore === null ? "" : `
+                <button type="button" class="icon-circle-btn delete" data-action="delete-season-manual" aria-label="Supprimer la note manuelle de saison" ${canRateSeason ? "" : "disabled"}>
+                  <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+              `}
+            </div>
+          </section>
 
-      <div class="season-controls">
-        <p class="film-meta season-manual-help">Renseigner une note generale pour toute la saison (optionnel).</p>
-        <div class="inline-actions inline-edit">
-          <input data-field="season-manual-score" type="number" min="0" max="10" step="0.25" value="${manualValue}" placeholder="Note saison (optionnelle)" ${canRateSeason ? "" : "disabled"} />
-          <button type="button" class="icon-circle-btn save" data-action="save-season-manual" aria-label="Valider la note de saison" ${canRateSeason ? "" : "disabled"}>
-            <i class="fa-solid fa-check" aria-hidden="true"></i>
-          </button>
-          ${metrics.userManualScore === null ? "" : `
-            <button type="button" class="icon-circle-btn delete" data-action="delete-season-manual" aria-label="Supprimer la note manuelle de saison" ${canRateSeason ? "" : "disabled"}>
-              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-            </button>
-          `}
+          <section class="season-rating-panel">
+            <p>Moyenne de tes &eacute;pisodes: <b>${seasonAverage}</b></p>
+            <div class="inline-actions season-adjuster">
+              <span>Ajusteur de moyenne</span>
+              <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" aria-label="Diminuer l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
+                <i class="fa-solid fa-minus" aria-hidden="true"></i>
+              </button>
+              <strong>${adjustmentValue}</strong>
+              <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" aria-label="Augmenter l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
+                <i class="fa-solid fa-plus" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" aria-label="Reinitialiser l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+              </button>
+            </div>
+          </section>
         </div>
-      </div>
+      ` : ""}
 
       <details class="season-episodes" open>
         <summary class="season-episodes-summary">
-          <span>Episodes</span>
-          <small>Cliquer pour replier / deplier</small>
+          <span class="season-summary-label">
+            <i class="fa-solid fa-caret-right season-summary-caret" aria-hidden="true"></i>
+            &Eacute;pisodes
+          </span>
+          <small>Cliquer pour replier / d&eacute;plier</small>
         </summary>
         <div class="table-wrapper">
           <table class="ranking-table compact">
             <thead>
               <tr>
                 <th>#</th>
-                <th>Episode</th>
+                <th>&Eacute;pisode</th>
                 <th>Diffusion</th>
                 <th>Moyenne</th>
-                <th>Ta note</th>
-                <th>Modifier</th>
+                ${showUserEpisodeActions ? "<th>Ta note</th>" : ""}
+                ${showUserEpisodeActions ? "<th>Modifier</th>" : ""}
               </tr>
             </thead>
             <tbody>
-              ${state.episodes.sort((a, b) => a.episode_number - b.episode_number).map((episode) => {
-                const userRating = state.episodeRatings.find(
-                  (rating) => rating.episode_id === episode.id && rating.user_id === state.currentUserId
-                );
+              ${sortedEpisodes.map((episode) => {
+                const userRating = showUserEpisodeActions
+                  ? state.episodeRatings.find(
+                    (rating) => rating.episode_id === episode.id && rating.user_id === state.currentUserId
+                  )
+                  : null;
                 const canRate = isReleasedOnOrBeforeToday(episode.air_date);
                 const scoreValue = userRating ? String(userRating.score) : "";
                 const scoreBadge = userRating
@@ -254,26 +292,32 @@ function renderSeasonCard() {
                 return `
                   <tr>
                     <td>${episode.episode_number}</td>
-                    <td><a href="/episode.html?id=${episode.id}" class="film-link">${escapeHTML(episode.title)}</a></td>
-                    <td>${formatDate(episode.air_date)}</td>
-                    <td>${averageBadge}</td>
-                    <td>${scoreBadge}</td>
-                    <td class="actions-cell">
-                      <div class="inline-actions inline-edit">
-                        <a href="/episode.html?id=${episode.id}" class="icon-circle-btn neutral small icon-link" aria-label="Ouvrir la page episode">
+                    <td>
+                      <span class="episode-title-inline">
+                        <a href="/episode.html?id=${episode.id}" class="film-link">${escapeHTML(episode.title)}</a>
+                        <a href="/episode.html?id=${episode.id}" class="icon-circle-btn neutral small icon-link episode-open-link" aria-label="Ouvrir la page episode">
                           <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>
                         </a>
-                        <input data-field="episode-score" data-episode-id="${episode.id}" type="number" min="0" max="10" step="0.25" value="${scoreValue}" placeholder="0 a 10" ${canRate ? "" : "disabled"} />
-                        <button type="button" class="icon-circle-btn save" data-action="save-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Valider la note d'episode">
-                          <i class="fa-solid fa-check" aria-hidden="true"></i>
-                        </button>
-                        ${userRating ? `
-                          <button type="button" class="icon-circle-btn delete" data-action="delete-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Supprimer la note d'episode">
-                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                          </button>
-                        ` : ""}
-                      </div>
+                      </span>
                     </td>
+                    <td>${formatDate(episode.air_date)}</td>
+                    <td>${averageBadge}</td>
+                    ${showUserEpisodeActions ? `<td>${scoreBadge}</td>` : ""}
+                    ${showUserEpisodeActions ? `
+                      <td class="actions-cell">
+                        <div class="inline-actions inline-edit">
+                          <input data-field="episode-score" data-episode-id="${episode.id}" type="number" min="0" max="10" step="0.25" value="${scoreValue}" placeholder="0 a 10" ${canRate ? "" : "disabled"} />
+                          <button type="button" class="icon-circle-btn save" data-action="save-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Valider la note d'episode">
+                            <i class="fa-solid fa-check" aria-hidden="true"></i>
+                          </button>
+                          ${userRating ? `
+                            <button type="button" class="icon-circle-btn delete" data-action="delete-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Supprimer la note d'episode">
+                              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                            </button>
+                          ` : ""}
+                        </div>
+                      </td>
+                    ` : ""}
                   </tr>
                 `;
               }).join("")}
@@ -418,6 +462,7 @@ async function refreshAll() {
   await loadSeasonData();
   await loadRatingsData();
 
+  applyAuthVisibility();
   renderSeasonDetails();
   applySeasonAvailability();
   renderSeasonCard();
@@ -686,6 +731,8 @@ async function deleteSeasonReview() {
 
 function bindSeasonCardEvents() {
   const root = document.querySelector("#season-card-root");
+  if (!root) return;
+
   root.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-action]");
     if (!button) return;
