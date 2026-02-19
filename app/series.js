@@ -21,6 +21,7 @@ const state = {
   seasonUserRatings: [],
   seriesReviews: [],
   listFilters: {
+    search: "",
     franchise: "",
     phase: "",
     type: "",
@@ -39,6 +40,7 @@ const listPhaseFilterEl = document.querySelector("#series-phase-filter");
 const listPhaseFilterWrapEl = document.querySelector("#series-phase-filter-wrap");
 const listTypeFilterEl = document.querySelector("#series-type-filter");
 const listSortFilterEl = document.querySelector("#series-sort-filter");
+const listTitleSearchEl = document.querySelector("#series-title-search");
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -421,6 +423,7 @@ function sortSeriesRows(rows) {
 }
 
 function renderSeriesListWithFilters() {
+  const searchText = (state.listFilters.search || "").trim().toLocaleLowerCase("fr");
   const filtered = state.listSeriesRows.filter((item) => {
     const franchise = (item.franchise || "").trim();
     const hasFranchise = franchise.length > 0;
@@ -430,8 +433,9 @@ function renderSeriesListWithFilters() {
         : franchise === state.listFilters.franchise);
     const matchesType = !state.listFilters.type || (item.type || "") === state.listFilters.type;
     const matchesPhase = !state.listFilters.phase || (item.mcuPhases || []).includes(state.listFilters.phase);
+    const matchesSearch = !searchText || (item.title || "").toLocaleLowerCase("fr").includes(searchText);
 
-    return matchesFranchise && matchesType && matchesPhase;
+    return matchesFranchise && matchesType && matchesPhase && matchesSearch;
   });
 
   renderSeriesList(sortSeriesRows(filtered));
@@ -476,12 +480,17 @@ function setupSeriesListFilters() {
     state.listFilters.sort = listSortFilterEl.value || "date_desc";
     renderSeriesListWithFilters();
   });
+
+  listTitleSearchEl?.addEventListener("input", () => {
+    state.listFilters.search = listTitleSearchEl.value || "";
+    renderSeriesListWithFilters();
+  });
 }
 
 function renderSeriesList(rows) {
   const listEl = document.querySelector("#series-list");
   if (!rows.length) {
-    listEl.innerHTML = "<p>Aucune serie pour le moment.</p>";
+    listEl.innerHTML = "<p>Aucune s\u00E9rie pour le moment.</p>";
     return;
   }
 
@@ -496,10 +505,12 @@ function renderSeriesList(rows) {
               ? `Moyenne: <span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span>`
               : `Moyenne: <span class="score-badge film-average-badge stade-neutre">pas de note</span>`
           }</p>
-          <p>Debut: ${formatDate(item.start_date)}</p>
+          <p>D\u00E9but: ${formatDate(item.start_date)}</p>
           <p>Fin: ${formatDate(item.end_date)}</p>
-          <p class="film-meta">${escapeHTML(item.franchise || "-")} - ${escapeHTML(item.type || "Serie")}</p>
-          <a class="button" href="/series.html?id=${item.id}">Voir la page serie</a>
+          <p class="film-meta">${escapeHTML(item.franchise || "-")} - ${escapeHTML(item.type || "S\u00E9rie")}</p>
+          <div class="home-latest-card-action">
+            <a class="button" href="/series.html?id=${item.id}">Voir la page s\u00E9rie</a>
+          </div>
         </div>
       </article>
     `)
@@ -1319,7 +1330,7 @@ async function initPage() {
     if (!seriesId) {
       const subtitleEl = document.querySelector("#series-subtitle");
       const subtitleNoteEl = document.querySelector("#series-subtitle-note");
-      if (subtitleEl) subtitleEl.textContent = "Choisis une serie pour afficher ses saisons et episodes.";
+      if (subtitleEl) subtitleEl.textContent = "Choisis une s\u00E9rie pour afficher ses saisons et \u00E9pisodes.";
       if (subtitleNoteEl) subtitleNoteEl.textContent = "";
 
       const [
@@ -1391,10 +1402,10 @@ async function initPage() {
     const subtitleEl = document.querySelector("#series-subtitle");
     const subtitleNoteEl = document.querySelector("#series-subtitle-note");
     if (subtitleEl) {
-      subtitleEl.textContent = "Pour les series, la note effective vient de ta note manuelle, ou de la moyenne de tes episodes (plus ajusteur) uniquement quand tous les episodes de la saison sont notes.";
+      subtitleEl.textContent = "Pour les s\u00E9ries, la note effective vient de ta note manuelle, ou de la moyenne de tes \u00E9pisodes (plus ajusteur) uniquement quand tous les \u00E9pisodes de la saison sont not\u00E9s.";
     }
     if (subtitleNoteEl) {
-      subtitleNoteEl.textContent = "Tant qu'une saison n'est pas complete, la moyenne partielle reste visible dans \"Moyenne de tes episodes\" mais n'est pas comptabilisee comme note effective.";
+      subtitleNoteEl.textContent = "Tant qu'une saison n'est pas compl\u00E8te, la moyenne partielle reste visible dans \"Moyenne de tes \u00E9pisodes\" mais n'est pas comptabilis\u00E9e comme note effective.";
     }
 
     await reloadSeriesDetails(seriesId);

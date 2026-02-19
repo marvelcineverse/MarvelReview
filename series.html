@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MarvelReview - Series</title>
+    <title>MarvelReview - S&eacute;ries</title>
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   </head>
@@ -13,8 +13,8 @@
 
       <section class="page-intro">
         <div>
-          <h1>Series Marvel</h1>
-          <p id="series-subtitle">Choisis une serie pour afficher ses saisons et episodes.</p>
+          <h1>S&eacute;ries Marvel</h1>
+          <p id="series-subtitle">Choisis une s&eacute;rie pour afficher ses saisons et &eacute;pisodes.</p>
           <p id="series-subtitle-note" class="film-meta"></p>
         </div>
         <p id="auth-status" class="status"></p>
@@ -22,8 +22,15 @@
 
       <p id="page-message" class="message" aria-live="polite"></p>
 
-      <section id="series-list-section">
-        <section class="card filters-card">
+      <section id="series-list-section" class="card home-stack-card">
+        <div class="home-stack-chunk">
+          <label>
+            Recherche s&eacute;rie
+            <input id="series-title-search" type="search" placeholder="Rechercher par nom..." />
+          </label>
+        </div>
+
+        <div class="home-stack-chunk">
           <h2>Filtres</h2>
           <div class="filters-grid">
             <label>
@@ -46,38 +53,41 @@
             <label>
               Tri
               <select id="series-sort-filter">
-                <option value="date_desc">Date (dechronologique)</option>
+                <option value="date_desc">Date (d&eacute;chronologique)</option>
                 <option value="date_asc">Date (chronologique)</option>
                 <option value="rating_desc">Note (plus haute d'abord)</option>
                 <option value="rating_asc">Note (plus basse d'abord)</option>
               </select>
             </label>
           </div>
-        </section>
-        <div id="series-list" class="grid films-grid"></div>
+        </div>
+
+        <div class="home-stack-chunk">
+          <div id="series-list" class="grid films-grid"></div>
+        </div>
       </section>
 
       <section id="series-detail-section" style="display: none;">
         <div id="series-details"></div>
         <section class="card">
-          <h2>Moyenne generale</h2>
+          <h2>Moyenne g&eacute;n&eacute;rale</h2>
           <p id="series-global-average" class="score-row"></p>
           <h2>Ma moyenne</h2>
           <p id="series-my-average" class="score-row"></p>
         </section>
         <section class="card">
-          <h2>Ta critique serie</h2>
+          <h2>Ta critique s&eacute;rie</h2>
           <p id="series-rating-unavailable-message" class="message" style="display: none;" aria-live="polite"></p>
           <form id="series-review-form" class="form">
             <label>
               Critique (optionnelle)
-              <textarea id="series-review" maxlength="1500" placeholder="Ton avis global sur la serie..."></textarea>
+              <textarea id="series-review" maxlength="1500" placeholder="Ton avis global sur la s&eacute;rie..."></textarea>
             </label>
             <div class="inline-actions">
-              <button type="submit" class="icon-circle-btn save" aria-label="Enregistrer ma critique serie">
+              <button type="submit" class="icon-circle-btn save" aria-label="Enregistrer ma critique s&eacute;rie">
                 <i class="fa-solid fa-check" aria-hidden="true"></i>
               </button>
-              <button id="series-review-delete-button" type="button" class="icon-circle-btn delete" style="display: none;" aria-label="Supprimer ma critique serie">
+              <button id="series-review-delete-button" type="button" class="icon-circle-btn delete" style="display: none;" aria-label="Supprimer ma critique s&eacute;rie">
                 <i class="fa-solid fa-xmark" aria-hidden="true"></i>
               </button>
             </div>
@@ -89,14 +99,14 @@
           <h2>Zone sociale</h2>
           <div class="social-columns">
             <div class="social-column">
-              <h3>Dernieres critiques serie</h3>
+              <h3>Derni&egrave;res critiques s&eacute;rie</h3>
               <div id="series-reviews-list" class="grid social-feed"></div>
               <button type="button" class="ghost-button social-more-button" data-action="toggle-series-reviews-more" style="display: none;">
                 Voir plus
               </button>
             </div>
             <div class="social-column">
-              <h3>Dernieres notes/critiques saisons & episodes</h3>
+              <h3>Derni&egrave;res notes/critiques saisons &amp; &eacute;pisodes</h3>
               <div id="series-social-activity-list" class="grid social-feed"></div>
               <button type="button" class="ghost-button social-more-button" data-action="toggle-series-activity-more" style="display: none;">
                 Voir plus

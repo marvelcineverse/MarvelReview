@@ -345,7 +345,7 @@ function renderLatestActivity(allRows, mediaByUserId) {
 
   if (!toggleEl) return;
   const canExpand = allRows.length > LATEST_ACTIVITY_INITIAL_LIMIT;
-  toggleEl.style.display = canExpand ? "inline-flex" : "none";
+  toggleEl.style.display = canExpand ? "flex" : "none";
   toggleEl.textContent = state.latestActivityExpanded ? "Voir moins" : "Voir plus";
 }
 

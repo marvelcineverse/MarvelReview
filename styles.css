@@ -316,7 +316,7 @@ select:focus-visible {
 }
 
 .films-grid {
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .filters-card {
@@ -771,6 +771,7 @@ textarea {
 
 .social-more-button {
   display: block;
+  width: fit-content;
   justify-self: center;
   align-self: center;
   min-height: 44px;

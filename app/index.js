@@ -145,7 +145,9 @@ function renderFilms() {
             }</p>
             <p>Sortie: ${formatDate(film.release_date)}</p>
             <p class="film-meta">${escapeHTML(film.franchise || "-")} - ${escapeHTML(film.type || "-")}</p>
-            <a class="button" href="/film.html?id=${film.id}">Voir la page film</a>
+            <div class="home-latest-card-action">
+              <a class="button" href="/film.html?id=${film.id}">Voir la page film</a>
+            </div>
           </div>
         </article>
       `
