@@ -770,7 +770,22 @@ textarea {
 }
 
 .social-more-button {
-  justify-self: start;
+  justify-self: center;
+  align-self: center;
+  min-height: 44px;
+  min-width: 180px;
+  border-radius: var(--radius-sm);
+  padding: 0.58rem 0.9rem;
+  margin: 0.4rem auto 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+}
+
+.social-more-button:hover {
+  background: #eaf1f8;
+  border-color: #c5d3e2;
+  box-shadow: 0 8px 18px rgba(18, 32, 49, 0.14);
 }
 
 .home-activity-grid {
@@ -850,7 +865,12 @@ textarea {
 
 .film-link {
   font-weight: 600;
-  color: #1f3e63;
+  color: var(--primary);
+  text-decoration-color: rgba(226, 54, 54, 0.45);
+}
+
+.film-link:hover {
+  color: var(--primary-dark);
 }
 
 .ta-note-badge {
