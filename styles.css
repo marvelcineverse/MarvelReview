@@ -589,6 +589,10 @@ button:hover {
   white-space: nowrap;
 }
 
+.season-open-button.button {
+  min-height: 44px;
+}
+
 .episode-title-inline {
   display: inline-flex;
   align-items: center;
@@ -726,6 +730,26 @@ button:hover {
   gap: 0.7rem;
 }
 
+.season-episodes-summary {
+  list-style: none;
+}
+
+.season-episodes-summary::-webkit-details-marker {
+  display: none;
+}
+
+.season-summary-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+
+.season-summary-caret {
+  font-size: 0.95rem;
+  color: #304a63;
+  transition: transform 160ms ease;
+}
+
 .season-episodes-summary small {
   color: var(--muted);
   font-weight: 500;
@@ -733,6 +757,10 @@ button:hover {
 
 .season-episodes[open] .season-episodes-summary {
   margin-bottom: 0.45rem;
+}
+
+.season-episodes[open] .season-summary-caret {
+  transform: rotate(90deg);
 }
 
 .series-compact-rankings {
@@ -787,6 +815,10 @@ button:hover {
   padding: 0.32rem 0.45rem;
 }
 
+.series-compact-row.without-meta {
+  grid-template-columns: 26px 1fr auto;
+}
+
 .series-compact-row small {
   color: var(--muted);
 }
@@ -801,6 +833,24 @@ button:hover {
   font-weight: 700;
   color: #48617a;
   text-align: center;
+}
+
+.series-compact-more {
+  margin-top: 0.55rem;
+  border: 1px solid #d9e3ef;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0.38rem 0.48rem;
+}
+
+.series-compact-more > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #304a63;
+}
+
+.series-compact-more[open] > summary {
+  margin-bottom: 0.45rem;
 }
 
 label {

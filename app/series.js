@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient.js";
 import {
+  buildDenseRankLabels,
   escapeHTML,
   formatDate,
   formatScore,
@@ -630,7 +631,7 @@ function renderSeriesHeader() {
     <article class="film-hero">
       <div class="film-hero-content">
         <h1>${escapeHTML(series.title)}</h1>
-        <p><u>Debut</u> : ${formatDate(series.start_date)} - <u>Fin</u> : ${formatDate(series.end_date)}</p>
+        <p><u>D\u00E9but</u> : ${formatDate(series.start_date)} - <u>Fin</u> : ${formatDate(series.end_date)}</p>
         <p>${escapeHTML(series.synopsis || "Aucun synopsis.")}</p>
       </div>
       <img class="film-hero-poster" src="${escapeHTML(series.poster_url || "https://via.placeholder.com/260x390?text=Serie")}" alt="Affiche de ${escapeHTML(series.title)}" />
@@ -757,7 +758,7 @@ function renderSeriesReviews(mediaByUserId = new Map()) {
   const shouldTruncate = isMobile && !state.socialExpanded.reviews;
 
   if (!state.seriesReviews.length) {
-    listEl.innerHTML = "<p>Aucune critique pour cette serie.</p>";
+    listEl.innerHTML = "<p>Aucune critique pour cette s\u00E9rie.</p>";
     updateSocialMoreButton('[data-action="toggle-series-reviews-more"]', false, state.socialExpanded.reviews);
     return;
   }
@@ -807,7 +808,7 @@ function renderSeriesSocialActivity(mediaByUserId = new Map()) {
   const rowsToShow = shouldTruncate ? rows.slice(0, SOCIAL_MOBILE_VISIBLE_ITEMS) : rows;
 
   if (!rows.length) {
-    listEl.innerHTML = "<p>Aucune note ou critique recente sur les saisons/episodes.</p>";
+    listEl.innerHTML = "<p>Aucune note ou critique r\u00E9cente sur les saisons/\u00E9pisodes.</p>";
     updateSocialMoreButton('[data-action="toggle-series-activity-more"]', false, state.socialExpanded.activity);
     return;
   }
@@ -894,7 +895,7 @@ function computeEpisodeSiteRankingRows() {
     rows.push({
       id: episode.id,
       title: episode.title || "Episode",
-      seasonLabel: season?.season_number ? `S${season.season_number}` : "Saison",
+      seasonEpisodeLabel: `S${season?.season_number || "?"} - E${episode.episode_number || "?"}`,
       average,
       count: ratings.length,
       href: `/episode.html?id=${episode.id}`
@@ -934,7 +935,9 @@ function computeSeasonSiteRankingRows() {
     };
   });
 
-  return rows.sort((a, b) => {
+  return rows
+    .filter((row) => Number.isFinite(row.average))
+    .sort((a, b) => {
     const aAverage = a.average ?? -1;
     const bAverage = b.average ?? -1;
     if (bAverage !== aAverage) return bAverage - aAverage;
@@ -943,43 +946,67 @@ function computeSeasonSiteRankingRows() {
   });
 }
 
+function renderSeriesCompactRows(rows, options = {}) {
+  const {
+    showEpisodeMeta = false,
+    rankLabels = null,
+    startIndex = 0
+  } = options;
+
+  const resolvedRankLabels = rankLabels || buildDenseRankLabels(rows, (row) => row.average, 2);
+  return rows
+    .map((row, index) => `
+      <article class="series-compact-row ${showEpisodeMeta ? "with-meta" : "without-meta"}">
+        <span class="series-compact-rank">${resolvedRankLabels[startIndex + index] || "-"}</span>
+        <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>
+        ${showEpisodeMeta ? `<small>${escapeHTML(row.seasonEpisodeLabel || "-")}</small>` : ""}
+        <span class="score-badge ${getScoreClass(row.average)}">${formatScore(row.average, 2, 2)}</span>
+      </article>
+    `)
+    .join("");
+}
+
 function renderSeriesCompactRankings() {
   const episodeListEl = document.querySelector("#series-episode-ranking-list");
   const seasonListEl = document.querySelector("#series-season-ranking-list");
   if (!episodeListEl || !seasonListEl) return;
 
-  const episodeRows = computeEpisodeSiteRankingRows().slice(0, 8);
+  const episodeRows = computeEpisodeSiteRankingRows();
   const seasonRows = computeSeasonSiteRankingRows();
 
   if (!episodeRows.length) {
-    episodeListEl.innerHTML = `<p class="film-meta">Aucune note d'episode pour le moment.</p>`;
+    episodeListEl.innerHTML = `<p class="film-meta">Aucune note d'\u00E9pisode pour le moment.</p>`;
   } else {
-    episodeListEl.innerHTML = episodeRows
-      .map((row, index) => `
-        <article class="series-compact-row">
-          <span class="series-compact-rank">${index + 1}</span>
-          <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>
-          <small>${escapeHTML(row.seasonLabel)}</small>
-          <span class="score-badge ${getScoreClass(row.average)}">${formatScore(row.average, 2, 2)}</span>
-        </article>
-      `)
-      .join("");
+    const episodeRankLabels = buildDenseRankLabels(episodeRows, (row) => row.average, 2);
+    const featuredRows = episodeRows.slice(0, 8);
+    const remainingRows = episodeRows.slice(8);
+    episodeListEl.innerHTML = `
+      <div class="series-compact-list">
+        ${renderSeriesCompactRows(featuredRows, {
+          showEpisodeMeta: true,
+          rankLabels: episodeRankLabels,
+          startIndex: 0
+        })}
+      </div>
+      ${remainingRows.length > 0 ? `
+        <details class="series-compact-more">
+          <summary>Voir les autres \u00E9pisodes (${remainingRows.length})</summary>
+          <div class="series-compact-list">
+            ${renderSeriesCompactRows(remainingRows, {
+              showEpisodeMeta: true,
+              rankLabels: episodeRankLabels,
+              startIndex: featuredRows.length
+            })}
+          </div>
+        </details>
+      ` : ""}
+    `;
   }
 
-  if (state.seasons.length < 2) {
-    seasonListEl.innerHTML = `<p class="film-meta">Classement disponible a partir de 2 saisons.</p>`;
+  if (seasonRows.length < 2) {
+    seasonListEl.innerHTML = `<p class="film-meta">Classement disponible \u00E0 partir de 2 saisons not\u00E9es.</p>`;
   } else {
-    seasonListEl.innerHTML = seasonRows
-      .map((row, index) => `
-        <article class="series-compact-row">
-          <span class="series-compact-rank">${index + 1}</span>
-          <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>
-          ${row.average === null
-            ? `<span class="score-badge stade-neutre">Pas de note</span>`
-            : `<span class="score-badge ${getScoreClass(row.average)}">${formatScore(row.average, 2, 2)}</span>`}
-        </article>
-      `)
-      .join("");
+    seasonListEl.innerHTML = `<div class="series-compact-list">${renderSeriesCompactRows(seasonRows)}</div>`;
   }
 }
 
@@ -1026,6 +1053,14 @@ function renderSeasons(openSeasonIds = null) {
       const manualValue = metrics.userManualScore === null ? "" : String(metrics.userManualScore);
       const adjustmentValue = formatScore(metrics.userAdjustment, 2, 2);
       const isOpen = initialOpenAll || openSeasonIds.has(season.id);
+      const phaseLabel = String(season.phase || "").trim();
+      const seasonMetaParts = [];
+      if (phaseLabel) {
+        seasonMetaParts.push(`Phase: ${escapeHTML(phaseLabel)}`);
+      }
+      seasonMetaParts.push(`D\u00E9but: ${formatDate(season.start_date)}`);
+      seasonMetaParts.push(`Fin: ${formatDate(season.end_date)}`);
+      const seasonMetaLine = seasonMetaParts.join(" | ");
 
       return `
         <article class="card">
@@ -1034,14 +1069,14 @@ function renderSeasons(openSeasonIds = null) {
               ${escapeHTML(season.name || `Saison ${season.season_number}`)}
               - Moyenne du site: ${siteAverageBadge}
             </h3>
-            <a href="/season.html?id=${season.id}" class="ghost-button season-open-button">Ouvrir</a>
+            <a href="/season.html?id=${season.id}" class="button season-open-button">Voir page saison</a>
           </div>
-          <p>Phase: ${escapeHTML(season.phase || "-")} | Debut: ${formatDate(season.start_date)} | Fin: ${formatDate(season.end_date)}</p>
+          <p>${seasonMetaLine}</p>
 
           ${showUserEpisodeActions ? `
             <div class="season-rating-separator" aria-hidden="true"></div>
             <p>Ta note effective de la saison: ${userAverage}</p>
-            <p class="film-meta">Base utilis\u00E9e pour ta note : ${metrics.userManualScore === null ? "Moyenne de tes \u00E9pisodes" : "Note manuelle de saison"} | Episodes: ${metrics.episodeCount}</p>
+            <p class="film-meta">Base utilis\u00E9e pour ta note : ${metrics.userManualScore === null ? "Moyenne de tes \u00E9pisodes" : "Note manuelle de saison"} | \u00C9pisodes: ${metrics.episodeCount}</p>
 
             <div class="season-rating-layout">
               <section class="season-rating-panel">
@@ -1080,15 +1115,18 @@ function renderSeasons(openSeasonIds = null) {
 
           <details class="season-episodes" data-season-id="${season.id}" ${isOpen ? "open" : ""}>
             <summary class="season-episodes-summary">
-              <span>Episodes</span>
-              <small>Cliquer pour replier / deplier</small>
+              <span class="season-summary-label">
+                <i class="fa-solid fa-caret-right season-summary-caret" aria-hidden="true"></i>
+                \u00C9pisodes
+              </span>
+              <small>Cliquer pour replier / d\u00E9plier</small>
             </summary>
             <div class="table-wrapper">
               <table class="ranking-table compact">
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Episode</th>
+                    <th>\u00C9pisode</th>
                     <th>Diffusion</th>
                     <th>Moyenne</th>
                     ${showUserEpisodeActions ? "<th>Ta note</th>" : ""}
