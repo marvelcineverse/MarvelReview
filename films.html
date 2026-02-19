@@ -3,7 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <title>MarvelReview - Films</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
@@ -20,39 +19,51 @@
       </section>
 
       <p id="page-message" class="message" aria-live="polite"></p>
-      <section class="card search-card">
-        <label>
-          Recherche film
-          <input id="title-search" type="search" placeholder="Rechercher par nom..." />
-        </label>
-      </section>
-      <section class="card filters-card">
-        <h2>Filtres</h2>
-        <div class="filters-grid">
+
+      <section class="card home-stack-card">
+        <div class="home-stack-chunk">
           <label>
-            Franchise
-            <select id="franchise-filter"></select>
-          </label>
-          <label id="phase-filter-wrap">
-            Phase
-            <select id="phase-filter"></select>
-          </label>
-          <label>
-            Type
-            <select id="type-filter"></select>
-          </label>
-          <label>
-            Tri
-            <select id="sort-filter">
-              <option value="date_desc">Date (dechronologique)</option>
-              <option value="date_asc">Date (chronologique)</option>
-              <option value="rating_desc">Note (plus haute d'abord)</option>
-              <option value="rating_asc">Note (plus basse d'abord)</option>
-            </select>
+            Recherche film
+            <input id="title-search" type="search" placeholder="Rechercher par nom..." />
           </label>
         </div>
+
+        <div class="home-stack-chunk">
+          <h2>Filtres</h2>
+          <div class="filters-grid">
+            <label>
+              Franchise
+              <select id="franchise-filter"></select>
+            </label>
+            <label id="phase-filter-wrap">
+              Phase
+              <select id="phase-filter"></select>
+            </label>
+            <label>
+              Type
+              <select id="type-filter"></select>
+            </label>
+            <label>
+              Tri
+              <select id="sort-filter">
+                <option value="date_desc">Date (plus r&eacute;cent d'abord)</option>
+                <option value="date_asc">Date (plus ancien d'abord)</option>
+                <option value="rating_desc">Note (plus haute d'abord)</option>
+                <option value="rating_asc">Note (plus basse d'abord)</option>
+              </select>
+            </label>
+          </div>
+          <div class="filters-actions">
+            <button id="reset-filters" type="button" class="ghost-button filters-reset-button">
+              R&eacute;initialiser les filtres
+            </button>
+          </div>
+        </div>
+
+        <div class="home-stack-chunk">
+          <section id="films-list" class="grid films-grid"></section>
+        </div>
       </section>
-      <section id="films-list" class="grid films-grid"></section>
     </main>
 
     <script type="module" src="/app/common.js"></script>

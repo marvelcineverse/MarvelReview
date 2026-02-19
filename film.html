@@ -3,7 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <title>MarvelReview - Film</title>
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
@@ -12,43 +11,48 @@
     <main class="container">
       <div id="nav-root"></div>
 
-      <section class="page-intro">
-        <h1>Page film</h1>
-        <p id="auth-status" class="status"></p>
-      </section>
-
       <p id="page-message" class="message" aria-live="polite"></p>
-      <section id="film-details"></section>
 
-      <section class="card">
-        <h2>Moyenne</h2>
-        <p id="average-rating" class="score-row"></p>
-      </section>
+      <section id="film-main-section" class="card home-stack-card">
+        <div class="home-stack-chunk">
+          <section id="film-details"></section>
+        </div>
 
-      <section class="card">
-        <h2>Ta note</h2>
-        <p id="rating-unavailable-message" class="message" style="display: none;" aria-live="polite"></p>
-        <form id="rating-form" class="form">
-          <label>
-            Score (0 a 10, par pas de 0,25)
-            <input id="score" type="number" min="0" max="10" step="0.25" required />
-          </label>
+        <section class="home-stack-chunk">
+          <h2>Moyenne</h2>
+          <p id="average-rating" class="score-row"></p>
+        </section>
 
-          <label>
-            Mini-critique (optionnel)
-            <textarea id="review" maxlength="800" placeholder="Ton avis..."></textarea>
-          </label>
+        <section id="film-rating-section" class="home-stack-chunk" style="display: none;">
+          <h2>Ta note</h2>
+          <p id="rating-unavailable-message" class="message" style="display: none;" aria-live="polite"></p>
+          <form id="rating-form" class="form">
+            <label>
+              Score (0 a 10, par pas de 0,25)
+              <input id="score" type="number" min="0" max="10" step="0.25" required />
+            </label>
 
-          <div class="inline-actions">
-            <button type="submit" class="icon-circle-btn save" aria-label="Enregistrer ma note">
-              <i class="fa-solid fa-check" aria-hidden="true"></i>
-            </button>
-            <button id="delete-rating-button" type="button" class="icon-circle-btn delete" style="display: none;" aria-label="Supprimer ma note">
-              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-            </button>
-          </div>
-          <p id="form-message" class="message" aria-live="polite"></p>
-        </form>
+            <label>
+              Mini-critique (optionnel)
+              <textarea id="review" maxlength="800" placeholder="Ton avis..."></textarea>
+            </label>
+
+            <div class="inline-actions">
+              <button type="submit" class="icon-circle-btn save" aria-label="Enregistrer ma note">
+                <i class="fa-solid fa-check" aria-hidden="true"></i>
+              </button>
+              <button id="delete-rating-button" type="button" class="icon-circle-btn delete" style="display: none;" aria-label="Supprimer ma note">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p id="form-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="home-stack-chunk">
+          <h2>Dernieres critiques</h2>
+          <div id="ratings-list" class="grid"></div>
+        </section>
       </section>
 
       <section id="admin-rating-editor" class="card" style="display: none;">
@@ -72,11 +76,6 @@
           <button type="submit">Attribuer / Mettre a jour</button>
           <p id="admin-rating-message" class="message" aria-live="polite"></p>
         </form>
-      </section>
-
-      <section>
-        <h2>Dernieres critiques</h2>
-        <div id="ratings-list" class="grid"></div>
       </section>
 
       <section id="admin-film-editor" class="card" style="display: none;">

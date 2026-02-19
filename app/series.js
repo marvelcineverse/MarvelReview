@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient.js";
 import {
+  buildDenseRankLabels,
   escapeHTML,
   formatDate,
   formatScore,
@@ -11,6 +12,16 @@ import {
 } from "./utils.js";
 import { getSession, requireAuth } from "./auth.js";
 
+const SERIES_LIST_FILTERS_STORAGE_KEY = "marvelreview:series:list-filters:v1";
+const VALID_SERIES_SORT_MODES = new Set(["date_desc", "date_asc", "rating_desc", "rating_asc"]);
+const DEFAULT_SERIES_LIST_FILTERS = Object.freeze({
+  search: "",
+  franchise: "",
+  phase: "",
+  type: "",
+  sort: "date_desc"
+});
+
 const state = {
   currentUserId: null,
   series: null,
@@ -20,12 +31,7 @@ const state = {
   episodeRatings: [],
   seasonUserRatings: [],
   seriesReviews: [],
-  listFilters: {
-    franchise: "",
-    phase: "",
-    type: "",
-    sort: "date_desc"
-  },
+  listFilters: { ...DEFAULT_SERIES_LIST_FILTERS },
   socialExpanded: {
     reviews: false,
     activity: false
@@ -39,6 +45,78 @@ const listPhaseFilterEl = document.querySelector("#series-phase-filter");
 const listPhaseFilterWrapEl = document.querySelector("#series-phase-filter-wrap");
 const listTypeFilterEl = document.querySelector("#series-type-filter");
 const listSortFilterEl = document.querySelector("#series-sort-filter");
+const listTitleSearchEl = document.querySelector("#series-title-search");
+const resetSeriesFiltersEl = document.querySelector("#series-reset-filters");
+
+function normalizeSeriesListFilters(filters) {
+  const source = filters && typeof filters === "object" ? filters : {};
+  return {
+    search: typeof source.search === "string" ? source.search : "",
+    franchise: typeof source.franchise === "string" ? source.franchise : "",
+    phase: typeof source.phase === "string" ? source.phase : "",
+    type: typeof source.type === "string" ? source.type : "",
+    sort: typeof source.sort === "string" && VALID_SERIES_SORT_MODES.has(source.sort)
+      ? source.sort
+      : DEFAULT_SERIES_LIST_FILTERS.sort
+  };
+}
+
+function loadSeriesListFilters() {
+  try {
+    const raw = window.localStorage.getItem(SERIES_LIST_FILTERS_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_SERIES_LIST_FILTERS };
+    const parsed = JSON.parse(raw);
+    return normalizeSeriesListFilters(parsed);
+  } catch (_error) {
+    return { ...DEFAULT_SERIES_LIST_FILTERS };
+  }
+}
+
+function saveSeriesListFilters() {
+  try {
+    window.localStorage.setItem(
+      SERIES_LIST_FILTERS_STORAGE_KEY,
+      JSON.stringify(normalizeSeriesListFilters(state.listFilters))
+    );
+  } catch (_error) {
+    // Ignore storage failures (private mode, quota, etc).
+  }
+}
+
+function setSeriesSelectValue(selectEl, value) {
+  if (!selectEl) return "";
+  const nextValue = Array.from(selectEl.options).some((option) => option.value === value)
+    ? value
+    : "";
+  selectEl.value = nextValue;
+  return nextValue;
+}
+
+function applySeriesListFiltersToControls() {
+  state.listFilters.franchise = setSeriesSelectValue(listFranchiseFilterEl, state.listFilters.franchise);
+  state.listFilters.phase = setSeriesSelectValue(listPhaseFilterEl, state.listFilters.phase);
+  state.listFilters.type = setSeriesSelectValue(listTypeFilterEl, state.listFilters.type);
+
+  const selectedSort = setSeriesSelectValue(listSortFilterEl, state.listFilters.sort);
+  state.listFilters.sort = selectedSort || DEFAULT_SERIES_LIST_FILTERS.sort;
+  if (listSortFilterEl && !selectedSort) {
+    listSortFilterEl.value = state.listFilters.sort;
+  }
+
+  if (listTitleSearchEl) {
+    listTitleSearchEl.value = state.listFilters.search;
+  }
+}
+
+function resetSeriesListFilters() {
+  Object.assign(state.listFilters, DEFAULT_SERIES_LIST_FILTERS);
+  applySeriesListFiltersToControls();
+  updateListPhaseVisibility();
+  saveSeriesListFilters();
+  renderSeriesListWithFilters();
+}
+
+Object.assign(state.listFilters, loadSeriesListFilters());
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -88,7 +166,30 @@ function canReviewSeries() {
   return isReleasedOnOrBeforeToday(state.series?.start_date || null);
 }
 
+function applySeriesAuthVisibility() {
+  const myAverageBlock = document.querySelector("#series-my-average-block");
+  const reviewSection = document.querySelector("#series-review-section");
+  const isLoggedIn = Boolean(state.currentUserId);
+
+  if (myAverageBlock) {
+    myAverageBlock.style.display = isLoggedIn ? "" : "none";
+  }
+
+  if (reviewSection) {
+    reviewSection.style.display = isLoggedIn ? "" : "none";
+  }
+}
+
 function applySeriesReviewAvailability() {
+  if (!state.currentUserId) {
+    const messageEl = document.querySelector("#series-rating-unavailable-message");
+    if (messageEl) {
+      messageEl.textContent = "";
+      messageEl.style.display = "none";
+    }
+    return;
+  }
+
   const canReview = canReviewSeries();
   const messageEl = document.querySelector("#series-rating-unavailable-message");
   const form = document.querySelector("#series-review-form");
@@ -421,6 +522,7 @@ function sortSeriesRows(rows) {
 }
 
 function renderSeriesListWithFilters() {
+  const searchText = (state.listFilters.search || "").trim().toLocaleLowerCase("fr");
   const filtered = state.listSeriesRows.filter((item) => {
     const franchise = (item.franchise || "").trim();
     const hasFranchise = franchise.length > 0;
@@ -430,8 +532,9 @@ function renderSeriesListWithFilters() {
         : franchise === state.listFilters.franchise);
     const matchesType = !state.listFilters.type || (item.type || "") === state.listFilters.type;
     const matchesPhase = !state.listFilters.phase || (item.mcuPhases || []).includes(state.listFilters.phase);
+    const matchesSearch = !searchText || (item.title || "").toLocaleLowerCase("fr").includes(searchText);
 
-    return matchesFranchise && matchesType && matchesPhase;
+    return matchesFranchise && matchesType && matchesPhase && matchesSearch;
   });
 
   renderSeriesList(sortSeriesRows(filtered));
@@ -453,35 +556,48 @@ function setupSeriesListFilters() {
 
   fillSelect(listTypeFilterEl, types, "Tous les types");
   fillSelect(listPhaseFilterEl, mcuPhases, "Toutes les phases");
-  if (listSortFilterEl) listSortFilterEl.value = state.listFilters.sort;
+  applySeriesListFiltersToControls();
   updateListPhaseVisibility();
+  saveSeriesListFilters();
 
   listFranchiseFilterEl?.addEventListener("change", () => {
     state.listFilters.franchise = listFranchiseFilterEl.value || "";
     updateListPhaseVisibility();
+    saveSeriesListFilters();
     renderSeriesListWithFilters();
   });
 
   listPhaseFilterEl?.addEventListener("change", () => {
     state.listFilters.phase = listPhaseFilterEl.value || "";
+    saveSeriesListFilters();
     renderSeriesListWithFilters();
   });
 
   listTypeFilterEl?.addEventListener("change", () => {
     state.listFilters.type = listTypeFilterEl.value || "";
+    saveSeriesListFilters();
     renderSeriesListWithFilters();
   });
 
   listSortFilterEl?.addEventListener("change", () => {
     state.listFilters.sort = listSortFilterEl.value || "date_desc";
+    saveSeriesListFilters();
     renderSeriesListWithFilters();
   });
+
+  listTitleSearchEl?.addEventListener("input", () => {
+    state.listFilters.search = listTitleSearchEl.value || "";
+    saveSeriesListFilters();
+    renderSeriesListWithFilters();
+  });
+
+  resetSeriesFiltersEl?.addEventListener("click", resetSeriesListFilters);
 }
 
 function renderSeriesList(rows) {
   const listEl = document.querySelector("#series-list");
   if (!rows.length) {
-    listEl.innerHTML = "<p>Aucune serie pour le moment.</p>";
+    listEl.innerHTML = "<p>Aucune s\u00E9rie pour le moment.</p>";
     return;
   }
 
@@ -496,10 +612,12 @@ function renderSeriesList(rows) {
               ? `Moyenne: <span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span>`
               : `Moyenne: <span class="score-badge film-average-badge stade-neutre">pas de note</span>`
           }</p>
-          <p>Debut: ${formatDate(item.start_date)}</p>
+          <p>D\u00E9but: ${formatDate(item.start_date)}</p>
           <p>Fin: ${formatDate(item.end_date)}</p>
-          <p class="film-meta">${escapeHTML(item.franchise || "-")} - ${escapeHTML(item.type || "Serie")}</p>
-          <a class="button" href="/series.html?id=${item.id}">Voir la page serie</a>
+          <p class="film-meta">${escapeHTML(item.franchise || "-")} - ${escapeHTML(item.type || "S\u00E9rie")}</p>
+          <div class="home-latest-card-action">
+            <a class="button" href="/series.html?id=${item.id}">Voir la page s\u00E9rie</a>
+          </div>
         </div>
       </article>
     `)
@@ -510,10 +628,10 @@ function renderSeriesHeader() {
   const detailsEl = document.querySelector("#series-details");
   const series = state.series;
   detailsEl.innerHTML = `
-    <article class="card film-hero">
+    <article class="film-hero">
       <div class="film-hero-content">
         <h1>${escapeHTML(series.title)}</h1>
-        <p><u>Debut</u> : ${formatDate(series.start_date)} - <u>Fin</u> : ${formatDate(series.end_date)}</p>
+        <p><u>D\u00E9but</u> : ${formatDate(series.start_date)} - <u>Fin</u> : ${formatDate(series.end_date)}</p>
         <p>${escapeHTML(series.synopsis || "Aucun synopsis.")}</p>
       </div>
       <img class="film-hero-poster" src="${escapeHTML(series.poster_url || "https://via.placeholder.com/260x390?text=Serie")}" alt="Affiche de ${escapeHTML(series.title)}" />
@@ -640,7 +758,7 @@ function renderSeriesReviews(mediaByUserId = new Map()) {
   const shouldTruncate = isMobile && !state.socialExpanded.reviews;
 
   if (!state.seriesReviews.length) {
-    listEl.innerHTML = "<p>Aucune critique pour cette serie.</p>";
+    listEl.innerHTML = "<p>Aucune critique pour cette s\u00E9rie.</p>";
     updateSocialMoreButton('[data-action="toggle-series-reviews-more"]', false, state.socialExpanded.reviews);
     return;
   }
@@ -690,7 +808,7 @@ function renderSeriesSocialActivity(mediaByUserId = new Map()) {
   const rowsToShow = shouldTruncate ? rows.slice(0, SOCIAL_MOBILE_VISIBLE_ITEMS) : rows;
 
   if (!rows.length) {
-    listEl.innerHTML = "<p>Aucune note ou critique recente sur les saisons/episodes.</p>";
+    listEl.innerHTML = "<p>Aucune note ou critique r\u00E9cente sur les saisons/\u00E9pisodes.</p>";
     updateSocialMoreButton('[data-action="toggle-series-activity-more"]', false, state.socialExpanded.activity);
     return;
   }
@@ -752,9 +870,130 @@ function renderSeriesAverage() {
       <span>${metrics.contributorCount} profil(s) contributeur(s)</span>
     `;
 
+  if (!state.currentUserId) {
+    myEl.innerHTML = "";
+    return;
+  }
+
   myEl.innerHTML = metrics.myAverage === null
     ? `<span class="score-badge stade-neutre">Tu n'as pas encore de moyenne sur cette serie</span>`
     : `<span class="score-badge ${getScoreClass(metrics.myAverage)}">${formatScore(metrics.myAverage, 2, 2)} / 10</span>`;
+}
+
+function computeEpisodeSiteRankingRows() {
+  const seasonById = new Map(state.seasons.map((season) => [season.id, season]));
+  const rows = [];
+
+  for (const episode of state.episodes) {
+    const ratings = state.episodeRatings.filter((rating) => rating.episode_id === episode.id);
+    if (!ratings.length) continue;
+
+    const total = ratings.reduce((sum, rating) => sum + Number(rating.score || 0), 0);
+    const average = total / ratings.length;
+    const season = seasonById.get(episode.season_id);
+
+    rows.push({
+      id: episode.id,
+      title: episode.title || "Episode",
+      seasonEpisodeLabel: `S${season?.season_number || "?"} - E${episode.episode_number || "?"}`,
+      average,
+      count: ratings.length,
+      href: `/episode.html?id=${episode.id}`
+    });
+  }
+
+  return rows.sort((a, b) => {
+    if (b.average !== a.average) return b.average - a.average;
+    if (b.count !== a.count) return b.count - a.count;
+    return a.title.localeCompare(b.title, "fr");
+  });
+}
+
+function computeSeasonSiteRankingRows() {
+  const rows = state.seasons.map((season) => {
+    const context = buildSeasonComputationContext(season.id);
+    const allUserIds = new Set([...context.episodeStatsByUser.keys(), ...context.seasonRowsByUser.keys()]);
+    const scores = [];
+
+    for (const userId of allUserIds) {
+      const resolved = resolveSeasonUserScoreFromContext(context, userId);
+      if (Number.isFinite(resolved.effectiveScore)) {
+        scores.push(resolved.effectiveScore);
+      }
+    }
+
+    const average = scores.length
+      ? scores.reduce((sum, value) => sum + value, 0) / scores.length
+      : null;
+
+    return {
+      id: season.id,
+      title: season.name || `Saison ${season.season_number}`,
+      average,
+      count: scores.length,
+      href: `/season.html?id=${season.id}`
+    };
+  });
+
+  return rows
+    .filter((row) => Number.isFinite(row.average))
+    .sort((a, b) => {
+    const aAverage = a.average ?? -1;
+    const bAverage = b.average ?? -1;
+    if (bAverage !== aAverage) return bAverage - aAverage;
+    if (b.count !== a.count) return b.count - a.count;
+    return a.title.localeCompare(b.title, "fr");
+  });
+}
+
+function renderSeriesCompactRows(rows, options = {}) {
+  const {
+    showEpisodeMeta = false,
+    rankLabels = null,
+    startIndex = 0
+  } = options;
+
+  const resolvedRankLabels = rankLabels || buildDenseRankLabels(rows, (row) => row.average, 2);
+  return rows
+    .map((row, index) => `
+      <article class="series-compact-row ${showEpisodeMeta ? "with-meta" : "without-meta"}">
+        <span class="series-compact-rank">${resolvedRankLabels[startIndex + index] || "-"}</span>
+        <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>
+        ${showEpisodeMeta ? `<small>${escapeHTML(row.seasonEpisodeLabel || "-")}</small>` : ""}
+        <span class="score-badge ${getScoreClass(row.average)}">${formatScore(row.average, 2, 2)}</span>
+      </article>
+    `)
+    .join("");
+}
+
+function renderSeriesCompactRankings() {
+  const episodeListEl = document.querySelector("#series-episode-ranking-list");
+  const seasonListEl = document.querySelector("#series-season-ranking-list");
+  if (!episodeListEl || !seasonListEl) return;
+
+  const episodeRows = computeEpisodeSiteRankingRows();
+  const seasonRows = computeSeasonSiteRankingRows();
+
+  if (!episodeRows.length) {
+    episodeListEl.innerHTML = `<p class="film-meta">Aucune note d'\u00E9pisode pour le moment.</p>`;
+  } else {
+    const episodeRankLabels = buildDenseRankLabels(episodeRows, (row) => row.average, 2);
+    episodeListEl.innerHTML = `
+      <div class="series-compact-list series-compact-list-scroll">
+        ${renderSeriesCompactRows(episodeRows, {
+          showEpisodeMeta: true,
+          rankLabels: episodeRankLabels,
+          startIndex: 0
+        })}
+      </div>
+    `;
+  }
+
+  if (seasonRows.length < 2) {
+    seasonListEl.innerHTML = `<p class="film-meta">Classement disponible \u00E0 partir de 2 saisons not\u00E9es.</p>`;
+  } else {
+    seasonListEl.innerHTML = `<div class="series-compact-list">${renderSeriesCompactRows(seasonRows)}</div>`;
+  }
 }
 
 function renderSeasons(openSeasonIds = null) {
@@ -765,6 +1004,7 @@ function renderSeasons(openSeasonIds = null) {
   }
 
   const initialOpenAll = openSeasonIds === null;
+  const showUserEpisodeActions = Boolean(state.currentUserId);
 
   container.innerHTML = state.seasons
     .map((season) => {
@@ -788,9 +1028,6 @@ function renderSeasons(openSeasonIds = null) {
         ? `Pas de note`
         : `${formatScore(metrics.userEpisodeAverage, 2, 2)} / 10`;
 
-      const siteAverage = metrics.siteAverage === null
-        ? `Pas de note`
-        : `${formatScore(metrics.siteAverage, 2, 2)} / 10`;
       const siteAverageBadge = metrics.siteAverage === null
         ? `<span class="score-badge stade-neutre">Pas de note</span>`
         : `<span class="score-badge ${getScoreClass(metrics.siteAverage)}">${formatScore(metrics.siteAverage, 2, 2)} / 10</span>`;
@@ -802,74 +1039,93 @@ function renderSeasons(openSeasonIds = null) {
       const manualValue = metrics.userManualScore === null ? "" : String(metrics.userManualScore);
       const adjustmentValue = formatScore(metrics.userAdjustment, 2, 2);
       const isOpen = initialOpenAll || openSeasonIds.has(season.id);
+      const phaseLabel = String(season.phase || "").trim();
+      const seasonMetaParts = [];
+      if (phaseLabel) {
+        seasonMetaParts.push(`Phase: ${escapeHTML(phaseLabel)}`);
+      }
+      seasonMetaParts.push(`D\u00E9but: ${formatDate(season.start_date)}`);
+      seasonMetaParts.push(`Fin: ${formatDate(season.end_date)}`);
+      const seasonMetaLine = seasonMetaParts.join(" | ");
 
       return `
         <article class="card">
           <div class="season-card-header">
             <h3>
-              <a href="/season.html?id=${season.id}" class="film-link">${escapeHTML(season.name || `Saison ${season.season_number}`)}</a>
-              <small>(voir details)</small>
+              ${escapeHTML(season.name || `Saison ${season.season_number}`)}
               - Moyenne du site: ${siteAverageBadge}
             </h3>
-            <a href="/season.html?id=${season.id}" class="ghost-button season-open-button">Ouvrir</a>
+            <a href="/season.html?id=${season.id}" class="button season-open-button">Voir page saison</a>
           </div>
-          <p>Phase: ${escapeHTML(season.phase || "-")} | Debut: ${formatDate(season.start_date)} | Fin: ${formatDate(season.end_date)}</p>
-          <p>Moyenne de tes episodes: <b>${seasonAverage}</b></p>
+          <p>${seasonMetaLine}</p>
 
-          <div class="inline-actions season-adjuster">
-            <span>Ajusteur de moyenne</span>
-            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" data-season-id="${season.id}" aria-label="Diminuer l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
-              <i class="fa-solid fa-minus" aria-hidden="true"></i>
-            </button>
-            <strong data-field="season-adjustment-value">${adjustmentValue}</strong>
-            <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" data-season-id="${season.id}" aria-label="Augmenter l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
-              <i class="fa-solid fa-plus" aria-hidden="true"></i>
-            </button>
-            <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" data-season-id="${season.id}" aria-label="Reinitialiser l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
-              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-            </button>
-          </div>
+          ${showUserEpisodeActions ? `
+            <div class="season-rating-separator" aria-hidden="true"></div>
+            <p>Ta note effective de la saison: ${userAverage}</p>
+            <p class="film-meta">Base utilis\u00E9e pour ta note : ${metrics.userManualScore === null ? "Moyenne de tes \u00E9pisodes" : "Note manuelle de saison"} | \u00C9pisodes: ${metrics.episodeCount}</p>
 
-          <p>Ta note effective de saison: ${userAverage}</p>
-          <p class="film-meta">Base perso: ${metrics.userManualScore === null ? "Moyenne de tes episodes" : "Note de saison manuelle"} | Episodes: ${metrics.episodeCount}</p>
+            <div class="season-rating-layout">
+              <section class="season-rating-panel">
+                <p class="film-meta season-manual-help">Renseigne une note g\u00E9n\u00E9rale pour toute la saison (optionnel).</p>
+                <div class="inline-actions inline-edit">
+                  <input data-field="season-manual-score" data-season-id="${season.id}" type="number" min="0" max="10" step="0.25" value="${manualValue}" placeholder="Note saison (optionnelle)" ${canRateSeason ? "" : "disabled"} />
+                  <button type="button" class="icon-circle-btn save" data-action="save-season-manual" data-season-id="${season.id}" aria-label="Valider la note de saison" ${canRateSeason ? "" : "disabled"}>
+                    <i class="fa-solid fa-check" aria-hidden="true"></i>
+                  </button>
+                  ${metrics.userManualScore === null ? "" : `
+                    <button type="button" class="icon-circle-btn delete" data-action="delete-season-manual" data-season-id="${season.id}" aria-label="Supprimer la note manuelle de saison" ${canRateSeason ? "" : "disabled"}>
+                      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    </button>
+                  `}
+                </div>
+              </section>
 
-          <div class="season-controls">
-            <p class="film-meta season-manual-help">Renseigner une note generale pour toute la saison (optionnel).</p>
-            <div class="inline-actions inline-edit">
-              <input data-field="season-manual-score" data-season-id="${season.id}" type="number" min="0" max="10" step="0.25" value="${manualValue}" placeholder="Note saison (optionnelle)" ${canRateSeason ? "" : "disabled"} />
-              <button type="button" class="icon-circle-btn save" data-action="save-season-manual" data-season-id="${season.id}" aria-label="Valider la note de saison" ${canRateSeason ? "" : "disabled"}>
-                <i class="fa-solid fa-check" aria-hidden="true"></i>
-              </button>
-              ${metrics.userManualScore === null ? "" : `
-                <button type="button" class="icon-circle-btn delete" data-action="delete-season-manual" data-season-id="${season.id}" aria-label="Supprimer la note manuelle de saison" ${canRateSeason ? "" : "disabled"}>
-                  <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                </button>
-              `}
+              <section class="season-rating-panel">
+                <p>Moyenne de tes \u00E9pisodes: <b>${seasonAverage}</b></p>
+                <div class="inline-actions season-adjuster">
+                  <span>Ajusteur de moyenne</span>
+                  <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" data-season-id="${season.id}" aria-label="Diminuer l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
+                    <i class="fa-solid fa-minus" aria-hidden="true"></i>
+                  </button>
+                  <strong data-field="season-adjustment-value">${adjustmentValue}</strong>
+                  <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" data-season-id="${season.id}" aria-label="Augmenter l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                  </button>
+                  <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" data-season-id="${season.id}" aria-label="Reinitialiser l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </section>
             </div>
-          </div>
+          ` : ""}
 
           <details class="season-episodes" data-season-id="${season.id}" ${isOpen ? "open" : ""}>
             <summary class="season-episodes-summary">
-              <span>Episodes</span>
-              <small>Cliquer pour replier / deplier</small>
+              <span class="season-summary-label">
+                <i class="fa-solid fa-caret-right season-summary-caret" aria-hidden="true"></i>
+                \u00C9pisodes
+              </span>
+              <small>Cliquer pour replier / d\u00E9plier</small>
             </summary>
             <div class="table-wrapper">
               <table class="ranking-table compact">
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Episode</th>
+                    <th>\u00C9pisode</th>
                     <th>Diffusion</th>
                     <th>Moyenne</th>
-                    <th>Ta note</th>
-                    <th>Modifier</th>
+                    ${showUserEpisodeActions ? "<th>Ta note</th>" : ""}
+                    ${showUserEpisodeActions ? "<th>Modifier</th>" : ""}
                   </tr>
                 </thead>
                 <tbody>
                   ${seasonEpisodes.map((episode) => {
-                    const userRating = state.episodeRatings.find(
-                      (rating) => rating.episode_id === episode.id && rating.user_id === state.currentUserId
-                    );
+                    const userRating = showUserEpisodeActions
+                      ? state.episodeRatings.find(
+                        (rating) => rating.episode_id === episode.id && rating.user_id === state.currentUserId
+                      )
+                      : null;
                     const canRate = isReleasedOnOrBeforeToday(episode.air_date);
                     const scoreValue = userRating ? String(userRating.score) : "";
                     const scoreBadge = userRating
@@ -883,26 +1139,32 @@ function renderSeasons(openSeasonIds = null) {
                     return `
                       <tr>
                         <td>${episode.episode_number}</td>
-                        <td><a href="/episode.html?id=${episode.id}" class="film-link">${escapeHTML(episode.title)}</a></td>
-                        <td>${formatDate(episode.air_date)}</td>
-                        <td>${averageBadge}</td>
-                        <td>${scoreBadge}</td>
-                        <td class="actions-cell">
-                          <div class="inline-actions inline-edit">
-                            <a href="/episode.html?id=${episode.id}" class="icon-circle-btn neutral small icon-link" aria-label="Ouvrir la page episode">
+                        <td>
+                          <span class="episode-title-inline">
+                            <a href="/episode.html?id=${episode.id}" class="film-link">${escapeHTML(episode.title)}</a>
+                            <a href="/episode.html?id=${episode.id}" class="icon-circle-btn neutral small icon-link episode-open-link" aria-label="Ouvrir la page episode">
                               <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>
                             </a>
-                            <input data-field="episode-score" data-episode-id="${episode.id}" type="number" min="0" max="10" step="0.25" value="${scoreValue}" placeholder="0 a 10" ${canRate ? "" : "disabled"} />
-                            <button type="button" class="icon-circle-btn save" data-action="save-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Valider la note d'episode">
-                              <i class="fa-solid fa-check" aria-hidden="true"></i>
-                            </button>
-                            ${userRating ? `
-                              <button type="button" class="icon-circle-btn delete" data-action="delete-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Supprimer la note d'episode">
-                                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                              </button>
-                            ` : ""}
-                          </div>
+                          </span>
                         </td>
+                        <td>${formatDate(episode.air_date)}</td>
+                        <td>${averageBadge}</td>
+                        ${showUserEpisodeActions ? `<td>${scoreBadge}</td>` : ""}
+                        ${showUserEpisodeActions ? `
+                          <td class="actions-cell">
+                            <div class="inline-actions inline-edit">
+                              <input data-field="episode-score" data-episode-id="${episode.id}" type="number" min="0" max="10" step="0.25" value="${scoreValue}" placeholder="0 a 10" ${canRate ? "" : "disabled"} />
+                              <button type="button" class="icon-circle-btn save" data-action="save-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Valider la note d'episode">
+                                <i class="fa-solid fa-check" aria-hidden="true"></i>
+                              </button>
+                              ${userRating ? `
+                                <button type="button" class="icon-circle-btn delete" data-action="delete-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Supprimer la note d'episode">
+                                  <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                                </button>
+                              ` : ""}
+                            </div>
+                          </td>
+                        ` : ""}
                       </tr>
                     `;
                   }).join("")}
@@ -990,10 +1252,12 @@ async function loadRatingsData() {
 async function reloadSeriesDetails(seriesId) {
   await loadSeriesStructure(seriesId);
   await loadRatingsData();
+  applySeriesAuthVisibility();
   renderSeriesHeader();
   applySeriesReviewAvailability();
   fillCurrentUserSeriesReview();
   renderSeriesAverage();
+  renderSeriesCompactRankings();
   const userIds = getSeriesSocialUserIds();
   const mediaByUserId = await loadMembershipMapForUsers(userIds);
   renderSeriesReviews(mediaByUserId);
@@ -1004,9 +1268,11 @@ async function reloadSeriesDetails(seriesId) {
 async function refreshRatingsOnly() {
   const openSeasonIds = getOpenSeasonIdsFromDOM();
   await loadRatingsData();
+  applySeriesAuthVisibility();
   applySeriesReviewAvailability();
   fillCurrentUserSeriesReview();
   renderSeriesAverage();
+  renderSeriesCompactRankings();
   const userIds = getSeriesSocialUserIds();
   const mediaByUserId = await loadMembershipMapForUsers(userIds);
   renderSeriesReviews(mediaByUserId);
@@ -1314,12 +1580,14 @@ async function initPage() {
   try {
     const session = await getSession();
     state.currentUserId = session?.user?.id || null;
+    const pageTitleEl = document.querySelector("#series-page-title");
 
     const seriesId = getSeriesIdFromURL();
     if (!seriesId) {
+      if (pageTitleEl) pageTitleEl.style.display = "";
       const subtitleEl = document.querySelector("#series-subtitle");
       const subtitleNoteEl = document.querySelector("#series-subtitle-note");
-      if (subtitleEl) subtitleEl.textContent = "Choisis une serie pour afficher ses saisons et episodes.";
+      if (subtitleEl) subtitleEl.textContent = "Choisis une s\u00E9rie pour afficher ses saisons et \u00E9pisodes.";
       if (subtitleNoteEl) subtitleNoteEl.textContent = "";
 
       const [
@@ -1388,13 +1656,14 @@ async function initPage() {
 
     document.querySelector("#series-list-section").style.display = "none";
     document.querySelector("#series-detail-section").style.display = "block";
+    if (pageTitleEl) pageTitleEl.style.display = "none";
     const subtitleEl = document.querySelector("#series-subtitle");
     const subtitleNoteEl = document.querySelector("#series-subtitle-note");
     if (subtitleEl) {
-      subtitleEl.textContent = "Pour les series, la note effective vient de ta note manuelle, ou de la moyenne de tes episodes (plus ajusteur) uniquement quand tous les episodes de la saison sont notes.";
+      subtitleEl.textContent = "Pour les s\u00E9ries, la note effective vient de ta note manuelle, ou de la moyenne de tes \u00E9pisodes (plus ajusteur) uniquement quand tous les \u00E9pisodes de la saison sont not\u00E9s.";
     }
     if (subtitleNoteEl) {
-      subtitleNoteEl.textContent = "Tant qu'une saison n'est pas complete, la moyenne partielle reste visible dans \"Moyenne de tes episodes\" mais n'est pas comptabilisee comme note effective.";
+      subtitleNoteEl.textContent = "Tant qu'une saison n'est pas compl\u00E8te, la moyenne partielle reste visible dans \"Moyenne de tes \u00E9pisodes\" mais n'est pas comptabilis\u00E9e comme note effective.";
     }
 
     await reloadSeriesDetails(seriesId);

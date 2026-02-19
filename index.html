@@ -3,7 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <title>MarvelReview - Accueil</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
@@ -14,36 +13,38 @@
       <section class="page-intro">
         <div>
           <h1>MarvelReview</h1>
-          <p>Bienvenue sur la plateforme de notation et de critiques des films et séries Marvel pour la communauté française 🇫🇷 !</p>
-          <p class="film-meta"><small>Version : 2.0 - 17/02/2026</small></p>
+          <p>Bienvenue sur la plateforme de notation et de critiques des films et s&eacute;ries Marvel pour la communaut&eacute; fran&ccedil;aise !</p>
+          <p class="film-meta"><small>Version : 3.2.1 - 17/02/2026</small></p>
         </div>
         <p id="auth-status" class="status"></p>
       </section>
 
       <p id="page-message" class="message" aria-live="polite"></p>
 
-      <section class="card home-intro-card">
-        <h2>Fonctionnement de la plateforme</h2>
-        <p>Marvel Review est une plateforme interactive destinée à la communauté francophone de Marvel.
-          Le but est de ressembler les passionnés pour noter et critiquer avec nuance et objectivité les différents contenus Marvel au cinéma et à la télévision.</p>
-        <p>Notez sur 10 les différents films et séries Marvel, avec une critique optionnelle. N'oubliez pas, les choses sont rarement parfaites, et rarement 100% horribles 😂.</p>
-        <p>Pour les séries, la note effective vient de ta note manuelle, ou de la moyenne de tes episodes (plus ajusteur) uniquement quand tous les episodes de la saison sont notes.</p>
-        <p class="film-meta">
-          Tant qu'une saison n'est pas complete, la moyenne partielle reste visible dans "Moyenne de tes episodes" mais n'est pas comptabilisee comme note effective.
-        </p>
-      </section>
+      <section class="card home-stack-card">
+        <div class="home-stack-chunk">
+          <h2>Fonctionnement de la plateforme</h2>
+          <p>Marvel Review est une plateforme interactive destin&eacute;e &agrave; la communaut&eacute; francophone de Marvel.
+            Le but est de ressembler les passionn&eacute;s pour noter et critiquer avec nuance et objectivit&eacute; les diff&eacute;rents contenus Marvel au cin&eacute;ma et &agrave; la t&eacute;l&eacute;vision.</p>
+          <p>Notez sur 10 les diff&eacute;rents films et s&eacute;ries Marvel, avec une critique optionnelle. N'oubliez pas, les choses sont rarement parfaites, et rarement 100% horribles &#128514;.</p>
+          <p>Pour les s&eacute;ries, la note effective vient de ta note manuelle, ou de la moyenne de tes episodes (plus ajusteur) uniquement quand tous les episodes de la saison sont notes.</p>
+          <p class="film-meta">
+            Tant qu'une saison n'est pas complete, la moyenne partielle reste visible dans "Moyenne de tes episodes" mais n'est pas comptabilisee comme note effective.
+          </p>
+        </div>
 
-      <section class="card">
-        <h2>Derniers contenus sortis</h2>
-        <div id="home-latest-content-list" class="grid films-grid"></div>
-      </section>
+        <div class="home-stack-chunk">
+          <h2>Derniers contenus sortis</h2>
+          <div id="home-latest-content-list" class="grid films-grid"></div>
+        </div>
 
-      <section class="card">
-        <h2>Dernieres notes/critiques enregistrees</h2>
-        <div id="home-latest-activity-list" class="grid home-activity-grid"></div>
-        <button id="home-latest-activity-toggle" type="button" class="ghost-button social-more-button" style="display: none;">
-          Voir plus
-        </button>
+        <div class="home-stack-chunk">
+          <h2>Derni&egrave;res notes/critiques enregistr&eacute;es</h2>
+          <div id="home-latest-activity-list" class="grid home-activity-grid"></div>
+          <button id="home-latest-activity-toggle" type="button" class="ghost-button social-more-button" style="display: none;">
+            Voir plus
+          </button>
+        </div>
       </section>
     </main>
 
