@@ -130,8 +130,8 @@ h3 {
   align-items: center;
   justify-content: center;
   min-height: 40px;
-  border: 1px solid rgba(255, 255, 255, 0.26);
-  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  background: transparent;
   color: #fff;
   text-decoration: none;
   border-radius: 0;
@@ -140,31 +140,50 @@ h3 {
   font-weight: 700;
   letter-spacing: 0.12px;
   white-space: nowrap;
-  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, border-radius 160ms ease;
-}
-
-.top-nav .main-link {
-  color: #72f7a2;
-}
-
-.top-nav .auth-link {
-  color: #fff;
+  transition: background-color 160ms ease, color 160ms ease;
 }
 
 .top-nav .nav-link:hover {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.38);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .top-nav .nav-link.is-active {
   background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.42);
 }
 
-.top-nav .nav-link-button {
-  font: inherit;
-  cursor: pointer;
+.nav-user-block {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.1rem;
+  color: #fff;
+  line-height: 1.2;
+  white-space: nowrap;
+  padding: 0.2rem 0 0.2rem 0.8rem;
+}
+
+.nav-user-line {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.nav-user-line #nav-user-value {
+  font-weight: 700;
+}
+
+.nav-user-block small {
+  font-size: 0.74rem;
+}
+
+.nav-logout-link {
+  color: #fff;
+  text-decoration-color: rgba(255, 255, 255, 0.55);
+  text-underline-offset: 2px;
+}
+
+.nav-logout-link:hover {
+  color: #ffecec;
 }
 
 .nav-toggle {
@@ -245,6 +264,10 @@ select:focus-visible {
   background: #e9eef2;
   color: #20405d;
   font-size: 0.95rem;
+}
+
+#auth-status {
+  display: none !important;
 }
 
 .message.error {
@@ -911,13 +934,19 @@ textarea {
   .top-nav .nav-link {
     width: 100%;
     justify-content: flex-start;
-    border-radius: 10px;
     padding: 0.62rem 0.78rem;
     min-height: 44px;
   }
 
   .top-nav .nav-link.is-active {
     color: inherit;
+  }
+
+  .nav-user-block {
+    width: 100%;
+    align-items: flex-start;
+    padding: 0.4rem 0.1rem 0 0.1rem;
+    white-space: normal;
   }
 }
 

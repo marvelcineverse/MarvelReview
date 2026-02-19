@@ -63,6 +63,7 @@ async function initCommonLayout() {
   markActiveNavLink();
   initMobileNav();
   const statusEl = document.querySelector("#auth-status");
+  const navUserValueEl = document.querySelector("#nav-user-value");
 
   try {
     const session = await getSession();
@@ -70,23 +71,30 @@ async function initCommonLayout() {
     bindAuthVisibility(isLoggedIn);
 
     if (statusEl) {
-      statusEl.textContent = isLoggedIn ? `Connecte: ${session.user.email}` : "Non connecte";
+      statusEl.textContent = "";
+      statusEl.style.display = "none";
     }
 
     if (isLoggedIn) {
       const profile = await getCurrentProfile();
+      const displayName = String(profile?.username || "").trim() || session.user.email;
+      if (navUserValueEl) navUserValueEl.textContent = displayName;
+
       document.querySelectorAll("[data-admin-only='true']").forEach((el) => {
         el.style.display = profile?.is_admin ? "inline-flex" : "none";
       });
     } else {
+      if (navUserValueEl) navUserValueEl.textContent = "";
+
       document.querySelectorAll("[data-admin-only='true']").forEach((el) => {
         el.style.display = "none";
       });
     }
 
-    const logoutButton = document.querySelector("#logout-button");
-    if (logoutButton) {
-      logoutButton.addEventListener("click", async () => {
+    const logoutLink = document.querySelector("#logout-link");
+    if (logoutLink) {
+      logoutLink.addEventListener("click", async (event) => {
+        event.preventDefault();
         try {
           await signOut();
           window.location.href = "/index.html";
@@ -96,7 +104,10 @@ async function initCommonLayout() {
       });
     }
   } catch (error) {
-    if (statusEl) statusEl.textContent = "Erreur session";
+    if (statusEl) {
+      statusEl.textContent = "";
+      statusEl.style.display = "none";
+    }
     setMessage("#page-message", error.message || "Erreur de chargement session.", true);
   }
 }

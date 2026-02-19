@@ -17,17 +17,20 @@ const navMarkup = `
     </div>
     <nav id="primary-nav" class="top-nav" aria-label="Navigation principale">
       <div class="top-nav-left">
-        <a class="nav-link main-link" href="/index.html">Accueil</a>
-        <a class="nav-link main-link" href="/films.html">Films</a>
-        <a class="nav-link main-link" href="/series.html">S&eacute;ries</a>
-        <a class="nav-link main-link" href="/ranking.html">Classement</a>
-        <a class="nav-link main-link" href="/media.html">M&eacute;dias</a>
-        <a class="nav-link main-link" href="/profile.html" data-auth="logged-in">Profil</a>
+        <a class="nav-link" href="/index.html">Accueil</a>
+        <a class="nav-link" href="/films.html">Films</a>
+        <a class="nav-link" href="/series.html">S&eacute;ries</a>
+        <a class="nav-link" href="/ranking.html">Classement</a>
+        <a class="nav-link" href="/media.html">M&eacute;dias</a>
+        <a class="nav-link" href="/profile.html" data-auth="logged-in">Profil</a>
       </div>
       <div class="top-nav-right">
-        <a class="nav-link auth-link" href="/login.html" data-auth="logged-out">Connexion</a>
-        <a class="nav-link auth-link" href="/signup.html" data-auth="logged-out">Inscription</a>
-        <button id="logout-button" type="button" data-auth="logged-in" class="nav-link nav-link-button auth-link ghost-button">Se deconnecter</button>
+        <a class="nav-link" href="/login.html" data-auth="logged-out">Connexion</a>
+        <a class="nav-link" href="/signup.html" data-auth="logged-out">Inscription</a>
+        <div class="nav-user-block" data-auth="logged-in">
+          <span class="nav-user-line">Connecte : <span id="nav-user-value"></span></span>
+          <small><a id="logout-link" class="nav-logout-link" href="#">Se deconnecter</a></small>
+        </div>
       </div>
     </nav>
   </header>
