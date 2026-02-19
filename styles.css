@@ -63,6 +63,9 @@ h3 {
 }
 
 .site-header {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
   margin: 0.95rem 0 1.2rem;
   border-radius: 18px;
   border: 1px solid #b61616;
@@ -74,10 +77,10 @@ h3 {
 
 .site-header-main {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
-  width: 100%;
+  flex: 0 0 auto;
 }
 
 .brand {
@@ -97,9 +100,29 @@ h3 {
 .top-nav {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  margin-top: 0.7rem;
-  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.top-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.top-nav-left,
+.top-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: nowrap;
+}
+
+.top-nav-right {
+  margin-left: auto;
 }
 
 .top-nav .nav-link {
@@ -108,26 +131,35 @@ h3 {
   justify-content: center;
   min-height: 40px;
   border: 1px solid rgba(255, 255, 255, 0.26);
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
   color: #fff;
   text-decoration: none;
-  border-radius: 999px;
-  padding: 0.5rem 0.92rem;
+  border-radius: 0;
+  padding: 0.48rem 0.8rem;
   font-size: 0.92rem;
   font-weight: 700;
   letter-spacing: 0.12px;
-  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  white-space: nowrap;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, border-radius 160ms ease;
+}
+
+.top-nav .main-link {
+  color: #72f7a2;
+}
+
+.top-nav .auth-link {
+  color: #fff;
 }
 
 .top-nav .nav-link:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.16);
   border-color: rgba(255, 255, 255, 0.38);
+  border-radius: 10px;
 }
 
 .top-nav .nav-link.is-active {
-  background: #fff;
-  border-color: #fff;
-  color: #8f1111;
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.42);
 }
 
 .top-nav .nav-link-button {
@@ -830,8 +862,13 @@ textarea {
 
 @media (max-width: 860px) {
   .site-header {
+    flex-wrap: wrap;
     padding: 0.75rem;
     border-radius: 16px;
+  }
+
+  .site-header-main {
+    width: 100%;
   }
 
   .nav-toggle {
@@ -850,6 +887,21 @@ textarea {
     border-radius: 14px;
     background: rgba(78, 9, 9, 0.54);
     border: 1px solid rgba(255, 255, 255, 0.18);
+    overflow: visible;
+  }
+
+  .top-nav-left,
+  .top-nav-right {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+  }
+
+  .top-nav-right {
+    margin-left: 0;
+    padding-top: 0.45rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
   }
 
   .top-nav.is-open {
@@ -865,7 +917,7 @@ textarea {
   }
 
   .top-nav .nav-link.is-active {
-    color: #7f1010;
+    color: inherit;
   }
 }
 
