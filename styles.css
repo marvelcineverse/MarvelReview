@@ -770,16 +770,18 @@ textarea {
 }
 
 .social-more-button {
+  display: block;
   justify-self: center;
   align-self: center;
   min-height: 44px;
   min-width: 180px;
   border-radius: var(--radius-sm);
   padding: 0.58rem 0.9rem;
-  margin: 0.4rem auto 0;
+  margin: 0.6rem auto 0;
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.1px;
+  text-align: center;
 }
 
 .social-more-button:hover {
