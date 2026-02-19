@@ -114,5 +114,6 @@ Apres execution du SQL, va dans `Database` > `Tables`:
 ## 5) Notes
 
 - L'app utilise `@supabase/supabase-js` via CDN (pas de bundler).
+- Tailwind CSS est charge via Play CDN (`@tailwindcss/browser@4`) pour permettre un styling utilitaire sans build Node.
 - Le front est volontairement simple et pedagogique.
 - Pour un deploiement public, pense a durcir la validation cote DB (longueur review, URL avatar, etc.).

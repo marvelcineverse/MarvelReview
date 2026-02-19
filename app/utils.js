@@ -1,18 +1,32 @@
-﻿const navMarkup = `
+const navMarkup = `
   <header class="site-header">
-    <a class="brand" href="/index.html">MarvelReview</a>
-    <nav class="top-nav">
-      <a href="/index.html">Accueil</a>
-      <a href="/films.html">Films</a>
-      <a href="/series.html">Series</a>
-      <a href="/ranking.html">Classement</a>
-      <a href="/profile.html">Profil</a>
-      <a href="/media.html">Medias</a>
-      <a href="/admin.html" data-auth="logged-in" data-admin-only="true">Admin</a>
-      <a href="/users.html" data-auth="logged-in" data-admin-only="true">Utilisateurs</a>
-      <a href="/login.html" data-auth="logged-out">Connexion</a>
-      <a href="/signup.html" data-auth="logged-out">Inscription</a>
-      <button id="logout-button" data-auth="logged-in" class="ghost-button">Se deconnecter</button>
+    <div class="site-header-main">
+      <a class="brand" href="/index.html">MarvelReview</a>
+      <button
+        id="nav-toggle"
+        type="button"
+        class="nav-toggle"
+        aria-expanded="false"
+        aria-controls="primary-nav"
+        aria-label="Afficher la navigation"
+      >
+        <span class="nav-toggle-bar" aria-hidden="true"></span>
+        <span class="nav-toggle-bar" aria-hidden="true"></span>
+        <span class="nav-toggle-bar" aria-hidden="true"></span>
+      </button>
+    </div>
+    <nav id="primary-nav" class="top-nav" aria-label="Navigation principale">
+      <a class="nav-link" href="/index.html">Accueil</a>
+      <a class="nav-link" href="/films.html">Films</a>
+      <a class="nav-link" href="/series.html">Series</a>
+      <a class="nav-link" href="/ranking.html">Classement</a>
+      <a class="nav-link" href="/profile.html">Profil</a>
+      <a class="nav-link" href="/media.html">Medias</a>
+      <a class="nav-link" href="/admin.html" data-auth="logged-in" data-admin-only="true">Admin</a>
+      <a class="nav-link" href="/users.html" data-auth="logged-in" data-admin-only="true">Utilisateurs</a>
+      <a class="nav-link" href="/login.html" data-auth="logged-out">Connexion</a>
+      <a class="nav-link" href="/signup.html" data-auth="logged-out">Inscription</a>
+      <button id="logout-button" type="button" data-auth="logged-in" class="nav-link nav-link-button ghost-button">Se deconnecter</button>
     </nav>
   </header>
 `;
