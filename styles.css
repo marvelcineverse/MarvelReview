@@ -722,6 +722,12 @@ button:hover {
   border-radius: var(--radius-sm);
   background: var(--surface-muted);
   padding: 0.35rem 0.55rem 0.55rem;
+  min-width: 0;
+}
+
+.season-episodes .table-wrapper {
+  width: 100%;
+  min-width: 0;
 }
 
 .season-episodes-summary {
@@ -998,7 +1004,7 @@ textarea {
   border-radius: var(--radius-sm);
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-  touch-action: pan-x;
+  touch-action: auto;
 }
 
 .ranking-table {
