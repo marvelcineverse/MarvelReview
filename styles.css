@@ -582,10 +582,12 @@ button:hover {
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
+  min-width: 0;
 }
 
 .season-card-header h3 {
   margin: 0;
+  min-width: 0;
 }
 
 .season-open-button {
@@ -935,6 +937,14 @@ textarea {
   margin: 0;
 }
 
+#series-seasons-list {
+  min-width: 0;
+}
+
+#series-seasons-list > .card {
+  min-width: 0;
+}
+
 .social-feed {
   max-height: 450px;
   overflow-y: auto;
@@ -1007,6 +1017,15 @@ textarea {
   touch-action: auto;
 }
 
+.ranking-table-shell {
+  min-width: 0;
+}
+
+.ranking-table-shell > h2 {
+  min-width: max-content;
+  margin-bottom: 0.72rem;
+}
+
 .ranking-table {
   width: 100%;
   border-collapse: collapse;
@@ -1053,6 +1072,11 @@ textarea {
 
 .ranking-table td.actions-cell {
   text-align: center;
+}
+
+#ranking-table th:nth-child(2),
+#ranking-table td:nth-child(2) {
+  min-width: 390px;
 }
 
 .film-link {
@@ -1350,6 +1374,21 @@ textarea {
 
   .season-rating-layout {
     grid-template-columns: 1fr;
+  }
+
+  .season-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .season-open-button {
+    margin-left: 0;
+    width: 100%;
+    max-width: 260px;
+  }
+
+  .season-rating-panel {
+    min-width: 0;
   }
 
   .film-hero-poster {
