@@ -368,6 +368,10 @@ select:focus-visible {
   gap: 1.15rem;
 }
 
+.home-stack-chunk {
+  min-width: 0;
+}
+
 .home-stack-chunk + .home-stack-chunk {
   padding-top: 1rem;
   border-top: 1px solid #d9e3ef;
@@ -989,7 +993,12 @@ textarea {
 
 .table-wrapper {
   overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
   border-radius: var(--radius-sm);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
 }
 
 .ranking-table {
@@ -1355,6 +1364,26 @@ textarea {
 
   .home-activity-grid {
     grid-template-columns: 1fr;
+  }
+
+  .ranking-table,
+  .bulk-episodes-table {
+    font-size: 0.92rem;
+  }
+
+  .ranking-table th,
+  .ranking-table td {
+    padding: 0.58rem;
+  }
+
+  .ranking-table.compact th,
+  .ranking-table.compact td {
+    padding: 0.34rem 0.48rem;
+  }
+
+  .ranking-table .score-badge {
+    min-width: 88px;
+    padding: 0.28rem 0.52rem;
   }
 }
 
