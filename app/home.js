@@ -336,7 +336,7 @@ function renderLatestActivity(allRows, mediaByUserId) {
           </div>
           <p class="film-meta">${detailLabel}</p>
           <p>${scorePart}<span class="film-meta">${escapeHTML(adjustmentPart)}</span></p>
-          <p>${escapeHTML(row.review || "(Pas de commentaire)")}</p>
+          ${String(row.review || "").trim() ? `<p>${escapeHTML(row.review)}</p>` : ""}
           <small>${formatDate(row.created_at)}</small>
         </article>
       `;

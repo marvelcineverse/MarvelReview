@@ -35,11 +35,13 @@ const state = {
   socialExpanded: {
     reviews: false,
     activity: false
-  }
+  },
+  socialExpandedEntries: new Set()
 };
 
 const SOCIAL_MOBILE_QUERY = "(max-width: 700px)";
 const SOCIAL_MOBILE_VISIBLE_ITEMS = 4;
+const SOCIAL_PREVIEW_WORD_LIMIT = 34;
 const listFranchiseFilterEl = document.querySelector("#series-franchise-filter");
 const listPhaseFilterEl = document.querySelector("#series-phase-filter");
 const listPhaseFilterWrapEl = document.querySelector("#series-phase-filter-wrap");
@@ -671,6 +673,28 @@ function updateSocialMoreButton(selector, shouldShow, expanded) {
   button.textContent = expanded ? "Voir moins" : "Voir plus";
 }
 
+function renderSocialReviewSnippet(reviewValue, entryId) {
+  const fullText = String(reviewValue || "").trim();
+  if (!fullText) return "";
+
+  const words = fullText.split(/\s+/).filter(Boolean);
+  const isTruncated = words.length > SOCIAL_PREVIEW_WORD_LIMIT;
+  const isExpanded = state.socialExpandedEntries.has(entryId);
+  const previewText = isTruncated
+    ? `${words.slice(0, SOCIAL_PREVIEW_WORD_LIMIT).join(" ")}...`
+    : fullText;
+  const textToDisplay = isExpanded ? fullText : previewText;
+
+  return `
+    <p class="social-review-text">${escapeHTML(textToDisplay)}</p>
+    ${isTruncated ? `
+      <button type="button" class="ghost-button social-inline-more" data-action="toggle-series-review-preview" data-entry-id="${escapeHTML(entryId)}">
+        ${isExpanded ? "Voir moins" : "Voir plus"}
+      </button>
+    ` : ""}
+  `;
+}
+
 function getSeriesSocialUserIds() {
   return [...new Set([
     ...state.seriesReviews.map((row) => row.user_id),
@@ -772,6 +796,7 @@ function renderSeriesReviews(mediaByUserId = new Map()) {
       const profile = review.profiles || {};
       const mediaNames = mediaByUserId.get(review.user_id) || [];
       const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Independant";
+      const entryId = `series-review-${review.id || review.user_id}`;
       const userAverage = userAverageById.get(review.user_id);
       const userAverageLabel = Number.isFinite(userAverage)
         ? `<span class="score-badge ${getScoreClass(userAverage)}">${formatScore(userAverage, 2, 2)} / 10</span>`
@@ -784,7 +809,7 @@ function renderSeriesReviews(mediaByUserId = new Map()) {
             <span>${escapeHTML(mediaLabel)}</span>
           </div>
           <p class="film-meta">Moyenne de la personne sur cette serie: ${userAverageLabel}</p>
-          <p>${escapeHTML(review.review || "(Pas de commentaire)")}</p>
+          ${renderSocialReviewSnippet(review.review, entryId)}
           <small>${formatDate(review.created_at)}</small>
         </article>
       `;
@@ -817,6 +842,7 @@ function renderSeriesSocialActivity(mediaByUserId = new Map()) {
     .map((row) => {
       const mediaNames = mediaByUserId.get(row.user_id) || [];
       const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Independant";
+      const entryId = `series-activity-${row.id}`;
       const scorePart = Number.isFinite(row.score)
         ? `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score, 2, 2)} / 10</span>`
         : '<span class="score-badge stade-neutre">Sans note</span>';
@@ -834,7 +860,7 @@ function renderSeriesSocialActivity(mediaByUserId = new Map()) {
             ${row.type === "episode" ? "Episode" : "Saison"} - ${escapeHTML(row.seasonLabel)} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>
           </p>
           <p>${scorePart}<span class="film-meta">${escapeHTML(adjustmentPart)}</span></p>
-          <p>${escapeHTML(row.review || "(Pas de commentaire)")}</p>
+          ${renderSocialReviewSnippet(row.review, entryId)}
           <small>${formatDate(row.created_at)}</small>
         </article>
       `;
@@ -1252,6 +1278,9 @@ async function loadRatingsData() {
 async function reloadSeriesDetails(seriesId) {
   await loadSeriesStructure(seriesId);
   await loadRatingsData();
+  state.socialExpanded.reviews = false;
+  state.socialExpanded.activity = false;
+  state.socialExpandedEntries.clear();
   applySeriesAuthVisibility();
   renderSeriesHeader();
   applySeriesReviewAvailability();
@@ -1539,6 +1568,14 @@ function bindDetailEvents() {
         state.socialExpanded.reviews = !state.socialExpanded.reviews;
       } else if (action === "toggle-series-activity-more") {
         state.socialExpanded.activity = !state.socialExpanded.activity;
+      } else if (action === "toggle-series-review-preview") {
+        const entryId = button.dataset.entryId || "";
+        if (!entryId) return;
+        if (state.socialExpandedEntries.has(entryId)) {
+          state.socialExpandedEntries.delete(entryId);
+        } else {
+          state.socialExpandedEntries.add(entryId);
+        }
       } else if (action === "save-episode-rating" && episodeId) {
         await saveEpisodeRating(episodeId);
       } else if (action === "delete-episode-rating" && episodeId) {
