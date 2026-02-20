@@ -1074,6 +1074,45 @@ textarea {
   text-align: center;
 }
 
+#series-seasons-list .season-episodes .ranking-table,
+#season-main-section .season-episodes .ranking-table {
+  min-width: 860px;
+}
+
+#series-seasons-list .season-episodes .ranking-table th:nth-child(1),
+#season-main-section .season-episodes .ranking-table th:nth-child(1),
+#series-seasons-list .season-episodes .ranking-table td:nth-child(1),
+#season-main-section .season-episodes .ranking-table td:nth-child(1) {
+  width: 56px;
+  min-width: 56px;
+}
+
+#series-seasons-list .season-episodes .ranking-table th:nth-child(2),
+#season-main-section .season-episodes .ranking-table th:nth-child(2),
+#series-seasons-list .season-episodes .ranking-table td:nth-child(2),
+#season-main-section .season-episodes .ranking-table td:nth-child(2) {
+  min-width: 280px;
+}
+
+#series-seasons-list .season-episodes .ranking-table th:nth-child(3),
+#season-main-section .season-episodes .ranking-table th:nth-child(3),
+#series-seasons-list .season-episodes .ranking-table td:nth-child(3),
+#season-main-section .season-episodes .ranking-table td:nth-child(3),
+#series-seasons-list .season-episodes .ranking-table th:nth-child(4),
+#season-main-section .season-episodes .ranking-table th:nth-child(4),
+#series-seasons-list .season-episodes .ranking-table td:nth-child(4),
+#season-main-section .season-episodes .ranking-table td:nth-child(4),
+#series-seasons-list .season-episodes .ranking-table th:nth-child(5),
+#season-main-section .season-episodes .ranking-table th:nth-child(5),
+#series-seasons-list .season-episodes .ranking-table td:nth-child(5),
+#season-main-section .season-episodes .ranking-table td:nth-child(5),
+#series-seasons-list .season-episodes .ranking-table th:nth-child(6),
+#season-main-section .season-episodes .ranking-table th:nth-child(6),
+#series-seasons-list .season-episodes .ranking-table td:nth-child(6),
+#season-main-section .season-episodes .ranking-table td:nth-child(6) {
+  min-width: 132px;
+}
+
 #ranking-table th:nth-child(2),
 #ranking-table td:nth-child(2) {
   min-width: 390px;
@@ -1429,6 +1468,11 @@ textarea {
   .ranking-table .score-badge {
     min-width: 88px;
     padding: 0.28rem 0.52rem;
+  }
+
+  #series-seasons-list .season-episodes .episode-open-link,
+  #season-main-section .season-episodes .episode-open-link {
+    display: none;
   }
 }
 
