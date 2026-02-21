@@ -81,13 +81,19 @@ function getFilteredPersonalRows() {
   const phaseSelected = Boolean(personalRankingState.filters.phase);
 
   return personalRankingState.allRows.filter((row) => {
-    if (row.type === "film" && !personalRankingState.filters.films) return false;
-    if (row.type === "series" && !personalRankingState.filters.series) return false;
+    const isFilmRow = row.type === "film";
+    const isSeriesRow = !isFilmRow;
+
+    if (isFilmRow && !personalRankingState.filters.films) return false;
+    if (isSeriesRow && !personalRankingState.filters.series) return false;
 
     if (personalRankingState.filters.franchise && row.franchise !== personalRankingState.filters.franchise) return false;
-    if (!phaseSelected) return true;
 
-    if (row.type === "series") return false;
+    if (!phaseSelected) {
+      if (isSeriesRow && row.phase) return false;
+      return true;
+    }
+
     return row.phase === personalRankingState.filters.phase;
   });
 }
@@ -207,7 +213,7 @@ function renderPersonalRatings() {
           <td>${rank}</td>
           <td>
             <a href="${href}" class="film-link">${escapeHTML(row.title)}</a>
-            <small>(${escapeHTML(typeLabel)})</small>
+            <small>(${escapeHTML(typeLabel)}${row.phase ? ` - ${escapeHTML(row.phase)}` : ""})</small>
           </td>
           <td>${badge}</td>
           <td>${modifierCell}</td>
@@ -336,7 +342,7 @@ async function loadPersonalRatings(userId) {
       .order("start_date", { ascending: true, nullsFirst: false }),
     supabase
       .from("series_seasons")
-      .select("id, series_id"),
+      .select("id, series_id, phase, start_date"),
     supabase
       .from("series_episodes")
       .select("id, season_id"),
@@ -394,9 +400,10 @@ async function loadPersonalRatings(userId) {
   const userEpisodeScoreByEpisodeId = new Map((episodeRatings || []).map((row) => [row.episode_id, Number(row.score)]));
   const seasonUserRowBySeasonId = new Map((seasonUserRatings || []).map((row) => [row.season_id, row]));
 
-  const seriesRows = (seriesList || []).map((serie) => {
+  const seriesRows = (seriesList || []).flatMap((serie) => {
     const serieSeasons = seasonsBySeriesId.get(serie.id) || [];
     const seasonScores = [];
+    const seasonScoresByPhase = new Map();
 
     for (const season of serieSeasons) {
       const seasonEpisodes = episodesBySeasonId.get(season.id) || [];
@@ -418,6 +425,16 @@ async function loadPersonalRatings(userId) {
 
       if (Number.isFinite(effective)) {
         seasonScores.push(effective);
+
+        const phase = String(season.phase || "").trim();
+        if (phase) {
+          const phaseRows = seasonScoresByPhase.get(phase) || [];
+          phaseRows.push({
+            score: effective,
+            start_date: season.start_date || null
+          });
+          seasonScoresByPhase.set(phase, phaseRows);
+        }
       }
     }
 
@@ -425,7 +442,7 @@ async function loadPersonalRatings(userId) {
       ? seasonScores.reduce((sum, seasonScore) => sum + seasonScore, 0) / seasonScores.length
       : null;
 
-    return {
+    const rows = [{
       type: "series",
       series_id: serie.id,
       title: serie.title,
@@ -433,7 +450,27 @@ async function loadPersonalRatings(userId) {
       franchise: String(serie.franchise || "").trim(),
       phase: "",
       score
-    };
+    }];
+
+    for (const [phase, phaseRows] of seasonScoresByPhase.entries()) {
+      const phaseScore = phaseRows.reduce((sum, row) => sum + row.score, 0) / phaseRows.length;
+      const phaseSortDate = phaseRows
+        .map((row) => row.start_date)
+        .filter(Boolean)
+        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0] || serie.start_date;
+
+      rows.push({
+        type: "series_phase",
+        series_id: serie.id,
+        title: serie.title,
+        sort_date: phaseSortDate,
+        franchise: String(serie.franchise || "").trim(),
+        phase,
+        score: phaseScore
+      });
+    }
+
+    return rows;
   });
 
   personalRankingState.allRows = [...filmRows, ...seriesRows];

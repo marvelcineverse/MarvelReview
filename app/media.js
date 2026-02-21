@@ -29,6 +29,147 @@ const franchiseFilterEl = document.querySelector("#ranking-franchise-filter");
 const phaseFilterEl = document.querySelector("#ranking-phase-filter");
 const phaseFilterWrapEl = document.querySelector("#ranking-phase-filter-wrap");
 
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function buildSeasonScoresByUser(season, episodesBySeasonId, episodeRatingsByEpisodeId, seasonRowsBySeasonId) {
+  const seasonEpisodes = episodesBySeasonId.get(season.id) || [];
+  const episodeByUser = new Map();
+
+  for (const episode of seasonEpisodes) {
+    const ratings = episodeRatingsByEpisodeId.get(episode.id) || [];
+    for (const rating of ratings) {
+      const current = episodeByUser.get(rating.user_id) || { total: 0, count: 0 };
+      current.total += Number(rating.score || 0);
+      current.count += 1;
+      episodeByUser.set(rating.user_id, current);
+    }
+  }
+
+  const seasonRows = seasonRowsBySeasonId.get(season.id) || [];
+  const manualByUser = new Map(seasonRows.map((row) => [row.user_id, row]));
+  const allUserIds = new Set([...episodeByUser.keys(), ...manualByUser.keys()]);
+
+  const scoresByUser = new Map();
+  for (const userId of allUserIds) {
+    const manualRow = manualByUser.get(userId);
+    const manual = manualRow?.manual_score === null || manualRow?.manual_score === undefined
+      ? null
+      : Number(manualRow.manual_score);
+    const adjustment = Number(manualRow?.adjustment || 0);
+    const episodeValues = episodeByUser.get(userId);
+    const episodeAverage = episodeValues ? episodeValues.total / episodeValues.count : null;
+
+    let effective = null;
+    if (Number.isFinite(manual)) {
+      effective = clamp(manual, 0, 10);
+    } else if (Number.isFinite(episodeAverage)) {
+      effective = clamp(episodeAverage + adjustment, 0, 10);
+    }
+
+    if (Number.isFinite(effective)) {
+      scoresByUser.set(userId, effective);
+    }
+  }
+
+  return scoresByUser;
+}
+
+function buildSeriesRowsFromPhases(seriesList, seasons, episodes, episodeRatings, seasonUserRatings) {
+  const seriesById = new Map((seriesList || []).map((serie) => [serie.id, serie]));
+
+  const seasonsBySeriesId = new Map();
+  for (const season of seasons || []) {
+    const rows = seasonsBySeriesId.get(season.series_id) || [];
+    rows.push(season);
+    seasonsBySeriesId.set(season.series_id, rows);
+  }
+
+  const episodesBySeasonId = new Map();
+  for (const episode of episodes || []) {
+    const rows = episodesBySeasonId.get(episode.season_id) || [];
+    rows.push(episode);
+    episodesBySeasonId.set(episode.season_id, rows);
+  }
+
+  const episodeRatingsByEpisodeId = new Map();
+  for (const rating of episodeRatings || []) {
+    const rows = episodeRatingsByEpisodeId.get(rating.episode_id) || [];
+    rows.push(rating);
+    episodeRatingsByEpisodeId.set(rating.episode_id, rows);
+  }
+
+  const seasonRowsBySeasonId = new Map();
+  for (const row of seasonUserRatings || []) {
+    const rows = seasonRowsBySeasonId.get(row.season_id) || [];
+    rows.push(row);
+    seasonRowsBySeasonId.set(row.season_id, rows);
+  }
+
+  const seasonScoresBySeasonId = new Map();
+  for (const season of seasons || []) {
+    seasonScoresBySeasonId.set(
+      season.id,
+      buildSeasonScoresByUser(season, episodesBySeasonId, episodeRatingsByEpisodeId, seasonRowsBySeasonId)
+    );
+  }
+
+  const rows = [];
+  for (const [seriesId, serieSeasons] of seasonsBySeriesId.entries()) {
+    const serie = seriesById.get(seriesId);
+    if (!serie) continue;
+
+    const seasonsByPhase = new Map();
+    for (const season of serieSeasons) {
+      const phase = String(season.phase || "").trim();
+      if (!phase) continue;
+      const phaseRows = seasonsByPhase.get(phase) || [];
+      phaseRows.push(season);
+      seasonsByPhase.set(phase, phaseRows);
+    }
+
+    for (const [phase, phaseSeasons] of seasonsByPhase.entries()) {
+      const scoresByUser = new Map();
+
+      for (const season of phaseSeasons) {
+        const seasonScores = seasonScoresBySeasonId.get(season.id) || new Map();
+        for (const [userId, score] of seasonScores.entries()) {
+          const current = scoresByUser.get(userId) || [];
+          current.push(score);
+          scoresByUser.set(userId, current);
+        }
+      }
+
+      const userAverages = [...scoresByUser.values()]
+        .filter((values) => values.length > 0)
+        .map((values) => values.reduce((sum, value) => sum + value, 0) / values.length);
+
+      if (!userAverages.length) continue;
+
+      const average = userAverages.reduce((sum, value) => sum + value, 0) / userAverages.length;
+      const firstDate = phaseSeasons
+        .map((season) => season.start_date)
+        .filter(Boolean)
+        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0] || null;
+
+      rows.push({
+        id: `series-${seriesId}-${phase}`,
+        title: serie.title,
+        type: "series",
+        href: `/series.html?id=${seriesId}`,
+        release_date: firstDate,
+        average,
+        count: userAverages.length,
+        franchise: String(serie.franchise || "").trim(),
+        phase
+      });
+    }
+  }
+
+  return rows;
+}
+
 function fillSelect(selectEl, values, allLabel) {
   if (!selectEl) return;
   selectEl.innerHTML = [
@@ -84,6 +225,7 @@ function getFilteredRows() {
 
     if (rankingState.filters.franchise && row.franchise !== rankingState.filters.franchise) return false;
 
+    if (row.type === "series" && !phaseSelected) return false;
     if (!phaseSelected) return true;
     return row.phase === rankingState.filters.phase;
   });
@@ -99,16 +241,19 @@ function renderMediaRanking() {
   }
 
   const ranked = [...filteredRows].sort((a, b) => b.average - a.average || b.count - a.count);
-  const rankLabels = buildDenseRankLabels(ranked, (film) => film.average, 2);
+  const rankLabels = buildDenseRankLabels(ranked, (row) => row.average, 2);
 
   bodyEl.innerHTML = ranked
     .map(
-      (film, index) => `
+      (row, index) => `
         <tr>
           <td>${rankLabels[index]}</td>
-          <td><a href="${film.href}" class="film-link">${escapeHTML(film.title)}</a> <small>(${formatDate(film.release_date)})</small></td>
-          <td><span class="score-badge ${getScoreClass(film.average)}">${formatScore(film.average, 2, 2)} / 10</span></td>
-          <td>${film.count}</td>
+          <td>
+            <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>
+            <small>(${row.type === "series" ? "Série" : "Film"}${row.release_date ? ` - ${formatDate(row.release_date)}` : ""}${row.type === "series" ? ` - ${escapeHTML(row.phase)}` : ""})</small>
+          </td>
+          <td><span class="score-badge ${getScoreClass(row.average)}">${formatScore(row.average, 2, 2)} / 10</span></td>
+          <td>${row.count}</td>
         </tr>
       `
     )
@@ -283,17 +428,50 @@ async function loadMediaRanking(mediaId) {
     return;
   }
 
-  const { data: films, error: filmsError } = await supabase
-    .from("films")
-    .select("id, title, release_date, franchise, phase")
-    .order("title", { ascending: true });
-  if (filmsError) throw filmsError;
+  const [
+    { data: films, error: filmsError },
+    { data: ratings, error: ratingsError },
+    { data: seriesList, error: seriesError },
+    { data: seasons, error: seasonsError },
+    { data: episodes, error: episodesError },
+    { data: episodeRatings, error: episodeRatingsError },
+    { data: seasonUserRatings, error: seasonUserRatingsError }
+  ] = await Promise.all([
+    supabase
+      .from("films")
+      .select("id, title, release_date, franchise, phase")
+      .order("title", { ascending: true }),
+    supabase
+      .from("ratings")
+      .select("film_id, user_id, score")
+      .in("user_id", profileIds),
+    supabase
+      .from("series")
+      .select("id, title, franchise")
+      .order("title", { ascending: true }),
+    supabase
+      .from("series_seasons")
+      .select("id, series_id, phase, start_date"),
+    supabase
+      .from("series_episodes")
+      .select("id, season_id"),
+    supabase
+      .from("episode_ratings")
+      .select("episode_id, user_id, score")
+      .in("user_id", profileIds),
+    supabase
+      .from("season_user_ratings")
+      .select("season_id, user_id, manual_score, adjustment")
+      .in("user_id", profileIds)
+  ]);
 
-  const { data: ratings, error: ratingsError } = await supabase
-    .from("ratings")
-    .select("film_id, user_id, score")
-    .in("user_id", profileIds);
+  if (filmsError) throw filmsError;
   if (ratingsError) throw ratingsError;
+  if (seriesError) throw seriesError;
+  if (seasonsError) throw seasonsError;
+  if (episodesError) throw episodesError;
+  if (episodeRatingsError) throw episodeRatingsError;
+  if (seasonUserRatingsError) throw seasonUserRatingsError;
 
   const releasedFilms = (films || []).filter((film) => isReleasedOnOrBeforeToday(film.release_date));
 
@@ -309,7 +487,7 @@ async function loadMediaRanking(mediaId) {
     item.count += 1;
   }
 
-  const rows = Array.from(byFilmId.values())
+  const filmRows = Array.from(byFilmId.values())
     .filter((film) => film.count > 0)
     .map((film) => ({
       ...film,
@@ -319,6 +497,16 @@ async function loadMediaRanking(mediaId) {
       franchise: String(film.franchise || "").trim(),
       phase: String(film.phase || "").trim()
     }));
+
+  const seriesRows = buildSeriesRowsFromPhases(
+    seriesList || [],
+    seasons || [],
+    episodes || [],
+    episodeRatings || [],
+    seasonUserRatings || []
+  );
+
+  const rows = [...filmRows, ...seriesRows];
 
   if (!rows.length) {
     bodyEl.innerHTML = `<tr><td colspan="4">Aucune note pour ce média.</td></tr>`;

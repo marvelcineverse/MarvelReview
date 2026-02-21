@@ -1154,6 +1154,11 @@ textarea {
   min-width: 0;
 }
 
+.ranking-section-divider {
+  margin: 1rem 0 1rem;
+  border-top: 1px solid #d9e3ef;
+}
+
 .ranking-table-shell > h2 {
   min-width: max-content;
   margin-bottom: 0.72rem;
