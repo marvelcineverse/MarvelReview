@@ -1,3 +1,4 @@
+import { supabase } from "../supabaseClient.js";
 import { injectLayout, setMessage } from "./utils.js";
 import { bindAuthVisibility, getCurrentProfile, getSession, signOut } from "./auth.js";
 
@@ -8,8 +9,31 @@ function setAdminOnlyVisibility(isAdmin) {
       return;
     }
 
-    el.style.display = el.getAttribute("data-admin-display") || "inline";
+    el.style.display = el.getAttribute("data-access-display") || "inline";
   });
+}
+
+function setAdminOrManagerVisibility(canAccessAdminPage) {
+  document.querySelectorAll("[data-admin-or-manager-only='true']").forEach((el) => {
+    if (!canAccessAdminPage) {
+      el.style.display = "none";
+      return;
+    }
+
+    el.style.display = el.getAttribute("data-access-display") || "inline";
+  });
+}
+
+async function getManagedMediaCount(userId) {
+  if (!userId) return 0;
+
+  const { count, error } = await supabase
+    .from("media_outlets")
+    .select("id", { count: "exact", head: true })
+    .eq("admin_profile_id", userId);
+
+  if (error) throw error;
+  return Number(count || 0);
 }
 
 function markActiveNavLink() {
@@ -91,10 +115,14 @@ async function initCommonLayout() {
       const displayName = String(profile?.username || "").trim() || session.user.email;
       if (navUserValueEl) navUserValueEl.textContent = displayName;
 
+      const managedMediaCount = await getManagedMediaCount(session.user.id);
+      const canAccessAdminPage = Boolean(profile?.is_admin) || managedMediaCount > 0;
       setAdminOnlyVisibility(Boolean(profile?.is_admin));
+      setAdminOrManagerVisibility(canAccessAdminPage);
     } else {
       if (navUserValueEl) navUserValueEl.textContent = "";
       setAdminOnlyVisibility(false);
+      setAdminOrManagerVisibility(false);
     }
 
     const logoutLink = document.querySelector("#logout-link");

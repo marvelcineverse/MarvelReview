@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MarvelReview - Admin</title>
+    <title>MarvelReview - Administration</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -13,40 +13,139 @@
       <section class="page-intro">
         <div>
           <h1>Administration</h1>
-          <p>Gestion globale de la plateforme.</p>
+          <p>Gestion des médias, rattachements et contenus.</p>
         </div>
         <p id="auth-status" class="status"></p>
       </section>
 
       <p id="page-message" class="message" aria-live="polite"></p>
 
-      <section id="admin-root" class="grid">
-        <section class="card">
-          <h2>Creer un media</h2>
-          <form id="create-media-form" class="form">
-            <label>Nom du media <input id="media-name" type="text" required /></label>
-            <label>Admin du media (optionnel)
+      <section id="admin-root" class="grid admin-grid">
+        <section class="card admin-media-card">
+          <h2>Gestion des médias</h2>
+          <p id="media-role-hint" class="film-meta"></p>
+          <form id="create-media-form" class="form admin-media-form">
+            <label>
+              Média existant
+              <select id="media-id"></select>
+            </label>
+
+            <label>
+              Nom du média
+              <input id="media-name" type="text" required />
+            </label>
+
+            <label id="media-admin-field" data-admin-section="true">
+              Gestionnaire du média (optionnel)
               <select id="media-admin-profile-id">
-                <option value="">Aucun admin pour le moment</option>
+                <option value="">Aucun gestionnaire pour le moment</option>
               </select>
             </label>
-            <label>URL Twitter <input id="media-twitter-url" type="url" /></label>
-            <label>URL Instagram <input id="media-instagram-url" type="url" /></label>
-            <label>URL Youtube <input id="media-youtube-url" type="url" /></label>
-            <label>URL Site web <input id="media-website-url" type="url" /></label>
-            <label>Description <textarea id="media-description"></textarea></label>
-            <button type="submit">Creer le media</button>
+
+            <label>
+              <span class="social-label"><span class="social-prefix" aria-hidden="true">𝕏</span> URL Twitter / X</span>
+              <input id="media-twitter-url" type="url" />
+            </label>
+
+            <label>
+              <span class="social-label"
+                ><span class="social-prefix" aria-hidden="true">📸</span> URL Instagram</span
+              >
+              <input id="media-instagram-url" type="url" />
+            </label>
+
+            <label>
+              <span class="social-label"><span class="social-prefix" aria-hidden="true">▶</span> URL YouTube</span>
+              <input id="media-youtube-url" type="url" />
+            </label>
+
+            <label>
+              <span class="social-label"><span class="social-prefix" aria-hidden="true">🎵</span> URL TikTok</span>
+              <input id="media-tiktok-url" type="url" />
+            </label>
+
+            <label>
+              <span class="social-label"><span class="social-prefix" aria-hidden="true">🌐</span> URL Site web</span>
+              <input id="media-website-url" type="url" />
+            </label>
+
+            <label>
+              Image de profil du média (upload)
+              <input id="media-avatar-file" type="file" accept="image/*" />
+            </label>
+
+            <label>
+              Ou URL de l'image (optionnel)
+              <input id="media-avatar-url" type="url" placeholder="https://..." />
+            </label>
+
+            <div id="media-avatar-preview" class="media-avatar-preview card">Pas d'image.</div>
+
+            <label>
+              Description
+              <textarea id="media-description"></textarea>
+            </label>
+
+            <button id="media-submit-button" type="submit">Créer le média</button>
             <p id="create-media-message" class="message" aria-live="polite"></p>
           </form>
         </section>
 
-        <section class="card content-creation-card">
-          <h2>Creation de contenus</h2>
-          <div class="creation-tabs" role="tablist" aria-label="Creation de contenus">
-            <button type="button" class="creation-tab is-active" role="tab" aria-selected="true" data-tab-target="film">Film</button>
-            <button type="button" class="creation-tab" role="tab" aria-selected="false" data-tab-target="series">Series</button>
-            <button type="button" class="creation-tab" role="tab" aria-selected="false" data-tab-target="seasons">Saisons</button>
-            <button type="button" class="creation-tab" role="tab" aria-selected="false" data-tab-target="episodes">Episodes</button>
+        <section id="media-manager-section" class="card admin-membership-card">
+          <h2>Gestionnaire de média</h2>
+          <p id="media-manager-scope" class="film-meta"></p>
+
+          <form id="membership-manual-form" class="form admin-membership-form">
+            <label>
+              Média
+              <select id="membership-media-id"></select>
+            </label>
+
+            <label>
+              Profil
+              <select id="membership-profile-id"></select>
+            </label>
+
+            <div class="inline-actions">
+              <button type="button" id="membership-attach-button">Rattacher le profil</button>
+              <button type="button" id="membership-detach-button" class="ghost-button">
+                Supprimer le rattachement
+              </button>
+            </div>
+          </form>
+
+          <p id="media-manager-message" class="message" aria-live="polite"></p>
+
+          <div class="table-wrapper">
+            <table class="ranking-table">
+              <thead>
+                <tr>
+                  <th>Média</th>
+                  <th>Profil</th>
+                  <th>Statut</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="managed-media-requests-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card content-creation-card" data-admin-section="true">
+          <h2>Création de contenus</h2>
+          <div class="creation-tabs" role="tablist" aria-label="Création de contenus">
+            <button type="button" class="creation-tab is-active" role="tab" aria-selected="true" data-tab-target="film">
+              Film
+            </button>
+            <button type="button" class="creation-tab" role="tab" aria-selected="false" data-tab-target="series">
+              Séries
+            </button>
+            <button type="button" class="creation-tab" role="tab" aria-selected="false" data-tab-target="seasons">
+              Saisons
+            </button>
+            <button type="button" class="creation-tab" role="tab" aria-selected="false" data-tab-target="episodes">
+              Épisodes
+            </button>
           </div>
 
           <section class="creation-panel is-active" data-tab-panel="film">
@@ -64,34 +163,34 @@
               <label>Type <input id="film-type" type="text" value="Film" /></label>
               <label>Poster URL <input id="film-poster-url" type="url" /></label>
               <label>Synopsis <textarea id="film-synopsis"></textarea></label>
-              <button type="submit">Creer / Mettre a jour le film</button>
+              <button type="submit">Créer / Mettre à jour le film</button>
               <p id="film-message" class="message" aria-live="polite"></p>
             </form>
           </section>
 
           <section class="creation-panel" data-tab-panel="series">
             <form id="series-form" class="form">
-              <label>Serie existante (optionnel)
+              <label>Série existante (optionnel)
                 <select id="series-id">
-                  <option value="">Nouvelle serie</option>
+                  <option value="">Nouvelle série</option>
                 </select>
               </label>
               <label>Titre <input id="series-title" type="text" required /></label>
               <label>Slug <input id="series-slug" type="text" /></label>
               <label>Synopsis <textarea id="series-synopsis"></textarea></label>
               <label>Poster URL <input id="series-poster-url" type="url" /></label>
-              <label>Date de debut <input id="series-start-date" type="date" /></label>
+              <label>Date de début <input id="series-start-date" type="date" /></label>
               <label>Date de fin <input id="series-end-date" type="date" /></label>
               <label>Franchise <input id="series-franchise" type="text" value="MCU" /></label>
               <label>Type <input id="series-type" type="text" value="Serie" /></label>
-              <button type="submit">Creer / Mettre a jour la serie</button>
+              <button type="submit">Créer / Mettre à jour la série</button>
               <p id="series-message" class="message" aria-live="polite"></p>
             </form>
           </section>
 
           <section class="creation-panel" data-tab-panel="seasons">
             <form id="season-form" class="form">
-              <label>Serie parent
+              <label>Série parent
                 <select id="season-series-id" required></select>
               </label>
               <label>Saison existante (optionnel)
@@ -100,13 +199,13 @@
                 </select>
               </label>
               <label>Nom <input id="season-name" type="text" required /></label>
-              <label>Numero <input id="season-number" type="number" min="1" step="1" required /></label>
+              <label>Numéro <input id="season-number" type="number" min="1" step="1" required /></label>
               <label>Slug <input id="season-slug" type="text" /></label>
               <label>Poster URL <input id="season-poster-url" type="url" /></label>
-              <label>Date de debut <input id="season-start-date" type="date" /></label>
+              <label>Date de début <input id="season-start-date" type="date" /></label>
               <label>Date de fin <input id="season-end-date" type="date" /></label>
               <label>Phase <input id="season-phase" type="text" /></label>
-              <button type="submit">Creer / Mettre a jour la saison</button>
+              <button type="submit">Créer / Mettre à jour la saison</button>
               <p id="season-message" class="message" aria-live="polite"></p>
             </form>
           </section>
@@ -116,33 +215,33 @@
               <label>Saison parent
                 <select id="episode-season-id" required></select>
               </label>
-              <label>Episode existant (optionnel)
+              <label>Épisode existant (optionnel)
                 <select id="episode-id">
-                  <option value="">Nouvel episode</option>
+                  <option value="">Nouvel épisode</option>
                 </select>
               </label>
-              <label>Numero episode <input id="episode-number" type="number" min="1" step="1" required /></label>
+              <label>Numéro épisode <input id="episode-number" type="number" min="1" step="1" required /></label>
               <label>Titre <input id="episode-title" type="text" required /></label>
               <label>Date de diffusion <input id="episode-air-date" type="date" /></label>
-              <button type="submit">Creer / Mettre a jour l'episode</button>
+              <button type="submit">Créer / Mettre à jour l'épisode</button>
               <p id="episode-message" class="message" aria-live="polite"></p>
             </form>
             <hr />
             <form id="episode-bulk-form" class="form episode-bulk-form">
-              <h3>Ajout episodes en masse</h3>
+              <h3>Ajout épisodes en masse</h3>
               <label>Saison parent
                 <select id="episode-bulk-season-id" required></select>
               </label>
-              <label>Nombre d'episodes
+              <label>Nombre d'épisodes
                 <input id="episode-bulk-count" type="number" min="1" max="50" step="1" value="6" />
               </label>
-              <button id="episode-bulk-generate" type="button">Generer les lignes</button>
+              <button id="episode-bulk-generate" type="button">Générer les lignes</button>
               <div class="table-wrapper">
                 <table class="ranking-table compact bulk-episodes-table">
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>Numero episode</th>
+                      <th>Numéro épisode</th>
                       <th>Titre</th>
                       <th>Date diffusion</th>
                     </tr>
@@ -150,13 +249,33 @@
                   <tbody id="episode-bulk-rows"></tbody>
                 </table>
               </div>
-              <p class="film-meta">Une ligne = 1 episode. Date optionnelle (YYYY-MM-DD ou DD/MM/YYYY). Le collage multi-lignes (tableur) est supporte.</p>
-              <button type="submit">Importer les episodes</button>
+              <p class="film-meta">
+                Une ligne = 1 épisode. Date optionnelle (YYYY-MM-DD ou DD/MM/YYYY). Le collage multi-lignes
+                (tableur) est supporté.
+              </p>
+              <button type="submit">Importer les épisodes</button>
               <p id="episode-bulk-message" class="message" aria-live="polite"></p>
             </form>
           </section>
         </section>
 
+        <section id="users-root" class="card admin-users-card" data-admin-section="true">
+          <h2>Utilisateurs</h2>
+          <p>Liste des comptes et envoi de réinitialisation de mot de passe.</p>
+          <div class="table-wrapper">
+            <table class="ranking-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Pseudo</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="admin-users-table-body"></tbody>
+            </table>
+          </div>
+          <p id="admin-users-message" class="message" aria-live="polite"></p>
+        </section>
       </section>
     </main>
 

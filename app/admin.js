@@ -6,7 +6,16 @@ const state = {
   films: [],
   series: [],
   seasons: [],
-  episodes: []
+  episodes: [],
+  profiles: [],
+  mediaOutlets: []
+};
+
+const accessState = {
+  session: null,
+  userId: null,
+  isAdmin: false,
+  managedMediaIds: new Set()
 };
 
 function bindCreationTabs() {
@@ -36,46 +45,401 @@ function bindCreationTabs() {
   activate(defaultTab);
 }
 
-async function ensureAdmin() {
+function setAdminSectionsVisibility(isAdmin) {
+  document.querySelectorAll("[data-admin-section='true']").forEach((section) => {
+    section.style.display = isAdmin ? "" : "none";
+  });
+}
+
+function getEditableMediaRows() {
+  if (accessState.isAdmin) return state.mediaOutlets;
+  return state.mediaOutlets.filter((media) => accessState.managedMediaIds.has(media.id));
+}
+
+function canEditMedia(mediaId) {
+  if (!mediaId) return false;
+  if (accessState.isAdmin) return true;
+  return accessState.managedMediaIds.has(mediaId);
+}
+
+function renderMediaAvatarPreview(url) {
+  const previewEl = document.querySelector("#media-avatar-preview");
+  if (!previewEl) return;
+
+  const safeURL = String(url || "").trim();
+  if (!safeURL) {
+    previewEl.innerHTML = "Pas d'image.";
+    return;
+  }
+
+  previewEl.innerHTML = `<img src="${escapeHTML(safeURL)}" alt="Image du media" class="avatar media-avatar" />`;
+}
+
+function sanitizeFilename(value) {
+  return String(value || "media-image")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+async function uploadMediaAvatar(file) {
+  const extension = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const baseName = sanitizeFilename(file.name.replace(/\.[^.]+$/, "")) || "media-image";
+  const objectPath = `${accessState.userId}/${Date.now()}-${baseName}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage.from("media-avatars").upload(objectPath, file, {
+    upsert: true,
+    cacheControl: "3600",
+    contentType: file.type || undefined
+  });
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage.from("media-avatars").getPublicUrl(objectPath);
+  return data?.publicUrl || null;
+}
+
+function updateMediaSubmitButton(mediaId) {
+  const submitButton = document.querySelector("#media-submit-button");
+  if (!submitButton) return;
+  submitButton.textContent = mediaId ? "Mettre a jour le media" : "Creer le media";
+}
+
+function fillMediaForm(mediaId) {
+  const media = state.mediaOutlets.find((item) => item.id === mediaId);
+
+  if (!media) {
+    document.querySelector("#media-name").value = "";
+    document.querySelector("#media-twitter-url").value = "";
+    document.querySelector("#media-instagram-url").value = "";
+    document.querySelector("#media-youtube-url").value = "";
+    document.querySelector("#media-tiktok-url").value = "";
+    document.querySelector("#media-website-url").value = "";
+    document.querySelector("#media-avatar-url").value = "";
+    document.querySelector("#media-description").value = "";
+    document.querySelector("#media-avatar-file").value = "";
+    if (accessState.isAdmin) {
+      document.querySelector("#media-admin-profile-id").value = "";
+    }
+    renderMediaAvatarPreview("");
+    updateMediaSubmitButton("");
+    return;
+  }
+
+  document.querySelector("#media-name").value = media.name || "";
+  document.querySelector("#media-twitter-url").value = media.twitter_url || "";
+  document.querySelector("#media-instagram-url").value = media.instagram_url || "";
+  document.querySelector("#media-youtube-url").value = media.youtube_url || "";
+  document.querySelector("#media-tiktok-url").value = media.tiktok_url || "";
+  document.querySelector("#media-website-url").value = media.website_url || "";
+  document.querySelector("#media-avatar-url").value = media.avatar_url || "";
+  document.querySelector("#media-description").value = media.description || "";
+  document.querySelector("#media-avatar-file").value = "";
+  if (accessState.isAdmin) {
+    document.querySelector("#media-admin-profile-id").value = media.admin_profile_id || "";
+  }
+  renderMediaAvatarPreview(media.avatar_url || "");
+  updateMediaSubmitButton(media.id);
+}
+
+function renderMediaEditorOptions(preferredMediaId = "") {
+  const mediaSelectEl = document.querySelector("#media-id");
+  const editableRows = getEditableMediaRows();
+
+  if (!editableRows.length && !accessState.isAdmin) {
+    mediaSelectEl.innerHTML = `<option value="">Aucun media gere</option>`;
+    fillMediaForm("");
+    return;
+  }
+
+  const options = [];
+  if (accessState.isAdmin) {
+    options.push(`<option value="">Nouveau media</option>`);
+  }
+
+  editableRows.forEach((media) => {
+    options.push(`<option value="${media.id}">${escapeHTML(media.name)}</option>`);
+  });
+
+  mediaSelectEl.innerHTML = options.join("");
+
+  const hasPreferred = preferredMediaId && editableRows.some((media) => media.id === preferredMediaId);
+  const selectedId = hasPreferred
+    ? preferredMediaId
+    : accessState.isAdmin
+      ? ""
+      : (editableRows[0]?.id || "");
+  mediaSelectEl.value = selectedId;
+  fillMediaForm(selectedId);
+}
+
+function renderMembershipMediaOptions() {
+  const mediaSelectEl = document.querySelector("#membership-media-id");
+  if (!mediaSelectEl) return;
+
+  const scopedMediaRows = accessState.isAdmin ? state.mediaOutlets : getEditableMediaRows();
+  if (!scopedMediaRows.length) {
+    mediaSelectEl.innerHTML = `<option value="">Aucun media</option>`;
+    return;
+  }
+
+  mediaSelectEl.innerHTML = scopedMediaRows
+    .map((media) => `<option value="${media.id}">${escapeHTML(media.name)}</option>`)
+    .join("");
+}
+
+function renderProfileOptions() {
+  const adminSelectEl = document.querySelector("#media-admin-profile-id");
+  if (adminSelectEl) {
+    adminSelectEl.innerHTML = [
+      `<option value="">Aucun gestionnaire pour le moment</option>`,
+      ...state.profiles.map((user) => `<option value="${user.id}">${escapeHTML(user.username)}</option>`)
+    ].join("");
+  }
+
+  const membershipProfileEl = document.querySelector("#membership-profile-id");
+  if (membershipProfileEl) {
+    membershipProfileEl.innerHTML = state.profiles
+      .map((user) => `<option value="${user.id}">${escapeHTML(user.username)}</option>`)
+      .join("");
+  }
+}
+
+function renderManagedRequests(rows) {
+  const body = document.querySelector("#managed-media-requests-body");
+  if (!body) return;
+
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="4">Aucune demande en attente.</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = rows
+    .map(
+      (row) => `
+        <tr>
+          <td>${escapeHTML(row.mediaName)}</td>
+          <td>${escapeHTML(row.profileName)}</td>
+          <td>${escapeHTML(row.status)}</td>
+          <td>
+            <div class="inline-actions">
+              <button type="button" data-action="approve-media-membership" data-id="${row.id}">Approuver</button>
+              <button type="button" class="ghost-button" data-action="reject-media-membership" data-id="${row.id}">Refuser</button>
+            </div>
+          </td>
+        </tr>
+      `
+    )
+    .join("");
+}
+
+async function loadManagedMediaRequests() {
+  const managerSectionEl = document.querySelector("#media-manager-section");
+  if (!managerSectionEl) return;
+
+  const scopedMediaRows = accessState.isAdmin ? state.mediaOutlets : getEditableMediaRows();
+  if (!accessState.isAdmin && !scopedMediaRows.length) {
+    managerSectionEl.style.display = "none";
+    return;
+  }
+  managerSectionEl.style.display = "";
+
+  const mediaById = new Map(state.mediaOutlets.map((media) => [media.id, media.name]));
+  const profileById = new Map(state.profiles.map((profile) => [profile.id, profile.username]));
+
+  let query = supabase
+    .from("profile_media_memberships")
+    .select("id, profile_id, media_id, status, requested_at")
+    .eq("status", "pending")
+    .order("requested_at", { ascending: false });
+
+  if (!accessState.isAdmin) {
+    const mediaIds = scopedMediaRows.map((media) => media.id);
+    if (!mediaIds.length) {
+      renderManagedRequests([]);
+      return;
+    }
+    query = query.in("media_id", mediaIds);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const rows = (data || []).map((row) => ({
+    id: row.id,
+    mediaName: mediaById.get(row.media_id) || "Media",
+    profileName: profileById.get(row.profile_id) || row.profile_id,
+    status: row.status
+  }));
+
+  renderManagedRequests(rows);
+}
+
+async function ensureAdminOrManager() {
   const session = await requireAuth("/login.html");
   if (!session) return null;
 
   const currentProfile = await getCurrentProfile();
-  if (!currentProfile?.is_admin) {
-    setMessage("#page-message", "Acces reserve aux administrateurs.", true);
+  const { data: managedMedias, error: managedError } = await supabase
+    .from("media_outlets")
+    .select("id")
+    .eq("admin_profile_id", session.user.id);
+
+  if (managedError) throw managedError;
+
+  const isAdmin = Boolean(currentProfile?.is_admin);
+  const managedMediaIds = new Set((managedMedias || []).map((media) => media.id));
+  if (!isAdmin && managedMediaIds.size === 0) {
+    setMessage("#page-message", "Acces reserve aux administrateurs et gestionnaires de media.", true);
     document.querySelector("#admin-root").style.display = "none";
     return null;
+  }
+
+  accessState.session = session;
+  accessState.userId = session.user.id;
+  accessState.isAdmin = isAdmin;
+  accessState.managedMediaIds = managedMediaIds;
+
+  setAdminSectionsVisibility(isAdmin);
+
+  const mediaRoleHintEl = document.querySelector("#media-role-hint");
+  if (mediaRoleHintEl) {
+    mediaRoleHintEl.textContent = isAdmin
+      ? "Mode admin: creation et edition de tous les medias."
+      : "Mode gestionnaire: edition uniquement de tes medias.";
+  }
+
+  const managerScopeEl = document.querySelector("#media-manager-scope");
+  if (managerScopeEl) {
+    managerScopeEl.textContent = isAdmin
+      ? "Tu vois toutes les demandes de rattachement."
+      : "Tu vois uniquement les demandes liees a tes medias.";
   }
 
   return session;
 }
 
-async function loadUsers() {
+async function loadProfilesForMediaAdmin() {
   const { data, error } = await supabase
     .from("profiles")
     .select("id, username")
     .order("username", { ascending: true });
 
   if (error) throw error;
+  state.profiles = data || [];
+  renderProfileOptions();
+}
 
-  const mediaAdminSelectEl = document.querySelector("#media-admin-profile-id");
-  mediaAdminSelectEl.innerHTML = [
-    `<option value="">Aucun admin pour le moment</option>`,
-    ...(data || []).map((user) => `<option value="${user.id}">${escapeHTML(user.username)}</option>`)
-  ].join("");
+function renderAdminUsers(rows) {
+  const body = document.querySelector("#admin-users-table-body");
+  if (!body) return;
+
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="3">Aucun utilisateur.</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = rows
+    .map(
+      (row) => `
+        <tr>
+          <td>${escapeHTML(row.email || "-")}</td>
+          <td>${escapeHTML(row.username || "-")}</td>
+          <td>
+            <button
+              type="button"
+              class="ghost-button"
+              data-admin-reset-email="${escapeHTML(row.email || "")}"
+            >
+              Envoyer reset
+            </button>
+          </td>
+        </tr>
+      `
+    )
+    .join("");
+}
+
+async function loadAdminUsers() {
+  const { data, error } = await supabase.rpc("admin_list_users");
+  if (error) throw error;
+  renderAdminUsers(data || []);
+}
+
+function bindAdminResetActions() {
+  document.querySelector("#admin-users-table-body")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-admin-reset-email]");
+    if (!button) return;
+
+    const email = button.dataset.adminResetEmail?.trim();
+    if (!email) {
+      setMessage("#admin-users-message", "Email manquant pour cet utilisateur.", true);
+      return;
+    }
+
+    try {
+      const redirectTo = `${window.location.origin}/update-password.html`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) throw error;
+
+      setMessage("#admin-users-message", `Email de reinitialisation envoye a ${email}.`);
+    } catch (error) {
+      setMessage(
+        "#admin-users-message",
+        error.message || "Impossible d'envoyer l'email de reinitialisation.",
+        true
+      );
+    }
+  });
 }
 
 function bindCreateMedia() {
+  document.querySelector("#media-id")?.addEventListener("change", (event) => {
+    fillMediaForm(event.target.value || "");
+  });
+
+  document.querySelector("#media-avatar-url")?.addEventListener("input", (event) => {
+    renderMediaAvatarPreview(event.target.value.trim());
+  });
+
+  document.querySelector("#media-avatar-file")?.addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      renderMediaAvatarPreview(document.querySelector("#media-avatar-url").value.trim());
+      return;
+    }
+
+    const objectURL = URL.createObjectURL(file);
+    renderMediaAvatarPreview(objectURL);
+    window.setTimeout(() => URL.revokeObjectURL(objectURL), 3000);
+  });
+
   document.querySelector("#create-media-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
 
+    const selectedMediaId = document.querySelector("#media-id").value || "";
+    const currentMedia = state.mediaOutlets.find((item) => item.id === selectedMediaId) || null;
+    const avatarFile = document.querySelector("#media-avatar-file")?.files?.[0] || null;
+    let avatarURL = document.querySelector("#media-avatar-url").value.trim() || null;
+
+    if (!accessState.isAdmin && !selectedMediaId) {
+      setMessage("#create-media-message", "Tu peux uniquement modifier un media dont tu es gestionnaire.", true);
+      return;
+    }
+
+    if (selectedMediaId && !canEditMedia(selectedMediaId)) {
+      setMessage("#create-media-message", "Tu ne peux modifier que ton media.", true);
+      return;
+    }
+
     const payload = {
       name: document.querySelector("#media-name").value.trim(),
-      admin_profile_id: document.querySelector("#media-admin-profile-id").value || null,
       twitter_url: document.querySelector("#media-twitter-url").value.trim() || null,
       instagram_url: document.querySelector("#media-instagram-url").value.trim() || null,
       youtube_url: document.querySelector("#media-youtube-url").value.trim() || null,
+      tiktok_url: document.querySelector("#media-tiktok-url").value.trim() || null,
       website_url: document.querySelector("#media-website-url").value.trim() || null,
+      avatar_url: avatarURL,
       description: document.querySelector("#media-description").value.trim() || null
     };
 
@@ -85,15 +449,147 @@ function bindCreateMedia() {
     }
 
     try {
-      const { error } = await supabase.from("media_outlets").insert(payload);
-      if (error) throw error;
+      if (avatarFile) {
+        avatarURL = await uploadMediaAvatar(avatarFile);
+        payload.avatar_url = avatarURL;
+      } else if (!avatarURL && currentMedia?.avatar_url) {
+        payload.avatar_url = currentMedia.avatar_url;
+      }
 
-      setMessage("#create-media-message", "Media cree.");
-      document.querySelector("#create-media-form").reset();
+      if (selectedMediaId) {
+        if (accessState.isAdmin) {
+          payload.admin_profile_id = document.querySelector("#media-admin-profile-id").value || null;
+        }
+
+        const { error } = await supabase.from("media_outlets").update(payload).eq("id", selectedMediaId);
+        if (error) throw error;
+        setMessage("#create-media-message", "Media mis a jour.");
+        await loadMediaOutlets(selectedMediaId);
+      } else {
+        payload.admin_profile_id = document.querySelector("#media-admin-profile-id").value || null;
+        const { data: inserted, error } = await supabase
+          .from("media_outlets")
+          .insert(payload)
+          .select("id")
+          .single();
+        if (error) throw error;
+        setMessage("#create-media-message", "Media cree.");
+        await loadMediaOutlets(inserted?.id || "");
+      }
+
+      await loadManagedMediaRequests();
     } catch (error) {
-      setMessage("#create-media-message", error.message || "Creation media impossible.", true);
+      setMessage("#create-media-message", error.message || "Enregistrement media impossible.", true);
     }
   });
+}
+
+function bindManagedRequestsActions() {
+  document.querySelector("#managed-media-requests-body")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
+
+    const membershipId = button.dataset.id;
+    if (!membershipId) return;
+
+    const approved = button.dataset.action === "approve-media-membership";
+    if (!approved && button.dataset.action !== "reject-media-membership") return;
+
+    try {
+      const { error } = await supabase.rpc("admin_decide_media_membership", {
+        p_membership_id: membershipId,
+        p_approved: approved
+      });
+
+      if (error) throw error;
+
+      setMessage("#media-manager-message", "Decision enregistree.");
+      await loadManagedMediaRequests();
+    } catch (error) {
+      setMessage("#media-manager-message", error.message || "Impossible de traiter la demande.", true);
+    }
+  });
+}
+
+function bindManualMembershipActions() {
+  const readSelections = () => ({
+    mediaId: document.querySelector("#membership-media-id")?.value || "",
+    profileId: document.querySelector("#membership-profile-id")?.value || ""
+  });
+
+  document.querySelector("#membership-attach-button")?.addEventListener("click", async () => {
+    const { mediaId, profileId } = readSelections();
+    if (!mediaId || !profileId) {
+      setMessage("#media-manager-message", "Selectionne un media et un profil.", true);
+      return;
+    }
+
+    if (!canEditMedia(mediaId)) {
+      setMessage("#media-manager-message", "Tu ne peux gerer que ton media.", true);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("profile_media_memberships").upsert(
+        {
+          profile_id: profileId,
+          media_id: mediaId,
+          status: "approved",
+          decided_at: new Date().toISOString(),
+          decided_by: accessState.userId
+        },
+        { onConflict: "profile_id,media_id" }
+      );
+      if (error) throw error;
+
+      setMessage("#media-manager-message", "Profil rattache.");
+      await loadManagedMediaRequests();
+    } catch (error) {
+      setMessage("#media-manager-message", error.message || "Rattachement impossible.", true);
+    }
+  });
+
+  document.querySelector("#membership-detach-button")?.addEventListener("click", async () => {
+    const { mediaId, profileId } = readSelections();
+    if (!mediaId || !profileId) {
+      setMessage("#media-manager-message", "Selectionne un media et un profil.", true);
+      return;
+    }
+
+    if (!canEditMedia(mediaId)) {
+      setMessage("#media-manager-message", "Tu ne peux gerer que ton media.", true);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("profile_media_memberships")
+        .delete()
+        .eq("media_id", mediaId)
+        .eq("profile_id", profileId);
+      if (error) throw error;
+
+      setMessage("#media-manager-message", "Rattachement supprime.");
+      await loadManagedMediaRequests();
+    } catch (error) {
+      setMessage("#media-manager-message", error.message || "Suppression impossible.", true);
+    }
+  });
+}
+
+async function loadMediaOutlets(preferredMediaId = "") {
+  const { data, error } = await supabase
+    .from("media_outlets")
+    .select(
+      "id, name, admin_profile_id, twitter_url, instagram_url, youtube_url, tiktok_url, website_url, avatar_url, description"
+    )
+    .order("name", { ascending: true });
+
+  if (error) throw error;
+
+  state.mediaOutlets = data || [];
+  renderMediaEditorOptions(preferredMediaId);
+  renderMembershipMediaOptions();
 }
 
 function renderFilmOptions() {
@@ -631,14 +1127,23 @@ function bindSeriesForms() {
 }
 
 async function initAdminPage() {
-  const session = await ensureAdmin();
+  const session = await ensureAdminOrManager();
   if (!session) return;
 
-  bindCreationTabs();
-  await loadUsers();
+  await loadProfilesForMediaAdmin();
+  await loadMediaOutlets();
   bindCreateMedia();
-  bindSeriesForms();
-  await refreshSeriesData();
+  bindManagedRequestsActions();
+  bindManualMembershipActions();
+  await loadManagedMediaRequests();
+
+  if (accessState.isAdmin) {
+    bindCreationTabs();
+    await loadAdminUsers();
+    bindAdminResetActions();
+    bindSeriesForms();
+    await refreshSeriesData();
+  }
 }
 
 initAdminPage();

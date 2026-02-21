@@ -21,13 +21,17 @@ create table if not exists public.media_outlets (
   twitter_url text,
   instagram_url text,
   youtube_url text,
+  tiktok_url text,
   website_url text,
+  avatar_url text,
   description text,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
 
 alter table public.media_outlets alter column admin_profile_id drop not null;
+alter table public.media_outlets add column if not exists tiktok_url text;
+alter table public.media_outlets add column if not exists avatar_url text;
 
 create table if not exists public.profile_media_memberships (
   id uuid primary key default gen_random_uuid(),
@@ -289,12 +293,15 @@ begin
     raise exception 'Authentication required';
   end if;
 
-  if not exists (
-    select 1
-    from public.media_outlets m
-    where m.id = v_row.media_id and m.admin_profile_id = auth.uid()
+  if not (
+    public.is_admin(auth.uid())
+    or exists (
+      select 1
+      from public.media_outlets m
+      where m.id = v_row.media_id and m.admin_profile_id = auth.uid()
+    )
   ) then
-    raise exception 'Only media admin can validate this membership';
+    raise exception 'Only admin or media manager can validate this membership';
   end if;
 
   update public.profile_media_memberships
@@ -370,8 +377,14 @@ drop policy if exists "media_admin_update" on public.media_outlets;
 create policy "media_admin_update"
 on public.media_outlets
 for update
-using (public.is_admin(auth.uid()))
-with check (public.is_admin(auth.uid()));
+using (
+  public.is_admin(auth.uid())
+  or admin_profile_id = auth.uid()
+)
+with check (
+  public.is_admin(auth.uid())
+  or admin_profile_id = auth.uid()
+);
 
 drop policy if exists "media_admin_delete" on public.media_outlets;
 create policy "media_admin_delete"
@@ -384,6 +397,8 @@ create policy "memberships_public_read"
 on public.profile_media_memberships
 for select
 using (
+  public.is_admin(auth.uid())
+  or
   status = 'approved'
   or auth.uid() = profile_id
   or exists (
@@ -399,11 +414,26 @@ on public.profile_media_memberships
 for insert
 with check (auth.uid() = profile_id and status = 'pending');
 
+drop policy if exists "memberships_insert_admin_or_media_admin" on public.profile_media_memberships;
+create policy "memberships_insert_admin_or_media_admin"
+on public.profile_media_memberships
+for insert
+with check (
+  public.is_admin(auth.uid())
+  or exists (
+    select 1
+    from public.media_outlets m
+    where m.id = media_id and m.admin_profile_id = auth.uid()
+  )
+);
+
 drop policy if exists "memberships_update_owner_or_media_admin" on public.profile_media_memberships;
 create policy "memberships_update_owner_or_media_admin"
 on public.profile_media_memberships
 for update
 using (
+  public.is_admin(auth.uid())
+  or
   auth.uid() = profile_id
   or exists (
     select 1
@@ -412,7 +442,22 @@ using (
   )
 )
 with check (
+  public.is_admin(auth.uid())
+  or
   auth.uid() = profile_id
+  or exists (
+    select 1
+    from public.media_outlets m
+    where m.id = media_id and m.admin_profile_id = auth.uid()
+  )
+);
+
+drop policy if exists "memberships_delete_admin_or_media_admin" on public.profile_media_memberships;
+create policy "memberships_delete_admin_or_media_admin"
+on public.profile_media_memberships
+for delete
+using (
+  public.is_admin(auth.uid())
   or exists (
     select 1
     from public.media_outlets m
@@ -469,6 +514,61 @@ create policy "ratings_delete_own_or_admin"
 on public.ratings
 for delete
 using (auth.uid() = user_id or public.is_admin(auth.uid()));
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'media-avatars',
+  'media-avatars',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update
+set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "media_avatars_public_read" on storage.objects;
+create policy "media_avatars_public_read"
+on storage.objects
+for select
+using (bucket_id = 'media-avatars');
+
+drop policy if exists "media_avatars_user_insert" on storage.objects;
+create policy "media_avatars_user_insert"
+on storage.objects
+for insert
+with check (
+  bucket_id = 'media-avatars'
+  and auth.uid() is not null
+  and split_part(name, '/', 1) = auth.uid()::text
+);
+
+drop policy if exists "media_avatars_user_update" on storage.objects;
+create policy "media_avatars_user_update"
+on storage.objects
+for update
+using (
+  bucket_id = 'media-avatars'
+  and auth.uid() is not null
+  and split_part(name, '/', 1) = auth.uid()::text
+)
+with check (
+  bucket_id = 'media-avatars'
+  and auth.uid() is not null
+  and split_part(name, '/', 1) = auth.uid()::text
+);
+
+drop policy if exists "media_avatars_user_delete" on storage.objects;
+create policy "media_avatars_user_delete"
+on storage.objects
+for delete
+using (
+  bucket_id = 'media-avatars'
+  and auth.uid() is not null
+  and split_part(name, '/', 1) = auth.uid()::text
+);
 
 insert into public.films (title, release_date, poster_url, synopsis)
 values

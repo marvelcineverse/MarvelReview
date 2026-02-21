@@ -62,7 +62,7 @@ async function loadMediaDetails(mediaId) {
 
   const { data: media, error: mediaError } = await supabase
     .from("media_outlets")
-    .select("id, name, twitter_url, instagram_url, youtube_url, website_url, description")
+    .select("id, name, twitter_url, instagram_url, youtube_url, tiktok_url, website_url, avatar_url, description")
     .eq("id", mediaId)
     .single();
 
@@ -78,13 +78,15 @@ async function loadMediaDetails(mediaId) {
 
   detailsEl.innerHTML = `
     <h2>${escapeHTML(media.name)}</h2>
+    ${media.avatar_url ? `<img src="${escapeHTML(media.avatar_url)}" alt="Profil ${escapeHTML(media.name)}" class="avatar media-avatar" />` : ""}
     <p>${escapeHTML(media.description || "Aucune description.")}</p>
     <p>Profils rattaches: <strong>${memberCount || 0}</strong></p>
     <p>
-      ${media.website_url ? `<a href="${escapeHTML(media.website_url)}" target="_blank" rel="noreferrer">Site web</a>` : ""}
-      ${media.twitter_url ? ` | <a href="${escapeHTML(media.twitter_url)}" target="_blank" rel="noreferrer">Twitter</a>` : ""}
-      ${media.instagram_url ? ` | <a href="${escapeHTML(media.instagram_url)}" target="_blank" rel="noreferrer">Instagram</a>` : ""}
-      ${media.youtube_url ? ` | <a href="${escapeHTML(media.youtube_url)}" target="_blank" rel="noreferrer">Youtube</a>` : ""}
+      ${media.website_url ? `<a href="${escapeHTML(media.website_url)}" target="_blank" rel="noreferrer">🌐 Site web</a>` : ""}
+      ${media.twitter_url ? ` | <a href="${escapeHTML(media.twitter_url)}" target="_blank" rel="noreferrer">𝕏 Twitter</a>` : ""}
+      ${media.instagram_url ? ` | <a href="${escapeHTML(media.instagram_url)}" target="_blank" rel="noreferrer">📸 Instagram</a>` : ""}
+      ${media.youtube_url ? ` | <a href="${escapeHTML(media.youtube_url)}" target="_blank" rel="noreferrer">▶ YouTube</a>` : ""}
+      ${media.tiktok_url ? ` | <a href="${escapeHTML(media.tiktok_url)}" target="_blank" rel="noreferrer">🎵 TikTok</a>` : ""}
     </p>
   `;
 }

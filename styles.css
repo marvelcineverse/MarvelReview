@@ -456,7 +456,7 @@ button:hover {
 .form {
   display: grid;
   gap: 0.9rem;
-  max-width: 620px;
+  max-width: 820px;
 }
 
 .signup-form {
@@ -973,7 +973,10 @@ select:focus-visible {
 }
 
 textarea {
-  min-height: 124px;
+  width: 100%;
+  min-height: 170px;
+  font-weight: 400;
+  line-height: 1.55;
   resize: vertical;
 }
 
@@ -1243,8 +1246,52 @@ textarea {
 }
 
 #admin-root {
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   align-items: start;
+}
+
+.admin-grid {
+  gap: 1rem;
+}
+
+.admin-media-form,
+.admin-membership-form,
+.content-creation-card .form {
+  max-width: none;
+  width: 100%;
+}
+
+.admin-membership-card,
+.admin-users-card {
+  grid-column: 1 / -1;
+}
+
+.social-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.social-prefix {
+  display: inline-flex;
+  width: 1.1rem;
+  justify-content: center;
+  opacity: 0.9;
+}
+
+.media-avatar-preview {
+  min-height: 122px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #c8d6e5;
+  background: #f8fbff;
+  color: var(--muted);
+}
+
+.media-avatar-preview .media-avatar {
+  width: 96px;
+  height: 96px;
 }
 
 #media-details:empty,

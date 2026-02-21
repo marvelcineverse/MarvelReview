@@ -34,11 +34,14 @@ const navMarkup = `
               id="admin-link"
               class="nav-logout-link"
               href="/admin.html"
-              data-admin-only="true"
-              data-admin-display="inline"
+              data-admin-or-manager-only="true"
+              data-access-display="inline"
               >Admin</a
             >
-            <span class="nav-user-separator" data-admin-only="true" data-admin-display="inline"
+            <span
+              class="nav-user-separator"
+              data-admin-or-manager-only="true"
+              data-access-display="inline"
               >&nbsp;—&nbsp;</span
             >
             <a id="logout-link" class="nav-logout-link" href="#">Se d&eacute;connecter</a>
