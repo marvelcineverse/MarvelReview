@@ -1280,6 +1280,44 @@ textarea {
   min-width: 390px;
 }
 
+.home-top-ranked-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.home-top-ranked-table th,
+.home-top-ranked-table td {
+  padding: 0.5rem 0.56rem;
+  font-size: 0.96rem;
+}
+
+.home-top-ranked-table th:nth-child(1),
+.home-top-ranked-table td:nth-child(1) {
+  width: 46px;
+}
+
+.home-top-ranked-table th:nth-child(3),
+.home-top-ranked-table td:nth-child(3) {
+  width: 126px;
+  text-align: center;
+}
+
+.home-top-ranked-table th:nth-child(2),
+.home-top-ranked-table td:nth-child(2) {
+  min-width: 0;
+}
+
+.home-top-ranked-table td:nth-child(2) {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.home-top-ranked-table .score-badge {
+  min-width: 82px;
+  padding: 0.22rem 0.44rem;
+}
+
 .film-link {
   font-weight: 600;
   color: var(--primary);
