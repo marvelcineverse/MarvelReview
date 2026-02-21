@@ -76,18 +76,32 @@ async function loadMediaDetails(mediaId) {
 
   if (countError) throw countError;
 
+  const socialLinks = [
+    media.website_url
+      ? `<a class="media-social-link" href="${escapeHTML(media.website_url)}" target="_blank" rel="noreferrer"><i class="fa-solid fa-globe" aria-hidden="true"></i> Site web</a>`
+      : "",
+    media.twitter_url
+      ? `<a class="media-social-link" href="${escapeHTML(media.twitter_url)}" target="_blank" rel="noreferrer"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i> Twitter / X</a>`
+      : "",
+    media.instagram_url
+      ? `<a class="media-social-link" href="${escapeHTML(media.instagram_url)}" target="_blank" rel="noreferrer"><i class="fa-brands fa-instagram" aria-hidden="true"></i> Instagram</a>`
+      : "",
+    media.youtube_url
+      ? `<a class="media-social-link" href="${escapeHTML(media.youtube_url)}" target="_blank" rel="noreferrer"><i class="fa-brands fa-youtube" aria-hidden="true"></i> YouTube</a>`
+      : "",
+    media.tiktok_url
+      ? `<a class="media-social-link" href="${escapeHTML(media.tiktok_url)}" target="_blank" rel="noreferrer"><i class="fa-brands fa-tiktok" aria-hidden="true"></i> TikTok</a>`
+      : ""
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
   detailsEl.innerHTML = `
     <h2>${escapeHTML(media.name)}</h2>
     ${media.avatar_url ? `<img src="${escapeHTML(media.avatar_url)}" alt="Profil ${escapeHTML(media.name)}" class="avatar media-avatar" />` : ""}
     <p>${escapeHTML(media.description || "Aucune description.")}</p>
     <p>Profils rattaches: <strong>${memberCount || 0}</strong></p>
-    <p>
-      ${media.website_url ? `<a href="${escapeHTML(media.website_url)}" target="_blank" rel="noreferrer">🌐 Site web</a>` : ""}
-      ${media.twitter_url ? ` | <a href="${escapeHTML(media.twitter_url)}" target="_blank" rel="noreferrer">𝕏 Twitter</a>` : ""}
-      ${media.instagram_url ? ` | <a href="${escapeHTML(media.instagram_url)}" target="_blank" rel="noreferrer">📸 Instagram</a>` : ""}
-      ${media.youtube_url ? ` | <a href="${escapeHTML(media.youtube_url)}" target="_blank" rel="noreferrer">▶ YouTube</a>` : ""}
-      ${media.tiktok_url ? ` | <a href="${escapeHTML(media.tiktok_url)}" target="_blank" rel="noreferrer">🎵 TikTok</a>` : ""}
-    </p>
+    <p>${socialLinks || "Aucun lien social."}</p>
   `;
 }
 

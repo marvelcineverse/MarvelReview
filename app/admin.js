@@ -177,6 +177,7 @@ function renderMembershipMediaOptions() {
   const mediaSelectEl = document.querySelector("#membership-media-id");
   if (!mediaSelectEl) return;
 
+  const previousValue = mediaSelectEl.value || "";
   const scopedMediaRows = accessState.isAdmin ? state.mediaOutlets : getEditableMediaRows();
   if (!scopedMediaRows.length) {
     mediaSelectEl.innerHTML = `<option value="">Aucun media</option>`;
@@ -186,6 +187,11 @@ function renderMembershipMediaOptions() {
   mediaSelectEl.innerHTML = scopedMediaRows
     .map((media) => `<option value="${media.id}">${escapeHTML(media.name)}</option>`)
     .join("");
+
+  const nextValue = scopedMediaRows.some((media) => media.id === previousValue)
+    ? previousValue
+    : scopedMediaRows[0].id;
+  mediaSelectEl.value = nextValue;
 }
 
 function renderProfileOptions() {
@@ -231,6 +237,73 @@ function renderManagedRequests(rows) {
       `
     )
     .join("");
+}
+
+function renderManagedMembers(rows) {
+  const body = document.querySelector("#managed-media-members-body");
+  if (!body) return;
+
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="2">Aucun membre rattaché.</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = rows
+    .map(
+      (row) => `
+        <tr>
+          <td>${escapeHTML(row.profileName)}</td>
+          <td class="actions-cell">
+            <button
+              type="button"
+              class="icon-circle-btn delete small"
+              data-action="remove-media-member"
+              data-membership-id="${row.membershipId}"
+              data-media-id="${row.mediaId}"
+              data-profile-name="${escapeHTML(row.profileName)}"
+              title="Supprimer ${escapeHTML(row.profileName)}"
+              aria-label="Supprimer ${escapeHTML(row.profileName)}"
+            >
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          </td>
+        </tr>
+      `
+    )
+    .join("");
+}
+
+async function loadManagedMediaMembers() {
+  const mediaId = document.querySelector("#membership-media-id")?.value || "";
+  if (!mediaId) {
+    renderManagedMembers([]);
+    return;
+  }
+
+  if (!canEditMedia(mediaId)) {
+    renderManagedMembers([]);
+    return;
+  }
+
+  const profileById = new Map(state.profiles.map((profile) => [profile.id, profile.username]));
+  const { data, error } = await supabase
+    .from("profile_media_memberships")
+    .select("id, profile_id, media_id")
+    .eq("media_id", mediaId)
+    .eq("status", "approved")
+    .order("decided_at", { ascending: false, nullsFirst: false });
+
+  if (error) throw error;
+
+  const rows = (data || [])
+    .map((row) => ({
+      membershipId: row.id,
+      mediaId: row.media_id,
+      profileName: profileById.get(row.profile_id) || row.profile_id
+    }))
+    .sort((a, b) => a.profileName.localeCompare(b.profileName, "fr"));
+
+  renderManagedMembers(rows);
 }
 
 async function loadManagedMediaRequests() {
@@ -314,6 +387,11 @@ async function ensureAdminOrManager() {
     managerScopeEl.textContent = isAdmin
       ? "Tu vois toutes les demandes de rattachement."
       : "Tu vois uniquement les demandes liees a tes medias.";
+  }
+
+  const membershipMediaLabel = document.querySelector("#membership-media-id")?.closest("label");
+  if (membershipMediaLabel) {
+    membershipMediaLabel.classList.toggle("form-span-2", !isAdmin);
   }
 
   return session;
@@ -505,6 +583,7 @@ function bindManagedRequestsActions() {
 
       setMessage("#media-manager-message", "Decision enregistree.");
       await loadManagedMediaRequests();
+      await loadManagedMediaMembers();
     } catch (error) {
       setMessage("#media-manager-message", error.message || "Impossible de traiter la demande.", true);
     }
@@ -512,6 +591,14 @@ function bindManagedRequestsActions() {
 }
 
 function bindManualMembershipActions() {
+  document.querySelector("#membership-media-id")?.addEventListener("change", async () => {
+    try {
+      await loadManagedMediaMembers();
+    } catch (error) {
+      setMessage("#media-manager-message", error.message || "Impossible de charger les membres du media.", true);
+    }
+  });
+
   const readSelections = () => ({
     mediaId: document.querySelector("#membership-media-id")?.value || "",
     profileId: document.querySelector("#membership-profile-id")?.value || ""
@@ -544,6 +631,7 @@ function bindManualMembershipActions() {
 
       setMessage("#media-manager-message", "Profil rattache.");
       await loadManagedMediaRequests();
+      await loadManagedMediaMembers();
     } catch (error) {
       setMessage("#media-manager-message", error.message || "Rattachement impossible.", true);
     }
@@ -571,6 +659,38 @@ function bindManualMembershipActions() {
 
       setMessage("#media-manager-message", "Rattachement supprime.");
       await loadManagedMediaRequests();
+      await loadManagedMediaMembers();
+    } catch (error) {
+      setMessage("#media-manager-message", error.message || "Suppression impossible.", true);
+    }
+  });
+}
+
+function bindManagedMembersActions() {
+  document.querySelector("#managed-media-members-body")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-action='remove-media-member']");
+    if (!button) return;
+
+    const membershipId = button.dataset.membershipId;
+    const mediaId = button.dataset.mediaId;
+    const profileName = button.dataset.profileName || "ce profil";
+    if (!membershipId || !mediaId) return;
+
+    if (!canEditMedia(mediaId)) {
+      setMessage("#media-manager-message", "Tu ne peux gerer que ton media.", true);
+      return;
+    }
+
+    const confirmed = window.confirm(`Confirmer la suppression du rattachement de ${profileName} ?`);
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase.from("profile_media_memberships").delete().eq("id", membershipId);
+      if (error) throw error;
+
+      setMessage("#media-manager-message", `Rattachement supprime pour ${profileName}.`);
+      await loadManagedMediaMembers();
+      await loadManagedMediaRequests();
     } catch (error) {
       setMessage("#media-manager-message", error.message || "Suppression impossible.", true);
     }
@@ -590,6 +710,7 @@ async function loadMediaOutlets(preferredMediaId = "") {
   state.mediaOutlets = data || [];
   renderMediaEditorOptions(preferredMediaId);
   renderMembershipMediaOptions();
+  await loadManagedMediaMembers();
 }
 
 function renderFilmOptions() {
@@ -1135,6 +1256,7 @@ async function initAdminPage() {
   bindCreateMedia();
   bindManagedRequestsActions();
   bindManualMembershipActions();
+  bindManagedMembersActions();
   await loadManagedMediaRequests();
 
   if (accessState.isAdmin) {
