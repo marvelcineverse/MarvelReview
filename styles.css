@@ -455,6 +455,11 @@ button:hover {
   width: 100%;
 }
 
+.login-form {
+  max-width: none;
+  width: 100%;
+}
+
 .captcha-block {
   min-height: 78px;
 }
@@ -467,6 +472,10 @@ button:hover {
   background: #f8fbff;
   color: var(--text-soft);
   font-size: 0.95rem;
+}
+
+.field-label {
+  display: inline;
 }
 
 .required-star {

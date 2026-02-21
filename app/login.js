@@ -14,12 +14,12 @@ function showAuthQueryMessage() {
   const params = new URLSearchParams(window.location.search);
 
   if (params.get("confirmed") === "1") {
-    setMessage("#form-message", "Email confirme. Tu peux te connecter.");
+    setMessage("#form-message", "Email confirmé. Tu peux te connecter.");
     return;
   }
 
   if (params.get("reset") === "success") {
-    setMessage("#form-message", "Mot de passe mis a jour. Connecte-toi avec ton nouveau mot de passe.");
+    setMessage("#form-message", "Mot de passe mis à jour. Connecte-toi avec ton nouveau mot de passe.");
   }
 }
 

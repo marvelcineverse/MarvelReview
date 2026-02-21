@@ -15,22 +15,24 @@
 
       <form id="signup-form" class="form card signup-form">
         <label>
-          Nom d'utilisateur / pseudonyme <span class="required-star" aria-hidden="true">*</span>
+          <span class="field-label"
+            >Nom d'utilisateur / pseudonyme <span class="required-star" aria-hidden="true">*</span></span
+          >
           <input id="username" type="text" required minlength="2" maxlength="30" />
         </label>
 
         <p class="signup-media-note">
-          Une fois inscrit, il vous sera possible de vous rattacher a un media, si vous appartenez a
+          Une fois inscrit, il vous sera possible de vous rattacher à un média, si vous appartenez à
           l'un d'eux 🙂
         </p>
 
         <label>
-          Email <span class="required-star" aria-hidden="true">*</span>
+          <span class="field-label">Email <span class="required-star" aria-hidden="true">*</span></span>
           <input id="email" type="email" required />
         </label>
 
         <label>
-          Mot de passe <span class="required-star" aria-hidden="true">*</span>
+          <span class="field-label">Mot de passe <span class="required-star" aria-hidden="true">*</span></span>
           <input id="password" type="password" required minlength="6" />
         </label>
 
@@ -38,7 +40,7 @@
 
         <div id="signup-captcha" class="captcha-block"></div>
 
-        <button type="submit">Creer mon compte</button>
+        <button type="submit">Créer mon compte</button>
         <p id="form-message" class="message" aria-live="polite"></p>
       </form>
     </main>

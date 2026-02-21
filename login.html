@@ -13,21 +13,23 @@
       <h1>Connexion</h1>
       <p id="auth-status" class="status"></p>
 
-      <form id="login-form" class="form card">
+      <form id="login-form" class="form card login-form">
         <label>
-          Email
+          <span class="field-label">Email <span class="required-star" aria-hidden="true">*</span></span>
           <input id="email" type="email" required />
         </label>
 
         <label>
-          Mot de passe
+          <span class="field-label">Mot de passe <span class="required-star" aria-hidden="true">*</span></span>
           <input id="password" type="password" required />
         </label>
+
+        <p class="field-required-note"><span class="required-star" aria-hidden="true">*</span> obligatoire</p>
 
         <div id="login-captcha" class="captcha-block"></div>
 
         <button type="submit">Se connecter</button>
-        <a href="/forgot-password.html">Mot de passe oublie ?</a>
+        <a href="/forgot-password.html">Mot de passe oublié ?</a>
         <p id="form-message" class="message" aria-live="polite"></p>
       </form>
     </main>

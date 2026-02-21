@@ -43,7 +43,7 @@ document.querySelector("#signup-form")?.addEventListener("submit", async (event)
 
     setMessage(
       "#form-message",
-      "Compte cree. Verifie ton email si la confirmation est activee, puis connecte-toi."
+      "Compte créé. Vérifie ton email si la confirmation est activée, puis connecte-toi."
     );
   } catch (error) {
     setMessage("#form-message", error.message || "Inscription impossible.", true);
