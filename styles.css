@@ -450,8 +450,34 @@ button:hover {
   max-width: 620px;
 }
 
+.signup-form {
+  max-width: none;
+  width: 100%;
+}
+
 .captcha-block {
   min-height: 78px;
+}
+
+.signup-media-note {
+  margin: 0;
+  padding: 0.72rem 0.85rem;
+  border: 1px dashed #c9d6e4;
+  border-radius: var(--radius-sm);
+  background: #f8fbff;
+  color: var(--text-soft);
+  font-size: 0.95rem;
+}
+
+.required-star {
+  color: var(--danger);
+  font-weight: 800;
+}
+
+.field-required-note {
+  margin: -0.15rem 0 0.1rem;
+  color: var(--muted);
+  font-size: 0.88rem;
 }
 
 .inline-actions {

@@ -13,26 +13,28 @@
       <h1>Inscription</h1>
       <p id="auth-status" class="status"></p>
 
-      <form id="signup-form" class="form card">
+      <form id="signup-form" class="form card signup-form">
         <label>
-          Username (obligatoire)
+          Nom d'utilisateur / pseudonyme <span class="required-star" aria-hidden="true">*</span>
           <input id="username" type="text" required minlength="2" maxlength="30" />
         </label>
 
-        <label>
-          Rattachement media (optionnel, validation par admin du media)
-          <select id="media_outlet_id"></select>
-        </label>
+        <p class="signup-media-note">
+          Une fois inscrit, il vous sera possible de vous rattacher a un media, si vous appartenez a
+          l'un d'eux 🙂
+        </p>
 
         <label>
-          Email
+          Email <span class="required-star" aria-hidden="true">*</span>
           <input id="email" type="email" required />
         </label>
 
         <label>
-          Mot de passe
+          Mot de passe <span class="required-star" aria-hidden="true">*</span>
           <input id="password" type="password" required minlength="6" />
         </label>
+
+        <p class="field-required-note"><span class="required-star" aria-hidden="true">*</span> obligatoire</p>
 
         <div id="signup-captcha" class="captcha-block"></div>
 
