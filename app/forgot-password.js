@@ -6,9 +6,16 @@ const captchaControllerPromise = createCaptchaController({
   containerSelector: "#forgot-password-captcha",
   messageSelector: "#form-message"
 });
+const deliveryWarningEl = document.querySelector("#forgot-delivery-warning");
+
+function toggleDeliveryWarning(show) {
+  if (!deliveryWarningEl) return;
+  deliveryWarningEl.hidden = !show;
+}
 
 document.querySelector("#forgot-password-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  toggleDeliveryWarning(false);
 
   const email = document.querySelector("#email").value.trim();
   const redirectTo = `${window.location.origin}/update-password.html`;
@@ -26,10 +33,12 @@ document.querySelector("#forgot-password-form")?.addEventListener("submit", asyn
 
     setMessage(
       "#form-message",
-      "Si cet email existe, un lien de reinitialisation vient d'etre envoye."
+      "Si cet email existe, un lien de r\u00e9initialisation vient d'\u00eatre envoy\u00e9."
     );
+    toggleDeliveryWarning(true);
   } catch (error) {
     setMessage("#form-message", error.message || "Envoi impossible.", true);
+    toggleDeliveryWarning(false);
   } finally {
     captchaController.reset();
   }

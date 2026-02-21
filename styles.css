@@ -460,6 +460,11 @@ button:hover {
   width: 100%;
 }
 
+.forgot-form {
+  max-width: none;
+  width: 100%;
+}
+
 .captcha-block {
   min-height: 78px;
 }
@@ -487,6 +492,18 @@ button:hover {
   margin: -0.15rem 0 0.1rem;
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+.delivery-warning {
+  margin: 0;
+  padding: 0.72rem 0.85rem;
+  border: 1px solid #f1d2a1;
+  border-left: 4px solid #e3a13b;
+  border-radius: var(--radius-sm);
+  background: #fff7ea;
+  color: #7a4b08;
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 
 .inline-actions {
