@@ -28,8 +28,21 @@ const navMarkup = `
         <a class="nav-link" href="/login.html" data-auth="logged-out">Connexion</a>
         <a class="nav-link" href="/signup.html" data-auth="logged-out">Inscription</a>
         <div class="nav-user-block" data-auth="logged-in">
-          <span class="nav-user-line">Connecte : <span id="nav-user-value"></span></span>
-          <small><a id="logout-link" class="nav-logout-link" href="#">Se deconnecter</a></small>
+          <span class="nav-user-line">Connect&eacute; : <span id="nav-user-value"></span></span>
+          <small class="nav-user-actions">
+            <a
+              id="admin-link"
+              class="nav-logout-link"
+              href="/admin.html"
+              data-admin-only="true"
+              data-admin-display="inline"
+              >Admin</a
+            >
+            <span class="nav-user-separator" data-admin-only="true" data-admin-display="inline"
+              >&nbsp;—&nbsp;</span
+            >
+            <a id="logout-link" class="nav-logout-link" href="#">Se d&eacute;connecter</a>
+          </small>
         </div>
       </div>
     </nav>

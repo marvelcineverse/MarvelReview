@@ -200,6 +200,15 @@ h3 {
   font-size: 0.76rem;
 }
 
+.nav-user-actions {
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav-user-separator {
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .nav-logout-link {
   color: #fff;
   text-decoration-color: rgba(255, 255, 255, 0.55);

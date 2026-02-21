@@ -1,6 +1,17 @@
 import { injectLayout, setMessage } from "./utils.js";
 import { bindAuthVisibility, getCurrentProfile, getSession, signOut } from "./auth.js";
 
+function setAdminOnlyVisibility(isAdmin) {
+  document.querySelectorAll("[data-admin-only='true']").forEach((el) => {
+    if (!isAdmin) {
+      el.style.display = "none";
+      return;
+    }
+
+    el.style.display = el.getAttribute("data-admin-display") || "inline";
+  });
+}
+
 function markActiveNavLink() {
   const navLinks = document.querySelectorAll("#primary-nav a.nav-link");
   if (!navLinks.length) return;
@@ -80,15 +91,10 @@ async function initCommonLayout() {
       const displayName = String(profile?.username || "").trim() || session.user.email;
       if (navUserValueEl) navUserValueEl.textContent = displayName;
 
-      document.querySelectorAll("[data-admin-only='true']").forEach((el) => {
-        el.style.display = profile?.is_admin ? "inline-flex" : "none";
-      });
+      setAdminOnlyVisibility(Boolean(profile?.is_admin));
     } else {
       if (navUserValueEl) navUserValueEl.textContent = "";
-
-      document.querySelectorAll("[data-admin-only='true']").forEach((el) => {
-        el.style.display = "none";
-      });
+      setAdminOnlyVisibility(false);
     }
 
     const logoutLink = document.querySelector("#logout-link");
