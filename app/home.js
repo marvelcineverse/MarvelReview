@@ -215,7 +215,6 @@ function renderTopRankedContent(items) {
 
   bodyEl.innerHTML = items
     .map((item, index) => {
-      const typeLabel = item.kind === "film" ? "Film" : "Série";
       const href = item.kind === "film" ? `/film.html?id=${item.id}` : `/series.html?id=${item.id}`;
 
       return `
@@ -223,7 +222,6 @@ function renderTopRankedContent(items) {
           <td>${rankLabels[index]}</td>
           <td>
             <a href="${href}" class="film-link">${escapeHTML(item.title)}</a>
-            <small>(${typeLabel} - ${formatDate(item.date)})</small>
           </td>
           <td><span class="score-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span></td>
         </tr>
