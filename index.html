@@ -14,6 +14,9 @@
         <div>
           <h1>MarvelReview</h1>
           <p>Bienvenue sur la plateforme de notation et de critiques des films et s&eacute;ries Marvel pour la communaut&eacute; fran&ccedil;aise !</p>
+          <div class="home-intro-actions">
+            <a class="button" href="/fonctionnement.html">D&eacute;couvrir la plateforme</a>
+          </div>
           <p class="film-meta"><small>Version : 3.2.1 - 17/02/2026</small></p>
         </div>
         <p id="auth-status" class="status"></p>
@@ -23,19 +26,28 @@
 
       <section class="card home-stack-card">
         <div class="home-stack-chunk">
-          <h2>Fonctionnement de la plateforme</h2>
-          <p>Marvel Review est une plateforme interactive destin&eacute;e &agrave; la communaut&eacute; francophone de Marvel.
-            Le but est de ressembler les passionn&eacute;s pour noter et critiquer avec nuance et objectivit&eacute; les diff&eacute;rents contenus Marvel au cin&eacute;ma et &agrave; la t&eacute;l&eacute;vision.</p>
-          <p>Notez sur 10 les diff&eacute;rents films et s&eacute;ries Marvel, avec une critique optionnelle. N'oubliez pas, les choses sont rarement parfaites, et rarement 100% horribles &#128514;.</p>
-          <p>Pour les s&eacute;ries, la note effective vient de ta note manuelle, ou de la moyenne de tes episodes (plus ajusteur) uniquement quand tous les episodes de la saison sont notes.</p>
-          <p class="film-meta">
-            Tant qu'une saison n'est pas complete, la moyenne partielle reste visible dans "Moyenne de tes episodes" mais n'est pas comptabilisee comme note effective.
-          </p>
-        </div>
+          <div class="home-split-grid">
+            <section class="home-split-pane">
+              <h2>Top 10 contenus</h2>
+              <div class="table-wrapper ranking-table-shell">
+                <table class="ranking-table compact">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Contenu</th>
+                      <th>Moyenne</th>
+                    </tr>
+                  </thead>
+                  <tbody id="home-top-ranked-body"></tbody>
+                </table>
+              </div>
+            </section>
 
-        <div class="home-stack-chunk">
-          <h2>Derniers contenus sortis</h2>
-          <div id="home-latest-content-list" class="grid films-grid"></div>
+            <section class="home-split-pane">
+              <h2>Derniers contenus sortis</h2>
+              <div id="home-latest-content-list" class="grid films-grid home-latest-two"></div>
+            </section>
+          </div>
         </div>
 
         <div class="home-stack-chunk">

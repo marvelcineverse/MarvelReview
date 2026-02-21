@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient.js";
 import {
+  buildDenseRankLabels,
   escapeHTML,
   formatDate,
   formatScore,
@@ -8,7 +9,8 @@ import {
   setMessage
 } from "./utils.js";
 
-const LATEST_CONTENT_LIMIT = 4;
+const LATEST_CONTENT_LIMIT = 2;
+const TOP_RANKED_LIMIT = 10;
 const LATEST_ACTIVITY_INITIAL_LIMIT = 6;
 const LATEST_ACTIVITY_LIMIT = 20;
 const state = {
@@ -195,6 +197,36 @@ function renderLatestContent(items) {
             </div>
           </div>
         </article>
+      `;
+    })
+    .join("");
+}
+
+function renderTopRankedContent(items) {
+  const bodyEl = document.querySelector("#home-top-ranked-body");
+  if (!bodyEl) return;
+
+  if (!items.length) {
+    bodyEl.innerHTML = `<tr><td colspan="3">Aucune moyenne disponible pour le moment.</td></tr>`;
+    return;
+  }
+
+  const rankLabels = buildDenseRankLabels(items, (item) => item.average, 2);
+
+  bodyEl.innerHTML = items
+    .map((item, index) => {
+      const typeLabel = item.kind === "film" ? "Film" : "Série";
+      const href = item.kind === "film" ? `/film.html?id=${item.id}` : `/series.html?id=${item.id}`;
+
+      return `
+        <tr>
+          <td>${rankLabels[index]}</td>
+          <td>
+            <a href="${href}" class="film-link">${escapeHTML(item.title)}</a>
+            <small>(${typeLabel} - ${formatDate(item.date)})</small>
+          </td>
+          <td><span class="score-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span></td>
+        </tr>
       `;
     })
     .join("");
@@ -448,6 +480,16 @@ async function loadHomePage() {
       .sort((a, b) => getTimeValue(b.date) - getTimeValue(a.date))
       .slice(0, LATEST_CONTENT_LIMIT);
 
+    const topRankedContent = [...releasedFilms, ...releasedSeries]
+      .filter((item) => Number.isFinite(item.average) && Number(item.rating_count || 0) > 0)
+      .sort((a, b) => {
+        if (b.average !== a.average) return b.average - a.average;
+        if (b.rating_count !== a.rating_count) return b.rating_count - a.rating_count;
+        return getTimeValue(b.date) - getTimeValue(a.date);
+      })
+      .slice(0, TOP_RANKED_LIMIT);
+
+    renderTopRankedContent(topRankedContent);
     renderLatestContent(latestContent);
 
     const filmById = new Map((films || []).map((film) => [film.id, film]));

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MarvelReview - Fonctionnement</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <div id="nav-root"></div>
+
+      <section class="page-intro">
+        <div>
+          <h1>Fonctionnement de Marvel Review 😊</h1>
+          <p>Comment l'application fonctionne, comment noter, et comment lire les classements.</p>
+        </div>
+        <p id="auth-status" class="status"></p>
+      </section>
+
+      <section class="card home-stack-card">
+        <div class="home-stack-chunk">
+          <h2>Origine du projet</h2>
+          <p>Marvel Review est une application créée par Marvel CinéVerse 🕸️.</p>
+          <p>Elle a d'abord existé sous forme d'un immense tableau collaboratif sur Google (Google Sheet) 📊, utilisé avec quelques autres médias français spécialisés Marvel.</p>
+          <p>Aujourd'hui, l'application a été conçue pour s'ouvrir à tous 🤝 et permettre à chacun de contribuer avec des notes et des avis lisibles, centralisés et comparables ✍️⭐</p>
+        </div>
+
+        <div class="home-stack-chunk">
+          <h2>Objectif des notes 🎯</h2>
+          <p>L'objectif est d'obtenir des notes honnêtes, argumentées et aussi objectives que possible 🙂.</p>
+          <p>L'app encourage donc une notation mesurée : les extrêmes “gratuits” (par exemple des 0/10 un peu faciles 😅) n'aident pas beaucoup à comprendre une œuvre, surtout sans explication.</p>
+          <p>Une note peut être sévère, bien sûr. Elle a plus de valeur quand elle reflète réellement ce qui a été vu et ressenti, et qu'elle peut être justifiée, même en une phrase ✅</p>
+        </div>
+
+        <div class="home-stack-chunk">
+          <h2>Comment noter dans l'application 📝</h2>
+          <p>Toutes les notes sont sur 10 ⭐</p>
+
+          <h3>Films 🎬</h3>
+          <p>Un film se note directement sur 10 ✅</p>
+          <p>Une mini-critique peut être ajoutée pour expliquer la note (recommandée 👍, mais pas obligatoire)</p>
+
+          <h3>Séries 📺</h3>
+          <p>Une série ne se note pas directement 🚫</p>
+          <p>La notation passe obligatoirement par les saisons : chaque saison se note sur 10 ✅</p>
+          <p>Une mini-critique peut aussi être ajoutée pour contextualiser la note ✍️🙂</p>
+        </div>
+
+        <div class="home-stack-chunk">
+          <h2>Moyennes et classement 📈🏆</h2>
+          <p>À partir des notes enregistrées, l'application affiche des moyennes et des classements pour comparer rapidement les œuvres 🔎.</p>
+          <p>Tu peux ensuite ouvrir le détail des notes et des critiques pour comprendre le “pourquoi” derrière les chiffres 💬✨</p>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/app/common.js"></script>
+  </body>
+</html>

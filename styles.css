@@ -295,6 +295,11 @@ select:focus-visible {
   flex-wrap: wrap;
 }
 
+.home-intro-actions {
+  display: inline-flex;
+  margin: 0.35rem 0 0.55rem;
+}
+
 .status,
 .message {
   padding: 0.68rem 0.92rem;
@@ -327,6 +332,20 @@ select:focus-visible {
 
 .films-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.home-split-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 1rem;
+}
+
+.home-split-pane {
+  min-width: 0;
+}
+
+.home-latest-two {
+  grid-template-columns: 1fr;
 }
 
 .filters-card {
@@ -1607,6 +1626,14 @@ textarea {
     gap: 0.75rem;
   }
 
+  .home-split-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-latest-two {
+    grid-template-columns: 1fr;
+  }
+
   .film-card {
     padding: 0.75rem;
   }
@@ -1705,6 +1732,10 @@ textarea {
 
 @media (max-width: 560px) {
   .films-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-latest-two {
     grid-template-columns: 1fr;
   }
 
