@@ -775,12 +775,25 @@ function renderSeasonOptions(seriesId = "") {
 function renderEpisodeOptions(seasonId = "") {
   const filtered = seasonId ? state.episodes.filter((episode) => episode.season_id === seasonId) : [];
 
-  document.querySelector("#episode-id").innerHTML = [
+  const episodeSelectEl = document.querySelector("#episode-id");
+  if (!episodeSelectEl) return;
+
+  episodeSelectEl.innerHTML = [
     `<option value="">Nouvel episode</option>`,
     ...filtered
       .sort((a, b) => a.episode_number - b.episode_number)
       .map((episode) => `<option value="${episode.id}">Ep ${episode.episode_number} - ${escapeHTML(episode.title)}</option>`)
   ].join("");
+
+  updateEpisodeDeleteButtonState();
+}
+
+function updateEpisodeDeleteButtonState() {
+  const deleteButtonEl = document.querySelector("#episode-delete-button");
+  if (!deleteButtonEl) return;
+
+  const selectedEpisodeId = document.querySelector("#episode-id")?.value || "";
+  deleteButtonEl.disabled = !selectedEpisodeId;
 }
 
 function fillSeriesForm(seriesId) {
@@ -828,6 +841,7 @@ function fillEpisodeForm(episodeId) {
 
   renderEpisodeOptions(document.querySelector("#episode-season-id").value || "");
   document.querySelector("#episode-id").value = episodeId || "";
+  updateEpisodeDeleteButtonState();
 }
 
 async function refreshSeriesData() {
@@ -891,6 +905,7 @@ async function refreshSeriesData() {
   renderEpisodeOptions(document.querySelector("#episode-season-id").value || "");
   document.querySelector("#episode-id").value = state.episodes.some((e) => e.id === selectedEpisodeId) ? selectedEpisodeId : "";
   if (document.querySelector("#episode-id").value) fillEpisodeForm(document.querySelector("#episode-id").value);
+  updateEpisodeDeleteButtonState();
 
   const bulkSeasonEl = document.querySelector("#episode-bulk-season-id");
   if (bulkSeasonEl) {
@@ -1186,6 +1201,40 @@ function bindSeriesForms() {
       renderEpisodeOptions(seasonId);
     } catch (error) {
       setMessage("#episode-message", error.message || "Enregistrement episode impossible.", true);
+    }
+  });
+
+  document.querySelector("#episode-delete-button")?.addEventListener("click", async () => {
+    const episodeId = document.querySelector("#episode-id").value || null;
+    const seasonId = document.querySelector("#episode-season-id").value || "";
+
+    if (!episodeId) {
+      setMessage("#episode-message", "Selectionne un episode existant a supprimer.", true);
+      return;
+    }
+
+    const episodeRow = state.episodes.find((item) => item.id === episodeId);
+    const episodeLabel = episodeRow
+      ? `Ep ${episodeRow.episode_number} - ${episodeRow.title}`
+      : "cet episode";
+    const confirmed = window.confirm(`Confirmer la suppression de ${episodeLabel} ?`);
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase.from("series_episodes").delete().eq("id", episodeId);
+      if (error) throw error;
+
+      setMessage("#episode-message", "Episode supprime.");
+      await refreshSeriesData();
+
+      const episodeSeasonEl = document.querySelector("#episode-season-id");
+      if (episodeSeasonEl && seasonId && state.seasons.some((season) => season.id === seasonId)) {
+        episodeSeasonEl.value = seasonId;
+      }
+      renderEpisodeOptions(seasonId);
+      fillEpisodeForm("");
+    } catch (error) {
+      setMessage("#episode-message", error.message || "Suppression episode impossible.", true);
     }
   });
 

@@ -252,7 +252,12 @@
               <label>Numéro épisode <input id="episode-number" type="number" min="1" step="1" required /></label>
               <label>Titre <input id="episode-title" type="text" required /></label>
               <label>Date de diffusion <input id="episode-air-date" type="date" /></label>
-              <button type="submit">Créer / Mettre à jour l'épisode</button>
+              <div class="inline-actions">
+                <button type="submit">Créer / Mettre à jour l'épisode</button>
+                <button id="episode-delete-button" type="button" class="ghost-button" disabled>
+                  Supprimer l'épisode sélectionné
+                </button>
+              </div>
               <p id="episode-message" class="message" aria-live="polite"></p>
             </form>
             <hr />
