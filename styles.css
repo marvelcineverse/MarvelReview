@@ -295,6 +295,11 @@ select:focus-visible {
   flex-wrap: wrap;
 }
 
+.page-intro > div {
+  width: min(100%, 980px);
+  margin-inline: auto;
+}
+
 .home-intro-actions {
   display: inline-flex;
   margin: 0.35rem 0 0.55rem;
@@ -336,7 +341,7 @@ select:focus-visible {
 
 .home-split-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1rem;
 }
 
@@ -345,7 +350,7 @@ select:focus-visible {
 }
 
 .home-latest-two {
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .filters-card {
@@ -1631,7 +1636,7 @@ textarea {
   }
 
   .home-latest-two {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .film-card {
