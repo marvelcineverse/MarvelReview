@@ -5,52 +5,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MarvelReview - Profil</title>
     <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   </head>
   <body>
     <main class="container">
       <div id="nav-root"></div>
 
-      <h1>Mon profil</h1>
-      <p id="auth-status" class="status"></p>
+      <section class="page-intro">
+        <div>
+          <h1>Mon profil</h1>
+          <p>Gère ton compte, ton média et ton classement personnel.</p>
+        </div>
+        <p id="auth-status" class="status"></p>
+      </section>
 
-      <form id="profile-form" class="form card">
-        <p>Email: <strong id="profile-email"></strong></p>
-        <p>Media actuel: <strong id="current-media"></strong></p>
-        <p>Compte admin: <strong id="admin-badge"></strong></p>
+      <p id="page-message" class="message" aria-live="polite"></p>
 
-        <label>
-          Username
-          <input id="username" type="text" required minlength="2" maxlength="30" />
-        </label>
+      <section class="card">
+        <form id="profile-form" class="form profile-form">
+          <p>Email : <strong id="profile-email"></strong></p>
+          <p>Média actuel : <strong id="current-media"></strong></p>
+          <p>Compte admin : <strong id="admin-badge"></strong></p>
 
-        <label>
-          Demande de rattachement media
-          <select id="media_outlet_id"></select>
-        </label>
-        <p id="media-membership-status" class="status"></p>
+          <label>
+            Nom d'utilisateur / pseudonyme
+            <input id="username" type="text" required minlength="2" maxlength="30" />
+          </label>
 
-        <label>
-          Avatar URL (optionnel)
-          <input id="avatar_url" type="url" placeholder="https://..." />
-        </label>
+          <label>
+            Demande de rattachement à un média
+            <select id="media_outlet_id"></select>
+          </label>
+          <p id="media-membership-status" class="status"></p>
 
-        <div id="avatar-preview" class="card"></div>
+          <label>
+            URL de l'avatar (optionnel)
+            <input id="avatar_url" type="url" placeholder="https://..." />
+          </label>
 
-        <button type="submit">Sauvegarder</button>
-        <p id="form-message" class="message" aria-live="polite"></p>
-      </form>
+          <div id="avatar-preview" class="card"></div>
+
+          <button type="submit">Sauvegarder</button>
+          <p id="form-message" class="message" aria-live="polite"></p>
+        </form>
+      </section>
 
       <section id="media-manager-section" class="card" style="display: none;">
-        <h2>Gestionnaire de media</h2>
-        <p>Demandes de rattachement en attente pour tes medias.</p>
+        <h2>Gestionnaire de média</h2>
+        <p>Demandes de rattachement en attente pour tes médias.</p>
         <p id="media-manager-message" class="message" aria-live="polite"></p>
         <div id="managed-media-requests" class="grid"></div>
       </section>
 
       <section class="card">
         <h2>Mon classement personnel</h2>
-        <p>Note rapidement chaque film sans ouvrir sa page detail. Les series sont affichees mais non modifiables ici.</p>
+        <p>Note rapidement chaque film sans ouvrir sa page détail. Les séries sont affichées mais non modifiables ici.</p>
+        <h3>Filtres</h3>
         <div class="inline-actions">
           <label class="checkbox-inline">
             <input id="filter-films" type="checkbox" checked />
@@ -58,11 +67,25 @@
           </label>
           <label class="checkbox-inline">
             <input id="filter-series" type="checkbox" checked />
-            Series
+            Séries
+          </label>
+        </div>
+        <div class="filters-grid ranking-filters-grid">
+          <label>
+            Franchise
+            <select id="ranking-franchise-filter">
+              <option value="">Toutes les franchises</option>
+            </select>
+          </label>
+          <label id="ranking-phase-filter-wrap">
+            Phase
+            <select id="ranking-phase-filter">
+              <option value="">Toutes les phases</option>
+            </select>
           </label>
         </div>
         <p id="ratings-quick-message" class="message" aria-live="polite"></p>
-        <div class="table-wrapper">
+        <div class="table-wrapper ranking-table-shell">
           <table class="ranking-table compact">
             <thead>
               <tr>

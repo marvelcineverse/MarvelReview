@@ -475,6 +475,11 @@ button:hover {
   width: 100%;
 }
 
+.profile-form {
+  max-width: none;
+  width: 100%;
+}
+
 .captcha-block {
   min-height: 78px;
 }
@@ -594,6 +599,29 @@ button:hover {
   padding-left: 1.2rem;
   display: grid;
   gap: 0.3rem;
+}
+
+.media-social-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.42rem 0.9rem;
+}
+
+.media-social-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+#avatar-preview {
+  min-height: 96px;
+  display: flex;
+  align-items: center;
+}
+
+#managed-media-requests {
+  grid-template-columns: 1fr;
 }
 
 .season-controls {

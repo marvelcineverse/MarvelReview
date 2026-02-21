@@ -13,6 +13,130 @@ import {
 const mediaButtonsEl = document.querySelector("#media-buttons");
 let mediaList = [];
 let currentMediaId = null;
+const rankingState = {
+  allRows: [],
+  filters: {
+    films: true,
+    series: true,
+    franchise: "",
+    phase: ""
+  }
+};
+
+const filmsFilterEl = document.querySelector("#filter-films");
+const seriesFilterEl = document.querySelector("#filter-series");
+const franchiseFilterEl = document.querySelector("#ranking-franchise-filter");
+const phaseFilterEl = document.querySelector("#ranking-phase-filter");
+const phaseFilterWrapEl = document.querySelector("#ranking-phase-filter-wrap");
+
+function fillSelect(selectEl, values, allLabel) {
+  if (!selectEl) return;
+  selectEl.innerHTML = [
+    `<option value="">${allLabel}</option>`,
+    ...values.map((value) => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`)
+  ].join("");
+}
+
+function updatePhaseVisibility() {
+  const showPhase = rankingState.filters.franchise === "MCU";
+  if (phaseFilterWrapEl) {
+    phaseFilterWrapEl.style.display = showPhase ? "grid" : "none";
+  }
+
+  if (!showPhase) {
+    rankingState.filters.phase = "";
+    if (phaseFilterEl) phaseFilterEl.value = "";
+  }
+}
+
+function setupRankingFilterOptions() {
+  const franchises = Array.from(
+    new Set(
+      rankingState.allRows
+        .map((row) => row.franchise)
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, "fr"));
+
+  const mcuPhases = Array.from(
+    new Set(
+      rankingState.allRows
+        .filter((row) => row.franchise === "MCU")
+        .map((row) => row.phase)
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, "fr"));
+
+  fillSelect(franchiseFilterEl, franchises, "Toutes les franchises");
+  fillSelect(phaseFilterEl, mcuPhases, "Toutes les phases");
+
+  if (franchiseFilterEl) franchiseFilterEl.value = rankingState.filters.franchise;
+  if (phaseFilterEl) phaseFilterEl.value = rankingState.filters.phase;
+  updatePhaseVisibility();
+}
+
+function getFilteredRows() {
+  const phaseSelected = Boolean(rankingState.filters.phase);
+
+  return rankingState.allRows.filter((row) => {
+    if (row.type === "film" && !rankingState.filters.films) return false;
+    if (row.type === "series" && !rankingState.filters.series) return false;
+
+    if (rankingState.filters.franchise && row.franchise !== rankingState.filters.franchise) return false;
+
+    if (!phaseSelected) return true;
+    return row.phase === rankingState.filters.phase;
+  });
+}
+
+function renderMediaRanking() {
+  const bodyEl = document.querySelector("#media-ranking-body");
+  const filteredRows = getFilteredRows();
+
+  if (!filteredRows.length) {
+    bodyEl.innerHTML = `<tr><td colspan="4">Aucun résultat pour ce filtre.</td></tr>`;
+    return;
+  }
+
+  const ranked = [...filteredRows].sort((a, b) => b.average - a.average || b.count - a.count);
+  const rankLabels = buildDenseRankLabels(ranked, (film) => film.average, 2);
+
+  bodyEl.innerHTML = ranked
+    .map(
+      (film, index) => `
+        <tr>
+          <td>${rankLabels[index]}</td>
+          <td><a href="${film.href}" class="film-link">${escapeHTML(film.title)}</a> <small>(${formatDate(film.release_date)})</small></td>
+          <td><span class="score-badge ${getScoreClass(film.average)}">${formatScore(film.average, 2, 2)} / 10</span></td>
+          <td>${film.count}</td>
+        </tr>
+      `
+    )
+    .join("");
+}
+
+function bindFilters() {
+  filmsFilterEl?.addEventListener("change", () => {
+    rankingState.filters.films = filmsFilterEl.checked;
+    renderMediaRanking();
+  });
+
+  seriesFilterEl?.addEventListener("change", () => {
+    rankingState.filters.series = seriesFilterEl.checked;
+    renderMediaRanking();
+  });
+
+  franchiseFilterEl?.addEventListener("change", () => {
+    rankingState.filters.franchise = franchiseFilterEl.value || "";
+    updatePhaseVisibility();
+    renderMediaRanking();
+  });
+
+  phaseFilterEl?.addEventListener("change", () => {
+    rankingState.filters.phase = phaseFilterEl.value || "";
+    renderMediaRanking();
+  });
+}
 
 async function loadMediaList(selectedId = null) {
   const { data, error } = await supabase
@@ -23,7 +147,7 @@ async function loadMediaList(selectedId = null) {
   if (error) throw error;
 
   if (!data?.length) {
-    mediaButtonsEl.innerHTML = `<p>Aucun media</p>`;
+    mediaButtonsEl.innerHTML = `<p>Aucun média</p>`;
     return null;
   }
 
@@ -78,30 +202,29 @@ async function loadMediaDetails(mediaId) {
 
   const socialLinks = [
     media.website_url
-      ? `<a class="media-social-link" href="${escapeHTML(media.website_url)}" target="_blank" rel="noreferrer"><i class="fa-solid fa-globe" aria-hidden="true"></i> Site web</a>`
+      ? `<a class="film-link media-social-link" href="${escapeHTML(media.website_url)}" target="_blank" rel="noreferrer"><i class="fa-solid fa-globe" aria-hidden="true"></i> Site web</a>`
       : "",
     media.twitter_url
-      ? `<a class="media-social-link" href="${escapeHTML(media.twitter_url)}" target="_blank" rel="noreferrer"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i> Twitter / X</a>`
+      ? `<a class="film-link media-social-link" href="${escapeHTML(media.twitter_url)}" target="_blank" rel="noreferrer"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i> Twitter / X</a>`
       : "",
     media.instagram_url
-      ? `<a class="media-social-link" href="${escapeHTML(media.instagram_url)}" target="_blank" rel="noreferrer"><i class="fa-brands fa-instagram" aria-hidden="true"></i> Instagram</a>`
+      ? `<a class="film-link media-social-link" href="${escapeHTML(media.instagram_url)}" target="_blank" rel="noreferrer"><i class="fa-brands fa-instagram" aria-hidden="true"></i> Instagram</a>`
       : "",
     media.youtube_url
-      ? `<a class="media-social-link" href="${escapeHTML(media.youtube_url)}" target="_blank" rel="noreferrer"><i class="fa-brands fa-youtube" aria-hidden="true"></i> YouTube</a>`
+      ? `<a class="film-link media-social-link" href="${escapeHTML(media.youtube_url)}" target="_blank" rel="noreferrer"><i class="fa-brands fa-youtube" aria-hidden="true"></i> YouTube</a>`
       : "",
     media.tiktok_url
-      ? `<a class="media-social-link" href="${escapeHTML(media.tiktok_url)}" target="_blank" rel="noreferrer"><i class="fa-brands fa-tiktok" aria-hidden="true"></i> TikTok</a>`
+      ? `<a class="film-link media-social-link" href="${escapeHTML(media.tiktok_url)}" target="_blank" rel="noreferrer"><i class="fa-brands fa-tiktok" aria-hidden="true"></i> TikTok</a>`
       : ""
   ]
-    .filter(Boolean)
-    .join(" | ");
+    .filter(Boolean);
 
   detailsEl.innerHTML = `
     <h2>${escapeHTML(media.name)}</h2>
     ${media.avatar_url ? `<img src="${escapeHTML(media.avatar_url)}" alt="Profil ${escapeHTML(media.name)}" class="avatar media-avatar" />` : ""}
     <p>${escapeHTML(media.description || "Aucune description.")}</p>
-    <p>Profils rattaches: <strong>${memberCount || 0}</strong></p>
-    <p>${socialLinks || "Aucun lien social."}</p>
+    <p>Profils rattachés: <strong>${memberCount || 0}</strong></p>
+    ${socialLinks.length ? `<div class="media-social-links">${socialLinks.join("")}</div>` : `<p>Aucun lien social.</p>`}
   `;
 }
 
@@ -118,7 +241,7 @@ async function loadMediaUsers(mediaId) {
 
   const profileIds = [...new Set((memberships || []).map((row) => row.profile_id))];
   if (!profileIds.length) {
-    usersEl.innerHTML = "<li>Aucun utilisateur rattache.</li>";
+    usersEl.innerHTML = "<li>Aucun utilisateur rattaché.</li>";
     return;
   }
 
@@ -135,7 +258,7 @@ async function loadMediaUsers(mediaId) {
     .sort((a, b) => a.localeCompare(b, "fr"));
 
   if (!usernames.length) {
-    usersEl.innerHTML = "<li>Aucun utilisateur rattache.</li>";
+    usersEl.innerHTML = "<li>Aucun utilisateur rattaché.</li>";
     return;
   }
 
@@ -156,13 +279,13 @@ async function loadMediaRanking(mediaId) {
   const profileIds = (memberships || []).map((row) => row.profile_id);
 
   if (!profileIds.length) {
-    bodyEl.innerHTML = `<tr><td colspan="4">Aucun membre approuve pour ce media.</td></tr>`;
+    bodyEl.innerHTML = `<tr><td colspan="4">Aucun membre approuvé pour ce média.</td></tr>`;
     return;
   }
 
   const { data: films, error: filmsError } = await supabase
     .from("films")
-    .select("id, title, release_date")
+    .select("id, title, release_date, franchise, phase")
     .order("title", { ascending: true });
   if (filmsError) throw filmsError;
 
@@ -186,30 +309,25 @@ async function loadMediaRanking(mediaId) {
     item.count += 1;
   }
 
-  const ranked = Array.from(byFilmId.values())
+  const rows = Array.from(byFilmId.values())
     .filter((film) => film.count > 0)
-    .map((film) => ({ ...film, average: film.average / film.count }))
-    .sort((a, b) => b.average - a.average || b.count - a.count);
+    .map((film) => ({
+      ...film,
+      type: "film",
+      href: `/film.html?id=${film.id}`,
+      average: film.average / film.count,
+      franchise: String(film.franchise || "").trim(),
+      phase: String(film.phase || "").trim()
+    }));
 
-  if (!ranked.length) {
-    bodyEl.innerHTML = `<tr><td colspan="4">Aucune note pour ce media.</td></tr>`;
+  if (!rows.length) {
+    bodyEl.innerHTML = `<tr><td colspan="4">Aucune note pour ce média.</td></tr>`;
     return;
   }
 
-  const rankLabels = buildDenseRankLabels(ranked, (film) => film.average, 2);
-
-  bodyEl.innerHTML = ranked
-    .map(
-      (film, index) => `
-        <tr>
-          <td>${rankLabels[index]}</td>
-          <td><a href="/film.html?id=${film.id}" class="film-link">${escapeHTML(film.title)}</a> <small>(${formatDate(film.release_date)})</small></td>
-          <td><span class="score-badge ${getScoreClass(film.average)}">${formatScore(film.average, 2, 2)} / 10</span></td>
-          <td>${film.count}</td>
-        </tr>
-      `
-    )
-    .join("");
+  rankingState.allRows = rows;
+  setupRankingFilterOptions();
+  renderMediaRanking();
 }
 
 async function loadPage() {
@@ -222,8 +340,9 @@ async function loadPage() {
     await loadMediaUsers(mediaId);
     await loadMediaRanking(mediaId);
   } catch (error) {
-    setMessage("#page-message", error.message || "Erreur de chargement des medias.", true);
+    setMessage("#page-message", error.message || "Erreur de chargement des médias.", true);
   }
 }
 
 loadPage();
+bindFilters();

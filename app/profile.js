@@ -15,12 +15,81 @@ const personalRankingState = {
   allRows: [],
   filters: {
     films: true,
-    series: true
+    series: true,
+    franchise: "",
+    phase: ""
   }
 };
 
+const filmsFilterEl = document.querySelector("#filter-films");
+const seriesFilterEl = document.querySelector("#filter-series");
+const franchiseFilterEl = document.querySelector("#ranking-franchise-filter");
+const phaseFilterEl = document.querySelector("#ranking-phase-filter");
+const phaseFilterWrapEl = document.querySelector("#ranking-phase-filter-wrap");
+
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function fillSelect(selectEl, values, allLabel) {
+  if (!selectEl) return;
+  selectEl.innerHTML = [
+    `<option value="">${allLabel}</option>`,
+    ...values.map((value) => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`)
+  ].join("");
+}
+
+function updatePhaseVisibility() {
+  const showPhase = personalRankingState.filters.franchise === "MCU";
+  if (phaseFilterWrapEl) {
+    phaseFilterWrapEl.style.display = showPhase ? "grid" : "none";
+  }
+
+  if (!showPhase) {
+    personalRankingState.filters.phase = "";
+    if (phaseFilterEl) phaseFilterEl.value = "";
+  }
+}
+
+function setupRankingFilterOptions() {
+  const franchises = Array.from(
+    new Set(
+      personalRankingState.allRows
+        .map((row) => row.franchise)
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, "fr"));
+
+  const mcuPhases = Array.from(
+    new Set(
+      personalRankingState.allRows
+        .filter((row) => row.franchise === "MCU")
+        .map((row) => row.phase)
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, "fr"));
+
+  fillSelect(franchiseFilterEl, franchises, "Toutes les franchises");
+  fillSelect(phaseFilterEl, mcuPhases, "Toutes les phases");
+
+  if (franchiseFilterEl) franchiseFilterEl.value = personalRankingState.filters.franchise;
+  if (phaseFilterEl) phaseFilterEl.value = personalRankingState.filters.phase;
+  updatePhaseVisibility();
+}
+
+function getFilteredPersonalRows() {
+  const phaseSelected = Boolean(personalRankingState.filters.phase);
+
+  return personalRankingState.allRows.filter((row) => {
+    if (row.type === "film" && !personalRankingState.filters.films) return false;
+    if (row.type === "series" && !personalRankingState.filters.series) return false;
+
+    if (personalRankingState.filters.franchise && row.franchise !== personalRankingState.filters.franchise) return false;
+    if (!phaseSelected) return true;
+
+    if (row.type === "series") return false;
+    return row.phase === personalRankingState.filters.phase;
+  });
 }
 
 async function loadMediaOutlets() {
@@ -34,7 +103,7 @@ async function loadMediaOutlets() {
   if (error) throw error;
 
   selectEl.innerHTML = [
-    `<option value="">Aucun media</option>`,
+    `<option value="">Aucun média</option>`,
     ...(data || []).map((item) => `<option value="${item.id}">${escapeHTML(item.name)}</option>`)
   ].join("");
 }
@@ -55,18 +124,18 @@ async function loadMemberships(userId) {
 
   if (!rows.length) {
     statusEl.textContent = "Aucune demande de rattachement.";
-    currentMediaEl.textContent = "Independant";
+    currentMediaEl.textContent = "Indépendant";
     return;
   }
 
   const approved = rows
     .filter((row) => row.status === "approved")
-    .map((row) => row.media_outlets?.name || "Media");
+    .map((row) => row.media_outlets?.name || "Média");
 
-  currentMediaEl.textContent = approved.length ? approved.join(", ") : "Independant";
+  currentMediaEl.textContent = approved.length ? approved.join(", ") : "Indépendant";
 
   statusEl.innerHTML = rows
-    .map((row) => `- ${escapeHTML(row.media_outlets?.name || "Media")}: ${row.status}`)
+    .map((row) => `- ${escapeHTML(row.media_outlets?.name || "Média")}: ${row.status}`)
     .join("<br>");
 }
 
@@ -80,16 +149,12 @@ function renderAvatarPreview(url) {
   preview.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" class="avatar" />`;
 }
 
-function renderPersonalRatings(rows) {
+function renderPersonalRatings() {
   const body = document.querySelector("#personal-ratings-body");
-  const filteredRows = rows.filter((row) => {
-    if (row.type === "film") return personalRankingState.filters.films;
-    if (row.type === "series") return personalRankingState.filters.series;
-    return false;
-  });
+  const filteredRows = getFilteredPersonalRows();
 
   if (!filteredRows.length) {
-    body.innerHTML = `<tr><td colspan="4">Aucun element pour ce filtre.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="4">Aucun élément pour ce filtre.</td></tr>`;
     return;
   }
 
@@ -117,14 +182,14 @@ function renderPersonalRatings(rows) {
       const rank = row.score === null ? "-" : rankLabels[index];
       const scoreText = row.score === null ? "" : String(row.score);
       const badge = row.score === null
-        ? `<span class="score-badge stade-neutre">Pas note</span>`
+        ? `<span class="score-badge stade-neutre">Pas noté</span>`
         : `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score)} / 10</span>`;
-      const typeLabel = row.type === "film" ? "Film" : "Serie";
+      const typeLabel = row.type === "film" ? "Film" : "Série";
       const href = row.type === "film" ? `/film.html?id=${row.film_id}` : `/series.html?id=${row.series_id}`;
       const modifierCell = row.type === "film"
         ? `
           <div class="inline-actions inline-edit">
-            <input data-field="score" data-film-id="${row.film_id}" type="number" min="0" max="10" step="0.25" value="${scoreText}" placeholder="0 a 10" />
+            <input data-field="score" data-film-id="${row.film_id}" type="number" min="0" max="10" step="0.25" value="${scoreText}" placeholder="0 à 10" />
             <button type="button" class="icon-circle-btn save" data-action="save-rating" data-film-id="${row.film_id}" aria-label="Valider la note">
               <i class="fa-solid fa-check" aria-hidden="true"></i>
             </button>
@@ -135,7 +200,7 @@ function renderPersonalRatings(rows) {
             `}
           </div>
         `
-        : `<span class="film-meta">Notable sur la page serie</span>`;
+        : `<span class="film-meta">Notable sur la page série</span>`;
 
       return `
         <tr>
@@ -153,17 +218,25 @@ function renderPersonalRatings(rows) {
 }
 
 function bindRankingFilters() {
-  const filmsEl = document.querySelector("#filter-films");
-  const seriesEl = document.querySelector("#filter-series");
-
-  filmsEl?.addEventListener("change", () => {
-    personalRankingState.filters.films = filmsEl.checked;
-    renderPersonalRatings(personalRankingState.allRows);
+  filmsFilterEl?.addEventListener("change", () => {
+    personalRankingState.filters.films = filmsFilterEl.checked;
+    renderPersonalRatings();
   });
 
-  seriesEl?.addEventListener("change", () => {
-    personalRankingState.filters.series = seriesEl.checked;
-    renderPersonalRatings(personalRankingState.allRows);
+  seriesFilterEl?.addEventListener("change", () => {
+    personalRankingState.filters.series = seriesFilterEl.checked;
+    renderPersonalRatings();
+  });
+
+  franchiseFilterEl?.addEventListener("change", () => {
+    personalRankingState.filters.franchise = franchiseFilterEl.value || "";
+    updatePhaseVisibility();
+    renderPersonalRatings();
+  });
+
+  phaseFilterEl?.addEventListener("change", () => {
+    personalRankingState.filters.phase = phaseFilterEl.value || "";
+    renderPersonalRatings();
   });
 }
 
@@ -178,7 +251,7 @@ function renderManagedRequests(rows) {
     .map(
       (row) => `
         <article class="card">
-          <p><strong>${escapeHTML(row.profileName)}</strong> -> ${escapeHTML(row.mediaName)}</p>
+          <p><strong>${escapeHTML(row.profileName)}</strong> → ${escapeHTML(row.mediaName)}</p>
           <div class="inline-actions">
             <button type="button" data-action="approve-media-membership" data-id="${row.id}">Approuver</button>
             <button type="button" data-action="reject-media-membership" data-id="${row.id}" class="ghost-button">Refuser</button>
@@ -232,7 +305,7 @@ async function loadManagedMediaRequests(userId) {
   const profileById = new Map((profiles || []).map((profile) => [profile.id, profile.username]));
   const normalized = (pendingRows || []).map((row) => ({
     id: row.id,
-    mediaName: mediaById.get(row.media_id) || "Media",
+    mediaName: mediaById.get(row.media_id) || "Média",
     profileName: profileById.get(row.profile_id) || row.profile_id
   }));
 
@@ -251,7 +324,7 @@ async function loadPersonalRatings(userId) {
   ] = await Promise.all([
     supabase
       .from("films")
-      .select("id, title, release_date")
+      .select("id, title, release_date, franchise, phase")
       .order("release_date", { ascending: true, nullsFirst: false }),
     supabase
       .from("ratings")
@@ -259,7 +332,7 @@ async function loadPersonalRatings(userId) {
       .eq("user_id", userId),
     supabase
       .from("series")
-      .select("id, title, start_date")
+      .select("id, title, start_date, franchise")
       .order("start_date", { ascending: true, nullsFirst: false }),
     supabase
       .from("series_seasons")
@@ -296,6 +369,8 @@ async function loadPersonalRatings(userId) {
         title: film.title,
         release_date: film.release_date,
         sort_date: film.release_date,
+        franchise: String(film.franchise || "").trim(),
+        phase: String(film.phase || "").trim(),
         score: rating ? Number(rating.score) : null,
         review: rating?.review || ""
       };
@@ -355,12 +430,15 @@ async function loadPersonalRatings(userId) {
       series_id: serie.id,
       title: serie.title,
       sort_date: serie.start_date,
+      franchise: String(serie.franchise || "").trim(),
+      phase: "",
       score
     };
   });
 
   personalRankingState.allRows = [...filmRows, ...seriesRows];
-  renderPersonalRatings(personalRankingState.allRows);
+  setupRankingFilterOptions();
+  renderPersonalRatings();
 }
 
 async function saveQuickRating(filmId) {
@@ -388,7 +466,7 @@ async function saveQuickRating(filmId) {
 
   const score = Number(scoreRaw.replace(",", "."));
   if (!Number.isFinite(score) || score < 0 || score > 10 || !isQuarterStep(score)) {
-    setMessage("#ratings-quick-message", "Le score doit etre entre 0 et 10, par pas de 0,25.", true);
+    setMessage("#ratings-quick-message", "Le score doit être entre 0 et 10, par pas de 0,25.", true);
     return;
   }
 
@@ -403,7 +481,7 @@ async function saveQuickRating(filmId) {
 
   if (error) throw error;
 
-  setMessage("#ratings-quick-message", "Note sauvegardee.");
+  setMessage("#ratings-quick-message", "Note sauvegardée.");
   await loadPersonalRatings(currentUserId);
 }
 
@@ -418,7 +496,7 @@ async function deleteQuickRating(filmId) {
 
   if (error) throw error;
 
-  setMessage("#ratings-quick-message", "Note supprimee.");
+  setMessage("#ratings-quick-message", "Note supprimée.");
   await loadPersonalRatings(currentUserId);
 }
 
@@ -469,7 +547,7 @@ document.querySelector("#profile-form")?.addEventListener("submit", async (event
   const mediaOutletId = document.querySelector("#media_outlet_id").value || null;
 
   if (!username) {
-    setMessage("#form-message", "Username obligatoire.", true);
+    setMessage("#form-message", "Le nom d'utilisateur est obligatoire.", true);
     return;
   }
 
@@ -498,7 +576,7 @@ document.querySelector("#profile-form")?.addEventListener("submit", async (event
       if (membershipError) throw membershipError;
     }
 
-    setMessage("#form-message", "Profil enregistre. Demande media ajoutee/mise a jour.");
+    setMessage("#form-message", "Profil enregistré. Demande média ajoutée ou mise à jour.");
     await loadMemberships(session.user.id);
   } catch (error) {
     setMessage("#form-message", error.message || "Sauvegarde impossible.", true);
@@ -522,7 +600,7 @@ document.querySelector("#personal-ratings-body")?.addEventListener("click", asyn
       await deleteQuickRating(filmId);
     }
   } catch (error) {
-    setMessage("#ratings-quick-message", error.message || "Operation impossible.", true);
+    setMessage("#ratings-quick-message", error.message || "Opération impossible.", true);
   }
 });
 
@@ -544,7 +622,7 @@ document.querySelector("#managed-media-requests")?.addEventListener("click", asy
 
     if (error) throw error;
 
-    setMessage("#media-manager-message", "Decision enregistree.");
+    setMessage("#media-manager-message", "Décision enregistrée.");
     await loadManagedMediaRequests(currentUserId);
     await loadMemberships(currentUserId);
   } catch (error) {

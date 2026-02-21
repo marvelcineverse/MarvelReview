@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MarvelReview - Medias</title>
+    <title>MarvelReview - Médias</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -12,39 +12,71 @@
 
       <section class="page-intro">
         <div>
-          <h1>Medias</h1>
-          <p>Selectionne un media pour voir sa fiche et son classement.</p>
+          <h1>Médias</h1>
+          <p>Sélectionne un média pour voir sa fiche et son classement.</p>
         </div>
         <p id="auth-status" class="status"></p>
       </section>
 
       <p id="page-message" class="message" aria-live="polite"></p>
 
-      <section class="card">
-        <h2>Medias</h2>
-        <div id="media-buttons" class="inline-actions media-buttons"></div>
-      </section>
+      <section class="card home-stack-card media-page-stack">
+        <div class="home-stack-chunk">
+          <h2>Médias</h2>
+          <div id="media-buttons" class="inline-actions media-buttons"></div>
+        </div>
 
-      <section id="media-details" class="card"></section>
+        <div id="media-details" class="home-stack-chunk"></div>
 
-      <section class="card">
-        <h2>Utilisateurs rattaches</h2>
-        <ul id="media-users-list" class="media-users-list"></ul>
-      </section>
+        <div class="home-stack-chunk">
+          <h2>Utilisateurs rattachés</h2>
+          <ul id="media-users-list" class="media-users-list"></ul>
+        </div>
 
-      <section class="table-wrapper card">
-        <h2>Classement du media</h2>
-        <table class="ranking-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Film</th>
-              <th>Moyenne</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody id="media-ranking-body"></tbody>
-        </table>
+        <div class="home-stack-chunk">
+          <h2>Filtres</h2>
+          <div class="inline-actions">
+            <label class="checkbox-inline">
+              <input id="filter-films" type="checkbox" checked />
+              Films
+            </label>
+            <label class="checkbox-inline">
+              <input id="filter-series" type="checkbox" checked />
+              Séries
+            </label>
+          </div>
+          <div class="filters-grid ranking-filters-grid">
+            <label>
+              Franchise
+              <select id="ranking-franchise-filter">
+                <option value="">Toutes les franchises</option>
+              </select>
+            </label>
+            <label id="ranking-phase-filter-wrap">
+              Phase
+              <select id="ranking-phase-filter">
+                <option value="">Toutes les phases</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="home-stack-chunk">
+          <section class="table-wrapper ranking-table-shell">
+            <h2>Classement du média</h2>
+            <table class="ranking-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Film</th>
+                  <th>Moyenne</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="media-ranking-body"></tbody>
+            </table>
+          </section>
+        </div>
       </section>
     </main>
 
