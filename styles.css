@@ -450,6 +450,10 @@ button:hover {
   max-width: 620px;
 }
 
+.captcha-block {
+  min-height: 78px;
+}
+
 .inline-actions {
   display: flex;
   gap: 0.6rem;

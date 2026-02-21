@@ -9,6 +9,7 @@ Mini webapp de notation + mini-critiques de films Marvel.
 3. Mets tes vraies valeurs Supabase dans `config.js`:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
+   - `HCAPTCHA_SITE_KEY`
 4. Lance un serveur statique (exemple Python):
    - `python -m http.server 5500`
 5. Ouvre: `http://localhost:5500/index.html`
@@ -57,6 +58,26 @@ Mini webapp de notation + mini-critiques de films Marvel.
      - `https://ton-site.vercel.app/update-password.html`
      - pour local: `http://localhost:5500/login.html?confirmed=1` et `http://localhost:5500/update-password.html`
 
+### B1. Activer hCaptcha (Attack Protection)
+
+1. Dans hCaptcha, cree un site et recupere:
+   - `Sitekey` (publique)
+   - `Secret` (privee, format `ES_...`)
+2. Dans `config.js`, colle la `Sitekey` dans `HCAPTCHA_SITE_KEY`.
+3. Dans Supabase, va dans `Authentication` > `Attack Protection`:
+   - active `Enable Captcha protection`
+   - provider: `hCaptcha`
+   - `Captcha secret`: colle la `Secret` hCaptcha
+4. Dans hCaptcha, ajoute les domaines autorises:
+   - `marvel-review.com`
+   - `www.marvel-review.com`
+   - `localhost`
+   - ton domaine preview Vercel si utilise
+5. Cette app envoie le `captchaToken` sur:
+   - inscription (`signup`)
+   - connexion (`login`)
+   - demande de reset password (`forgot-password`)
+
 ### B2. Personnaliser le mail de validation
 
 1. Va dans `Authentication` > `Email Templates`.
@@ -103,6 +124,7 @@ Apres execution du SQL, va dans `Database` > `Tables`:
 
 - Auth email/password: signup/login/logout
 - Mot de passe oublie: envoi d'email + page de nouveau mot de passe
+- Protection anti-bot hCaptcha sur signup/login/forgot-password
 - Profil: username + media obligatoires, avatar URL optionnelle
 - Profil: demande de rattachement media soumise a validation
 - Role admin: edition films, creation comptes, attribution de notes/reviews pour un utilisateur cible

@@ -1,10 +1,15 @@
-﻿import { supabase } from "../supabaseClient.js";
+import { supabase } from "../supabaseClient.js";
 import { redirectIfLoggedIn } from "./auth.js";
+import { createCaptchaController } from "./captcha.js";
 import { escapeHTML, setMessage } from "./utils.js";
 
 redirectIfLoggedIn();
 
 const mediaSelectEl = document.querySelector("#media_outlet_id");
+const captchaControllerPromise = createCaptchaController({
+  containerSelector: "#signup-captcha",
+  messageSelector: "#form-message"
+});
 
 async function loadMediaOutlets() {
   try {
@@ -31,11 +36,14 @@ document.querySelector("#signup-form")?.addEventListener("submit", async (event)
   const password = document.querySelector("#password").value;
   const username = document.querySelector("#username").value.trim();
   const mediaOutletId = mediaSelectEl.value || null;
+  const captchaController = await captchaControllerPromise;
 
   if (!username) {
     setMessage("#form-message", "Username obligatoire.", true);
     return;
   }
+
+  if (!captchaController.ensureToken()) return;
 
   try {
     const emailRedirectTo = `${window.location.origin}/login.html?confirmed=1`;
@@ -44,6 +52,7 @@ document.querySelector("#signup-form")?.addEventListener("submit", async (event)
       email,
       password,
       options: {
+        captchaToken: captchaController.getToken(),
         emailRedirectTo,
         data: {
           username,
@@ -60,6 +69,8 @@ document.querySelector("#signup-form")?.addEventListener("submit", async (event)
     );
   } catch (error) {
     setMessage("#form-message", error.message || "Inscription impossible.", true);
+  } finally {
+    captchaController.reset();
   }
 });
 
