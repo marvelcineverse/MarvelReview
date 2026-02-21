@@ -137,6 +137,7 @@ begin
     p.username::text as username
   from auth.users u
   left join public.profiles p on p.id = u.id
+  where u.deleted_at is null
   order by u.created_at desc;
 end;
 $$;

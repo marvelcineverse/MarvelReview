@@ -1269,6 +1269,7 @@ textarea {
 
 .admin-media-card,
 .admin-membership-card,
+.content-creation-card,
 .admin-users-card {
   grid-column: 1 / -1;
 }
