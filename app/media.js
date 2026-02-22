@@ -307,13 +307,17 @@ function getFilteredRows() {
   const phaseSelected = Boolean(rankingState.filters.phase);
 
   return rankingState.allRows.filter((row) => {
-    if (row.type === "film" && !rankingState.filters.films) return false;
-    if (row.type !== "film" && !rankingState.filters.series) return false;
+    const isFilmRow = row.type === "film";
+    const isSeasonRow = row.type === "season";
+
+    if (isFilmRow && !rankingState.filters.films) return false;
+    if (!isFilmRow && !rankingState.filters.series) return false;
 
     if (rankingState.filters.franchise && row.franchise !== rankingState.filters.franchise) return false;
 
-    if (row.type !== "film" && !phaseSelected) return false;
+    if (!isFilmRow && !phaseSelected) return false;
     if (!phaseSelected) return true;
+    if (!isFilmRow && !isSeasonRow) return false;
     return row.phase === rankingState.filters.phase;
   });
 }

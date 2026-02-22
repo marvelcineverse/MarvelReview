@@ -122,7 +122,7 @@ h3 {
 
 .brand-logo {
   display: block;
-  width: clamp(128px, 15vw, 184px);
+  width: clamp(112px, 13vw, 164px);
   height: auto;
 }
 
@@ -309,7 +309,7 @@ select:focus-visible {
 
 .home-title-logo {
   display: block;
-  width: clamp(180px, 27vw, 300px);
+  width: clamp(160px, 23vw, 260px);
   height: auto;
   margin: 0 auto 0.5rem;
 }

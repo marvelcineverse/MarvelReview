@@ -123,6 +123,7 @@ function getFilteredPersonalRows() {
   return personalRankingState.allRows.filter((row) => {
     const isFilmRow = row.type === "film";
     const isSeriesRow = !isFilmRow;
+    const isSeasonPhaseRow = row.type === "season_phase";
 
     if (isFilmRow && !personalRankingState.filters.films) return false;
     if (isSeriesRow && !personalRankingState.filters.series) return false;
@@ -134,6 +135,7 @@ function getFilteredPersonalRows() {
       return true;
     }
 
+    if (!isFilmRow && !isSeasonPhaseRow) return false;
     return row.phase === personalRankingState.filters.phase;
   });
 }
