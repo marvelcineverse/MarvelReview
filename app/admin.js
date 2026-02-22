@@ -17,6 +17,35 @@ const accessState = {
   isAdmin: false,
   managedMediaIds: new Set()
 };
+const SUPABASE_PAGE_SIZE = 1000;
+
+async function fetchPagedRows(buildQuery) {
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await buildQuery(from, to);
+    if (error) throw error;
+
+    const chunk = data || [];
+    rows.push(...chunk);
+    if (chunk.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
+async function fetchAllRows(table, columns, orderBy = "id", ascending = true) {
+  return fetchPagedRows((from, to) =>
+    supabase
+      .from(table)
+      .select(columns)
+      .order(orderBy, { ascending })
+      .range(from, to)
+  );
+}
 
 function bindCreationTabs() {
   const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
@@ -286,14 +315,15 @@ async function loadManagedMediaMembers() {
   }
 
   const profileById = new Map(state.profiles.map((profile) => [profile.id, profile.username]));
-  const { data, error } = await supabase
-    .from("profile_media_memberships")
-    .select("id, profile_id, media_id")
-    .eq("media_id", mediaId)
-    .eq("status", "approved")
-    .order("decided_at", { ascending: false, nullsFirst: false });
-
-  if (error) throw error;
+  const data = await fetchPagedRows((from, to) =>
+    supabase
+      .from("profile_media_memberships")
+      .select("id, profile_id, media_id")
+      .eq("media_id", mediaId)
+      .eq("status", "approved")
+      .order("decided_at", { ascending: false, nullsFirst: false })
+      .range(from, to)
+  );
 
   const rows = (data || [])
     .map((row) => ({
@@ -320,23 +350,26 @@ async function loadManagedMediaRequests() {
   const mediaById = new Map(state.mediaOutlets.map((media) => [media.id, media.name]));
   const profileById = new Map(state.profiles.map((profile) => [profile.id, profile.username]));
 
-  let query = supabase
-    .from("profile_media_memberships")
-    .select("id, profile_id, media_id, status, requested_at")
-    .eq("status", "pending")
-    .order("requested_at", { ascending: false });
-
-  if (!accessState.isAdmin) {
-    const mediaIds = scopedMediaRows.map((media) => media.id);
-    if (!mediaIds.length) {
-      renderManagedRequests([]);
-      return;
-    }
-    query = query.in("media_id", mediaIds);
+  const mediaIds = scopedMediaRows.map((media) => media.id);
+  if (!accessState.isAdmin && !mediaIds.length) {
+    renderManagedRequests([]);
+    return;
   }
 
-  const { data, error } = await query;
-  if (error) throw error;
+  const data = await fetchPagedRows((from, to) => {
+    let query = supabase
+      .from("profile_media_memberships")
+      .select("id, profile_id, media_id, status, requested_at")
+      .eq("status", "pending")
+      .order("requested_at", { ascending: false })
+      .range(from, to);
+
+    if (!accessState.isAdmin) {
+      query = query.in("media_id", mediaIds);
+    }
+
+    return query;
+  });
 
   const rows = (data || []).map((row) => ({
     id: row.id,
@@ -398,13 +431,8 @@ async function ensureAdminOrManager() {
 }
 
 async function loadProfilesForMediaAdmin() {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, username")
-    .order("username", { ascending: true });
-
-  if (error) throw error;
-  state.profiles = data || [];
+  const data = await fetchAllRows("profiles", "id, username");
+  state.profiles = (data || []).sort((a, b) => (a.username || "").localeCompare(b.username || "", "fr"));
   renderProfileOptions();
 }
 
@@ -845,34 +873,12 @@ function fillEpisodeForm(episodeId) {
 }
 
 async function refreshSeriesData() {
-  const [
-    { data: films, error: filmsError },
-    { data: series, error: seriesError },
-    { data: seasons, error: seasonsError },
-    { data: episodes, error: episodesError }
-  ] = await Promise.all([
-    supabase
-      .from("films")
-      .select("id, title, slug, release_date, franchise, phase, type, poster_url, synopsis")
-      .order("release_date", { ascending: true, nullsFirst: false }),
-    supabase
-      .from("series")
-      .select("id, title, slug, synopsis, poster_url, start_date, end_date, franchise, type")
-      .order("title", { ascending: true }),
-    supabase
-      .from("series_seasons")
-      .select("id, series_id, name, season_number, slug, poster_url, start_date, end_date, phase")
-      .order("season_number", { ascending: true }),
-    supabase
-      .from("series_episodes")
-      .select("id, season_id, episode_number, title, air_date")
-      .order("episode_number", { ascending: true })
+  const [films, series, seasons, episodes] = await Promise.all([
+    fetchAllRows("films", "id, title, slug, release_date, franchise, phase, type, poster_url, synopsis", "release_date", true),
+    fetchAllRows("series", "id, title, slug, synopsis, poster_url, start_date, end_date, franchise, type", "title", true),
+    fetchAllRows("series_seasons", "id, series_id, name, season_number, slug, poster_url, start_date, end_date, phase", "season_number", true),
+    fetchAllRows("series_episodes", "id, season_id, episode_number, title, air_date", "episode_number", true)
   ]);
-
-  if (filmsError) throw filmsError;
-  if (seriesError) throw seriesError;
-  if (seasonsError) throw seasonsError;
-  if (episodesError) throw episodesError;
 
   state.films = films || [];
   state.series = series || [];

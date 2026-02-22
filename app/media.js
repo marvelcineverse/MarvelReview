@@ -22,6 +22,8 @@ const rankingState = {
     phase: ""
   }
 };
+const SUPABASE_PAGE_SIZE = 1000;
+const IN_FILTER_CHUNK_SIZE = 200;
 
 const filmsFilterEl = document.querySelector("#filter-films");
 const seriesFilterEl = document.querySelector("#filter-series");
@@ -31,6 +33,61 @@ const phaseFilterWrapEl = document.querySelector("#ranking-phase-filter-wrap");
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function chunkArray(values, size) {
+  const chunks = [];
+  for (let i = 0; i < values.length; i += size) {
+    chunks.push(values.slice(i, i + size));
+  }
+  return chunks;
+}
+
+async function fetchPagedRows(buildQuery) {
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await buildQuery(from, to);
+    if (error) throw error;
+
+    const chunk = data || [];
+    rows.push(...chunk);
+    if (chunk.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
+async function fetchAllRows(table, columns, orderBy = "id", ascending = true) {
+  return fetchPagedRows((from, to) =>
+    supabase
+      .from(table)
+      .select(columns)
+      .order(orderBy, { ascending })
+      .range(from, to)
+  );
+}
+
+async function fetchAllRowsByIn(table, columns, field, values, orderBy = "id", ascending = true) {
+  if (!values.length) return [];
+
+  const rows = [];
+  for (const chunk of chunkArray(values, IN_FILTER_CHUNK_SIZE)) {
+    const paged = await fetchPagedRows((from, to) =>
+      supabase
+        .from(table)
+        .select(columns)
+        .in(field, chunk)
+        .order(orderBy, { ascending })
+        .range(from, to)
+    );
+    rows.push(...paged);
+  }
+
+  return rows;
 }
 
 function buildSeasonScoresByUser(season, episodesBySeasonId, episodeRatingsByEpisodeId, seasonRowsBySeasonId) {
@@ -284,12 +341,8 @@ function bindFilters() {
 }
 
 async function loadMediaList(selectedId = null) {
-  const { data, error } = await supabase
-    .from("media_outlets")
-    .select("id, name")
-    .order("name", { ascending: true });
-
-  if (error) throw error;
+  const data = await fetchAllRows("media_outlets", "id, name");
+  data.sort((a, b) => (a.name || "").localeCompare(b.name || "", "fr"));
 
   if (!data?.length) {
     mediaButtonsEl.innerHTML = `<p>Aucun média</p>`;
@@ -376,13 +429,15 @@ async function loadMediaDetails(mediaId) {
 async function loadMediaUsers(mediaId) {
   const usersEl = document.querySelector("#media-users-list");
 
-  const { data: memberships, error: membershipsError } = await supabase
-    .from("profile_media_memberships")
-    .select("profile_id")
-    .eq("media_id", mediaId)
-    .eq("status", "approved");
-
-  if (membershipsError) throw membershipsError;
+  const memberships = await fetchPagedRows((from, to) =>
+    supabase
+      .from("profile_media_memberships")
+      .select("profile_id")
+      .eq("media_id", mediaId)
+      .eq("status", "approved")
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
   const profileIds = [...new Set((memberships || []).map((row) => row.profile_id))];
   if (!profileIds.length) {
@@ -390,12 +445,7 @@ async function loadMediaUsers(mediaId) {
     return;
   }
 
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, username")
-    .in("id", profileIds);
-
-  if (profilesError) throw profilesError;
+  const profiles = await fetchAllRowsByIn("profiles", "id, username", "id", profileIds);
 
   const usernames = (profiles || [])
     .map((row) => row.username || "")
@@ -413,13 +463,15 @@ async function loadMediaUsers(mediaId) {
 async function loadMediaRanking(mediaId) {
   const bodyEl = document.querySelector("#media-ranking-body");
 
-  const { data: memberships, error: membershipsError } = await supabase
-    .from("profile_media_memberships")
-    .select("profile_id")
-    .eq("media_id", mediaId)
-    .eq("status", "approved");
-
-  if (membershipsError) throw membershipsError;
+  const memberships = await fetchPagedRows((from, to) =>
+    supabase
+      .from("profile_media_memberships")
+      .select("profile_id")
+      .eq("media_id", mediaId)
+      .eq("status", "approved")
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
   const profileIds = (memberships || []).map((row) => row.profile_id);
 
@@ -428,50 +480,15 @@ async function loadMediaRanking(mediaId) {
     return;
   }
 
-  const [
-    { data: films, error: filmsError },
-    { data: ratings, error: ratingsError },
-    { data: seriesList, error: seriesError },
-    { data: seasons, error: seasonsError },
-    { data: episodes, error: episodesError },
-    { data: episodeRatings, error: episodeRatingsError },
-    { data: seasonUserRatings, error: seasonUserRatingsError }
-  ] = await Promise.all([
-    supabase
-      .from("films")
-      .select("id, title, release_date, franchise, phase")
-      .order("title", { ascending: true }),
-    supabase
-      .from("ratings")
-      .select("film_id, user_id, score")
-      .in("user_id", profileIds),
-    supabase
-      .from("series")
-      .select("id, title, franchise")
-      .order("title", { ascending: true }),
-    supabase
-      .from("series_seasons")
-      .select("id, series_id, phase, start_date"),
-    supabase
-      .from("series_episodes")
-      .select("id, season_id"),
-    supabase
-      .from("episode_ratings")
-      .select("episode_id, user_id, score")
-      .in("user_id", profileIds),
-    supabase
-      .from("season_user_ratings")
-      .select("season_id, user_id, manual_score, adjustment")
-      .in("user_id", profileIds)
+  const [films, ratings, seriesList, seasons, episodes, episodeRatings, seasonUserRatings] = await Promise.all([
+    fetchAllRows("films", "id, title, release_date, franchise, phase"),
+    fetchAllRowsByIn("ratings", "film_id, user_id, score", "user_id", profileIds),
+    fetchAllRows("series", "id, title, franchise"),
+    fetchAllRows("series_seasons", "id, series_id, phase, start_date"),
+    fetchAllRows("series_episodes", "id, season_id"),
+    fetchAllRowsByIn("episode_ratings", "episode_id, user_id, score", "user_id", profileIds),
+    fetchAllRowsByIn("season_user_ratings", "season_id, user_id, manual_score, adjustment", "user_id", profileIds)
   ]);
-
-  if (filmsError) throw filmsError;
-  if (ratingsError) throw ratingsError;
-  if (seriesError) throw seriesError;
-  if (seasonsError) throw seasonsError;
-  if (episodesError) throw episodesError;
-  if (episodeRatingsError) throw episodeRatingsError;
-  if (seasonUserRatingsError) throw seasonUserRatingsError;
 
   const releasedFilms = (films || []).filter((film) => isReleasedOnOrBeforeToday(film.release_date));
 

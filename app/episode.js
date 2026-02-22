@@ -18,6 +18,34 @@ const state = {
   series: null,
   ratings: []
 };
+const SUPABASE_PAGE_SIZE = 1000;
+const IN_FILTER_CHUNK_SIZE = 200;
+
+function chunkArray(values, size) {
+  const chunks = [];
+  for (let i = 0; i < values.length; i += size) {
+    chunks.push(values.slice(i, i + size));
+  }
+  return chunks;
+}
+
+async function fetchPagedRows(buildQuery) {
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await buildQuery(from, to);
+    if (error) throw error;
+
+    const chunk = data || [];
+    rows.push(...chunk);
+    if (chunk.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
+}
 
 function canRateEpisode() {
   return isReleasedOnOrBeforeToday(state.episode?.air_date || null);
@@ -87,20 +115,22 @@ function renderAverage() {
 async function loadMembershipMapForUsers(userIds) {
   if (!userIds.length) return new Map();
 
-  const { data, error } = await supabase
-    .from("profile_media_memberships")
-    .select("profile_id, status, media_outlets(name)")
-    .in("profile_id", userIds)
-    .eq("status", "approved");
-
-  if (error) throw error;
-
   const map = new Map();
-  for (const row of data || []) {
-    const existing = map.get(row.profile_id) || [];
-    const mediaName = row.media_outlets?.name;
-    if (mediaName) existing.push(mediaName);
-    map.set(row.profile_id, existing);
+  for (const profileIdChunk of chunkArray([...new Set(userIds)], IN_FILTER_CHUNK_SIZE)) {
+    const { data, error } = await supabase
+      .from("profile_media_memberships")
+      .select("profile_id, status, media_outlets(name)")
+      .in("profile_id", profileIdChunk)
+      .eq("status", "approved");
+
+    if (error) throw error;
+
+    for (const row of data || []) {
+      const existing = map.get(row.profile_id) || [];
+      const mediaName = row.media_outlets?.name;
+      if (mediaName) existing.push(mediaName);
+      map.set(row.profile_id, existing);
+    }
   }
 
   return map;
@@ -164,22 +194,24 @@ async function loadEpisodePage() {
 
   const [
     { data: season, error: seasonError },
-    { data: ratings, error: ratingsError }
+    ratingsRaw
   ] = await Promise.all([
     supabase
       .from("series_seasons")
       .select("id, series_id, name, season_number")
       .eq("id", episode.season_id)
       .single(),
-    supabase
-      .from("episode_ratings")
-      .select("id, episode_id, user_id, score, review, created_at, profiles(username)")
-      .eq("episode_id", episodeId)
-      .order("created_at", { ascending: false })
+    fetchPagedRows((from, to) =>
+      supabase
+        .from("episode_ratings")
+        .select("id, episode_id, user_id, score, review, created_at, profiles(username)")
+        .eq("episode_id", episodeId)
+        .order("created_at", { ascending: false })
+        .range(from, to)
+    )
   ]);
 
   if (seasonError) throw seasonError;
-  if (ratingsError) throw ratingsError;
 
   const { data: series, error: seriesError } = await supabase
     .from("series")
@@ -191,7 +223,7 @@ async function loadEpisodePage() {
   state.episode = episode;
   state.season = season;
   state.series = series;
-  state.ratings = ratings || [];
+  state.ratings = ratingsRaw || [];
 
   applyEpisodeAuthVisibility();
   renderEpisodeDetails();

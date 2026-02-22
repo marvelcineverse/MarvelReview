@@ -19,6 +19,53 @@ const state = {
   episodeRatings: [],
   seasonUserRatings: []
 };
+const SUPABASE_PAGE_SIZE = 1000;
+const IN_FILTER_CHUNK_SIZE = 200;
+
+function chunkArray(values, size) {
+  const chunks = [];
+  for (let i = 0; i < values.length; i += size) {
+    chunks.push(values.slice(i, i + size));
+  }
+  return chunks;
+}
+
+async function fetchPagedRows(buildQuery) {
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await buildQuery(from, to);
+    if (error) throw error;
+
+    const chunk = data || [];
+    rows.push(...chunk);
+    if (chunk.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
+async function fetchAllRowsByIn(table, columns, field, values, orderBy = "id", ascending = true) {
+  if (!values.length) return [];
+
+  const rows = [];
+  for (const chunk of chunkArray(values, IN_FILTER_CHUNK_SIZE)) {
+    const paged = await fetchPagedRows((from, to) =>
+      supabase
+        .from(table)
+        .select(columns)
+        .in(field, chunk)
+        .order(orderBy, { ascending })
+        .range(from, to)
+    );
+    rows.push(...paged);
+  }
+
+  return rows;
+}
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -332,20 +379,22 @@ function renderSeasonCard() {
 async function loadMembershipMapForUsers(userIds) {
   if (!userIds.length) return new Map();
 
-  const { data, error } = await supabase
-    .from("profile_media_memberships")
-    .select("profile_id, status, media_outlets(name)")
-    .in("profile_id", userIds)
-    .eq("status", "approved");
-
-  if (error) throw error;
-
   const map = new Map();
-  for (const row of data || []) {
-    const existing = map.get(row.profile_id) || [];
-    const mediaName = row.media_outlets?.name;
-    if (mediaName) existing.push(mediaName);
-    map.set(row.profile_id, existing);
+  for (const profileIdChunk of chunkArray([...new Set(userIds)], IN_FILTER_CHUNK_SIZE)) {
+    const { data, error } = await supabase
+      .from("profile_media_memberships")
+      .select("profile_id, status, media_outlets(name)")
+      .in("profile_id", profileIdChunk)
+      .eq("status", "approved");
+
+    if (error) throw error;
+
+    for (const row of data || []) {
+      const existing = map.get(row.profile_id) || [];
+      const mediaName = row.media_outlets?.name;
+      if (mediaName) existing.push(mediaName);
+      map.set(row.profile_id, existing);
+    }
   }
 
   return map;
@@ -410,23 +459,23 @@ async function loadSeasonData() {
     .single();
   if (seasonError) throw seasonError;
 
-  const [
-    { data: series, error: seriesError },
-    { data: episodes, error: episodesError }
-  ] = await Promise.all([
+  const [{ data: series, error: seriesError }, episodes] = await Promise.all([
     supabase
       .from("series")
       .select("id, title")
       .eq("id", season.series_id)
       .single(),
-    supabase
-      .from("series_episodes")
-      .select("id, season_id, episode_number, title, air_date")
-      .eq("season_id", season.id)
+    fetchPagedRows((from, to) =>
+      supabase
+        .from("series_episodes")
+        .select("id, season_id, episode_number, title, air_date")
+        .eq("season_id", season.id)
+        .order("episode_number", { ascending: true })
+        .range(from, to)
+    )
   ]);
 
   if (seriesError) throw seriesError;
-  if (episodesError) throw episodesError;
 
   state.season = season;
   state.series = series;
@@ -435,24 +484,22 @@ async function loadSeasonData() {
 
 async function loadRatingsData() {
   const episodeIds = state.episodes.map((episode) => episode.id);
-  const [
-    { data: episodeRatings, error: episodeRatingsError },
-    { data: seasonUserRatings, error: seasonUserRatingsError }
-  ] = await Promise.all([
-    episodeIds.length
-      ? supabase
-        .from("episode_ratings")
-        .select("id, episode_id, user_id, score, review, created_at, profiles(username)")
-        .in("episode_id", episodeIds)
-      : Promise.resolve({ data: [], error: null }),
-    supabase
-      .from("season_user_ratings")
-      .select("id, season_id, user_id, manual_score, adjustment, review, created_at, profiles(username)")
-      .eq("season_id", state.season.id)
+  const [episodeRatings, seasonUserRatings] = await Promise.all([
+    fetchAllRowsByIn(
+      "episode_ratings",
+      "id, episode_id, user_id, score, review, created_at, profiles(username)",
+      "episode_id",
+      episodeIds
+    ),
+    fetchPagedRows((from, to) =>
+      supabase
+        .from("season_user_ratings")
+        .select("id, season_id, user_id, manual_score, adjustment, review, created_at, profiles(username)")
+        .eq("season_id", state.season.id)
+        .order("id", { ascending: true })
+        .range(from, to)
+    )
   ]);
-
-  if (episodeRatingsError) throw episodeRatingsError;
-  if (seasonUserRatingsError) throw seasonUserRatingsError;
 
   state.episodeRatings = episodeRatings || [];
   state.seasonUserRatings = seasonUserRatings || [];

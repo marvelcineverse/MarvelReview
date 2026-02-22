@@ -13,6 +13,34 @@ import { getCurrentProfile, requireAuth, getSession } from "./auth.js";
 
 let currentProfile = null;
 let currentFilm = null;
+const SUPABASE_PAGE_SIZE = 1000;
+const IN_FILTER_CHUNK_SIZE = 200;
+
+function chunkArray(values, size) {
+  const chunks = [];
+  for (let i = 0; i < values.length; i += size) {
+    chunks.push(values.slice(i, i + size));
+  }
+  return chunks;
+}
+
+async function fetchPagedRows(buildQuery) {
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await buildQuery(from, to);
+    if (error) throw error;
+
+    const chunk = data || [];
+    rows.push(...chunk);
+    if (chunk.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
+}
 
 function applyFilmAuthVisibility(isLoggedIn) {
   const ratingSectionEl = document.querySelector("#film-rating-section");
@@ -108,20 +136,22 @@ function renderRatings(ratings, mediaByUserId) {
 async function loadMembershipMapForUsers(userIds) {
   if (!userIds.length) return new Map();
 
-  const { data, error } = await supabase
-    .from("profile_media_memberships")
-    .select("profile_id, status, media_outlets(name)")
-    .in("profile_id", userIds)
-    .eq("status", "approved");
-
-  if (error) throw error;
-
   const map = new Map();
-  for (const row of data || []) {
-    const existing = map.get(row.profile_id) || [];
-    const mediaName = row.media_outlets?.name;
-    if (mediaName) existing.push(mediaName);
-    map.set(row.profile_id, existing);
+  for (const profileIdChunk of chunkArray([...new Set(userIds)], IN_FILTER_CHUNK_SIZE)) {
+    const { data, error } = await supabase
+      .from("profile_media_memberships")
+      .select("profile_id, status, media_outlets(name)")
+      .in("profile_id", profileIdChunk)
+      .eq("status", "approved");
+
+    if (error) throw error;
+
+    for (const row of data || []) {
+      const existing = map.get(row.profile_id) || [];
+      const mediaName = row.media_outlets?.name;
+      if (mediaName) existing.push(mediaName);
+      map.set(row.profile_id, existing);
+    }
   }
 
   return map;
@@ -158,12 +188,14 @@ async function fillExistingUserRating(filmId, userId, scoreInputId, reviewInputI
 async function loadAdminUsersForFilm(filmId) {
   const selectEl = document.querySelector("#admin-target-user");
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, username")
-    .order("username", { ascending: true });
-
-  if (error) throw error;
+  const data = await fetchPagedRows((from, to) =>
+    supabase
+      .from("profiles")
+      .select("id, username")
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
+  data.sort((a, b) => (a.username || "").localeCompare(b.username || "", "fr"));
 
   selectEl.innerHTML = (data || [])
     .map((user) => `<option value="${user.id}">${escapeHTML(user.username)}</option>`)
@@ -200,12 +232,14 @@ async function loadFilmPage() {
     document.querySelector("#admin-film-editor").style.display = "none";
     document.querySelector("#admin-rating-editor").style.display = "none";
 
-    const { data: ratings, error: ratingsError } = await supabase
-      .from("ratings")
-      .select("id, user_id, score, review, created_at, profiles(username)")
-      .eq("film_id", filmId)
-      .order("created_at", { ascending: false });
-    if (ratingsError) throw ratingsError;
+    const ratings = await fetchPagedRows((from, to) =>
+      supabase
+        .from("ratings")
+        .select("id, user_id, score, review, created_at, profiles(username)")
+        .eq("film_id", filmId)
+        .order("created_at", { ascending: false })
+        .range(from, to)
+    );
 
     const userIds = [...new Set((ratings || []).map((row) => row.user_id))];
     const mediaByUserId = await loadMembershipMapForUsers(userIds);

@@ -26,9 +26,49 @@ const seriesFilterEl = document.querySelector("#filter-series");
 const franchiseFilterEl = document.querySelector("#ranking-franchise-filter");
 const phaseFilterEl = document.querySelector("#ranking-phase-filter");
 const phaseFilterWrapEl = document.querySelector("#ranking-phase-filter-wrap");
+const SUPABASE_PAGE_SIZE = 1000;
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+async function fetchPagedRows(buildQuery) {
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await buildQuery(from, to);
+    if (error) throw error;
+
+    const chunk = data || [];
+    rows.push(...chunk);
+    if (chunk.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
+async function fetchAllRows(table, columns, orderBy = "id", ascending = true) {
+  return fetchPagedRows((from, to) =>
+    supabase
+      .from(table)
+      .select(columns)
+      .order(orderBy, { ascending })
+      .range(from, to)
+  );
+}
+
+async function fetchAllRowsByEq(table, columns, field, value, orderBy = "id", ascending = true) {
+  return fetchPagedRows((from, to) =>
+    supabase
+      .from(table)
+      .select(columns)
+      .eq(field, value)
+      .order(orderBy, { ascending })
+      .range(from, to)
+  );
 }
 
 function fillSelect(selectEl, values, allLabel) {
@@ -319,50 +359,15 @@ async function loadManagedMediaRequests(userId) {
 }
 
 async function loadPersonalRatings(userId) {
-  const [
-    { data: films, error: filmsError },
-    { data: ratings, error: ratingsError },
-    { data: seriesList, error: seriesError },
-    { data: seasons, error: seasonsError },
-    { data: episodes, error: episodesError },
-    { data: episodeRatings, error: episodeRatingsError },
-    { data: seasonUserRatings, error: seasonUserRatingsError }
-  ] = await Promise.all([
-    supabase
-      .from("films")
-      .select("id, title, release_date, franchise, phase")
-      .order("release_date", { ascending: true, nullsFirst: false }),
-    supabase
-      .from("ratings")
-      .select("film_id, score, review")
-      .eq("user_id", userId),
-    supabase
-      .from("series")
-      .select("id, title, start_date, franchise")
-      .order("start_date", { ascending: true, nullsFirst: false }),
-    supabase
-      .from("series_seasons")
-      .select("id, series_id, phase, start_date"),
-    supabase
-      .from("series_episodes")
-      .select("id, season_id"),
-    supabase
-      .from("episode_ratings")
-      .select("episode_id, score")
-      .eq("user_id", userId),
-    supabase
-      .from("season_user_ratings")
-      .select("season_id, manual_score, adjustment")
-      .eq("user_id", userId)
+  const [films, ratings, seriesList, seasons, episodes, episodeRatings, seasonUserRatings] = await Promise.all([
+    fetchAllRows("films", "id, title, release_date, franchise, phase", "release_date", true),
+    fetchAllRowsByEq("ratings", "film_id, score, review", "user_id", userId),
+    fetchAllRows("series", "id, title, start_date, franchise", "start_date", true),
+    fetchAllRows("series_seasons", "id, series_id, phase, start_date"),
+    fetchAllRows("series_episodes", "id, season_id"),
+    fetchAllRowsByEq("episode_ratings", "episode_id, score", "user_id", userId),
+    fetchAllRowsByEq("season_user_ratings", "season_id, manual_score, adjustment", "user_id", userId)
   ]);
-
-  if (filmsError) throw filmsError;
-  if (ratingsError) throw ratingsError;
-  if (seriesError) throw seriesError;
-  if (seasonsError) throw seasonsError;
-  if (episodesError) throw episodesError;
-  if (episodeRatingsError) throw episodeRatingsError;
-  if (seasonUserRatingsError) throw seasonUserRatingsError;
 
   const ratingByFilmId = new Map((ratings || []).map((row) => [row.film_id, row]));
 

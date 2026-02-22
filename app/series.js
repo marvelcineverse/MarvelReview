@@ -42,6 +42,8 @@ const state = {
 const SOCIAL_MOBILE_QUERY = "(max-width: 700px)";
 const SOCIAL_MOBILE_VISIBLE_ITEMS = 4;
 const SOCIAL_PREVIEW_WORD_LIMIT = 34;
+const SUPABASE_PAGE_SIZE = 1000;
+const IN_FILTER_CHUNK_SIZE = 200;
 const listFranchiseFilterEl = document.querySelector("#series-franchise-filter");
 const listPhaseFilterEl = document.querySelector("#series-phase-filter");
 const listPhaseFilterWrapEl = document.querySelector("#series-phase-filter-wrap");
@@ -122,6 +124,72 @@ Object.assign(state.listFilters, loadSeriesListFilters());
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function chunkArray(values, size) {
+  const chunks = [];
+  for (let i = 0; i < values.length; i += size) {
+    chunks.push(values.slice(i, i + size));
+  }
+  return chunks;
+}
+
+async function fetchPagedRows(buildQuery) {
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await buildQuery(from, to);
+    if (error) throw error;
+
+    const chunk = data || [];
+    rows.push(...chunk);
+    if (chunk.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
+async function fetchAllRows(table, columns, orderBy = "id", ascending = true) {
+  return fetchPagedRows((from, to) =>
+    supabase
+      .from(table)
+      .select(columns)
+      .order(orderBy, { ascending })
+      .range(from, to)
+  );
+}
+
+async function fetchAllRowsByEq(table, columns, field, value, orderBy = "id", ascending = true) {
+  return fetchPagedRows((from, to) =>
+    supabase
+      .from(table)
+      .select(columns)
+      .eq(field, value)
+      .order(orderBy, { ascending })
+      .range(from, to)
+  );
+}
+
+async function fetchAllRowsByIn(table, columns, field, values, orderBy = "id", ascending = true) {
+  if (!values.length) return [];
+
+  const rows = [];
+  for (const chunk of chunkArray(values, IN_FILTER_CHUNK_SIZE)) {
+    const paged = await fetchPagedRows((from, to) =>
+      supabase
+        .from(table)
+        .select(columns)
+        .in(field, chunk)
+        .order(orderBy, { ascending })
+        .range(from, to)
+    );
+    rows.push(...paged);
+  }
+
+  return rows;
 }
 
 function getDateSortValue(value) {
@@ -643,20 +711,22 @@ function renderSeriesHeader() {
 async function loadMembershipMapForUsers(userIds) {
   if (!userIds.length) return new Map();
 
-  const { data, error } = await supabase
-    .from("profile_media_memberships")
-    .select("profile_id, status, media_outlets(name)")
-    .in("profile_id", userIds)
-    .eq("status", "approved");
-
-  if (error) throw error;
-
   const map = new Map();
-  for (const row of data || []) {
-    const existing = map.get(row.profile_id) || [];
-    const mediaName = row.media_outlets?.name;
-    if (mediaName) existing.push(mediaName);
-    map.set(row.profile_id, existing);
+  for (const profileIdChunk of chunkArray([...new Set(userIds)], IN_FILTER_CHUNK_SIZE)) {
+    const { data, error } = await supabase
+      .from("profile_media_memberships")
+      .select("profile_id, status, media_outlets(name)")
+      .in("profile_id", profileIdChunk)
+      .eq("status", "approved");
+
+    if (error) throw error;
+
+    for (const row of data || []) {
+      const existing = map.get(row.profile_id) || [];
+      const mediaName = row.media_outlets?.name;
+      if (mediaName) existing.push(mediaName);
+      map.set(row.profile_id, existing);
+    }
   }
 
   return map;
@@ -1222,14 +1292,16 @@ async function loadSeriesStructure(seriesId) {
   if (seasonsError) throw seasonsError;
 
   const seasonIds = (seasons || []).map((season) => season.id);
-  const { data: episodes, error: episodesError } = seasonIds.length
-    ? await supabase
-      .from("series_episodes")
-      .select("id, season_id, episode_number, title, air_date")
-      .in("season_id", seasonIds)
-    : { data: [], error: null };
-
-  if (episodesError) throw episodesError;
+  const episodes = seasonIds.length
+    ? await fetchAllRowsByIn(
+      "series_episodes",
+      "id, season_id, episode_number, title, air_date",
+      "season_id",
+      seasonIds,
+      "episode_number",
+      true
+    )
+    : [];
 
   state.series = series;
   state.seasons = seasons || [];
@@ -1240,35 +1312,34 @@ async function loadRatingsData() {
   const seasonIds = state.seasons.map((season) => season.id);
   const episodeIds = state.episodes.map((episode) => episode.id);
 
-  const [
-    { data: episodeRatings, error: episodeRatingsError },
-    { data: seasonUserRatings, error: seasonUserRatingsError },
-    { data: seriesReviews, error: seriesReviewsError }
-  ] = await Promise.all([
+  const [episodeRatings, seasonUserRatings, seriesReviews] = await Promise.all([
     episodeIds.length
-      ? supabase
-        .from("episode_ratings")
-        .select("id, episode_id, user_id, score, review, created_at, profiles(username)")
-        .in("episode_id", episodeIds)
-    : Promise.resolve({ data: [], error: null }),
+      ? fetchAllRowsByIn(
+        "episode_ratings",
+        "id, episode_id, user_id, score, review, created_at, profiles(username)",
+        "episode_id",
+        episodeIds
+      )
+      : Promise.resolve([]),
     seasonIds.length
-      ? supabase
-        .from("season_user_ratings")
-        .select("id, season_id, user_id, manual_score, adjustment, review, created_at, profiles(username)")
-        .in("season_id", seasonIds)
-      : Promise.resolve({ data: [], error: null }),
+      ? fetchAllRowsByIn(
+        "season_user_ratings",
+        "id, season_id, user_id, manual_score, adjustment, review, created_at, profiles(username)",
+        "season_id",
+        seasonIds
+      )
+      : Promise.resolve([]),
     state.series?.id
-      ? supabase
-        .from("series_reviews")
-        .select("id, series_id, user_id, review, created_at, profiles(username)")
-        .eq("series_id", state.series.id)
-        .order("created_at", { ascending: false })
-      : Promise.resolve({ data: [], error: null })
+      ? fetchAllRowsByEq(
+        "series_reviews",
+        "id, series_id, user_id, review, created_at, profiles(username)",
+        "series_id",
+        state.series.id,
+        "created_at",
+        false
+      )
+      : Promise.resolve([])
   ]);
-
-  if (episodeRatingsError) throw episodeRatingsError;
-  if (seasonUserRatingsError) throw seasonUserRatingsError;
-  if (seriesReviewsError) throw seriesReviewsError;
 
   state.episodeRatings = episodeRatings || [];
   state.seasonUserRatings = seasonUserRatings || [];
@@ -1627,36 +1698,13 @@ async function initPage() {
       if (subtitleEl) subtitleEl.textContent = "Choisis une s\u00E9rie pour afficher ses saisons et \u00E9pisodes.";
       if (subtitleNoteEl) subtitleNoteEl.textContent = "";
 
-      const [
-        { data: seriesList, error: seriesError },
-        { data: seasons, error: seasonsError },
-        { data: episodes, error: episodesError },
-        { data: episodeRatings, error: episodeRatingsError },
-        { data: seasonUserRatings, error: seasonUserRatingsError }
-      ] = await Promise.all([
-        supabase
-          .from("series")
-          .select("id, title, poster_url, start_date, end_date, franchise, type")
-          .order("start_date", { ascending: false, nullsFirst: false }),
-        supabase
-          .from("series_seasons")
-          .select("id, series_id, phase"),
-        supabase
-          .from("series_episodes")
-          .select("id, season_id"),
-        supabase
-          .from("episode_ratings")
-          .select("episode_id, user_id, score"),
-        supabase
-          .from("season_user_ratings")
-          .select("season_id, user_id, manual_score, adjustment")
+      const [seriesList, seasons, episodes, episodeRatings, seasonUserRatings] = await Promise.all([
+        fetchAllRows("series", "id, title, poster_url, start_date, end_date, franchise, type", "start_date", false),
+        fetchAllRows("series_seasons", "id, series_id, phase"),
+        fetchAllRows("series_episodes", "id, season_id"),
+        fetchAllRows("episode_ratings", "episode_id, user_id, score"),
+        fetchAllRows("season_user_ratings", "season_id, user_id, manual_score, adjustment")
       ]);
-
-      if (seriesError) throw seriesError;
-      if (seasonsError) throw seasonsError;
-      if (episodesError) throw episodesError;
-      if (episodeRatingsError) throw episodeRatingsError;
-      if (seasonUserRatingsError) throw seasonUserRatingsError;
 
       const averageBySeriesId = computeSeriesListAverages(
         seriesList || [],
