@@ -3,6 +3,7 @@ import { escapeHTML, formatDate, formatScore, getScoreClass, setMessage } from "
 
 const FILMS_FILTERS_STORAGE_KEY = "marvelreview:films:list-filters:v1";
 const VALID_FILM_SORT_MODES = new Set(["date_desc", "date_asc", "rating_desc", "rating_asc"]);
+const SUPABASE_PAGE_SIZE = 1000;
 const DEFAULT_FILM_FILTERS = Object.freeze({
   search: "",
   franchise: "",
@@ -101,6 +102,28 @@ function getDateSortValue(value) {
   if (!value) return Number.NEGATIVE_INFINITY;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+}
+
+async function fetchAllRows(table, columns) {
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from(table)
+      .select(columns)
+      .order("id", { ascending: true })
+      .range(from, to);
+
+    if (error) throw error;
+    const chunk = data || [];
+    rows.push(...chunk);
+    if (chunk.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
 }
 
 function sortFilms(rows) {
@@ -240,17 +263,10 @@ function renderFilms() {
 
 async function loadFilms() {
   try {
-    const [{ data: films, error: filmsError }, { data: ratings, error: ratingsError }] = await Promise.all([
-      supabase
-        .from("films")
-        .select("id, title, release_date, poster_url, franchise, phase, type"),
-      supabase
-        .from("ratings")
-        .select("film_id, score")
+    const [films, ratings] = await Promise.all([
+      fetchAllRows("films", "id, title, release_date, poster_url, franchise, phase, type"),
+      fetchAllRows("ratings", "film_id, score")
     ]);
-
-    if (filmsError) throw filmsError;
-    if (ratingsError) throw ratingsError;
 
     if (!films || films.length === 0) {
       listEl.innerHTML = "<p>Aucun film pour le moment.</p>";
