@@ -133,6 +133,18 @@ function buildSeasonScoresByUser(season, episodesBySeasonId, episodeRatingsByEpi
   return scoresByUser;
 }
 
+function getSeasonLabel(season) {
+  const explicitName = String(season?.name || "").trim();
+  if (explicitName) return explicitName;
+
+  const seasonNumber = Number(season?.season_number);
+  if (Number.isFinite(seasonNumber)) {
+    return `Saison ${seasonNumber}`;
+  }
+
+  return "Saison";
+}
+
 function buildSeriesRowsFromPhases(seriesList, seasons, episodes, episodeRatings, seasonUserRatings) {
   const seriesById = new Map((seriesList || []).map((serie) => [serie.id, serie]));
 
@@ -188,9 +200,26 @@ function buildSeriesRowsFromPhases(seriesList, seasons, episodes, episodeRatings
 
     for (const [phase, phaseSeasons] of seasonsByPhase.entries()) {
       const scoresByUser = new Map();
+      const seasonRows = [];
 
       for (const season of phaseSeasons) {
         const seasonScores = seasonScoresBySeasonId.get(season.id) || new Map();
+        const seasonValues = [...seasonScores.values()];
+        if (seasonValues.length) {
+          const seasonAverage = seasonValues.reduce((sum, value) => sum + value, 0) / seasonValues.length;
+          seasonRows.push({
+            id: `season-${season.id}-${phase}`,
+            title: `${serie.title} - ${getSeasonLabel(season)}`,
+            type: "season",
+            href: `/season.html?id=${season.id}`,
+            release_date: season.start_date || null,
+            average: seasonAverage,
+            count: seasonValues.length,
+            franchise: String(serie.franchise || "").trim(),
+            phase
+          });
+        }
+
         for (const [userId, score] of seasonScores.entries()) {
           const current = scoresByUser.get(userId) || [];
           current.push(score);
@@ -221,6 +250,7 @@ function buildSeriesRowsFromPhases(seriesList, seasons, episodes, episodeRatings
         franchise: String(serie.franchise || "").trim(),
         phase
       });
+      rows.push(...seasonRows);
     }
   }
 
@@ -278,11 +308,11 @@ function getFilteredRows() {
 
   return rankingState.allRows.filter((row) => {
     if (row.type === "film" && !rankingState.filters.films) return false;
-    if (row.type === "series" && !rankingState.filters.series) return false;
+    if (row.type !== "film" && !rankingState.filters.series) return false;
 
     if (rankingState.filters.franchise && row.franchise !== rankingState.filters.franchise) return false;
 
-    if (row.type === "series" && !phaseSelected) return false;
+    if (row.type !== "film" && !phaseSelected) return false;
     if (!phaseSelected) return true;
     return row.phase === rankingState.filters.phase;
   });
@@ -307,7 +337,7 @@ function renderMediaRanking() {
           <td>${rankLabels[index]}</td>
           <td>
             <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>
-            <small>(${row.type === "series" ? "Série" : "Film"}${row.release_date ? ` - ${formatDate(row.release_date)}` : ""}${row.type === "series" ? ` - ${escapeHTML(row.phase)}` : ""})</small>
+            <small>(${row.type === "film" ? "Film" : row.type === "season" ? "Saison" : "Série"}${row.release_date ? ` - ${formatDate(row.release_date)}` : ""}${row.type === "film" ? "" : ` - ${escapeHTML(row.phase)}`})</small>
           </td>
           <td><span class="score-badge ${getScoreClass(row.average)}">${formatScore(row.average, 2, 2)} / 10</span></td>
           <td>${row.count}</td>
@@ -484,7 +514,7 @@ async function loadMediaRanking(mediaId) {
     fetchAllRows("films", "id, title, release_date, franchise, phase"),
     fetchAllRowsByIn("ratings", "film_id, user_id, score", "user_id", profileIds),
     fetchAllRows("series", "id, title, franchise"),
-    fetchAllRows("series_seasons", "id, series_id, phase, start_date"),
+    fetchAllRows("series_seasons", "id, series_id, name, season_number, phase, start_date"),
     fetchAllRows("series_episodes", "id, season_id"),
     fetchAllRowsByIn("episode_ratings", "episode_id, user_id, score", "user_id", profileIds),
     fetchAllRowsByIn("season_user_ratings", "season_id, user_id, manual_score, adjustment", "user_id", profileIds)

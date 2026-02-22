@@ -1,7 +1,13 @@
 const navMarkup = `
   <header class="site-header">
     <div class="site-header-main">
-      <a class="brand" href="/index.html">MarvelReview</a>
+      <a class="brand" href="/index.html" aria-label="MarvelReview">
+        <img
+          class="brand-logo"
+          src="https://www.marvel-cineverse.fr/medias/images/marvelreview-logov1-blanc.png"
+          alt="MarvelReview"
+        />
+      </a>
       <button
         id="nav-toggle"
         type="button"

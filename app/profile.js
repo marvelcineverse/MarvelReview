@@ -226,7 +226,11 @@ function renderPersonalRatings() {
         ? `<span class="score-badge stade-neutre">Pas noté</span>`
         : `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score)} / 10</span>`;
       const typeLabel = row.type === "film" ? "Film" : "Série";
-      const href = row.type === "film" ? `/film.html?id=${row.film_id}` : `/series.html?id=${row.series_id}`;
+      const href = row.type === "film"
+        ? `/film.html?id=${row.film_id}`
+        : row.type === "season_phase"
+          ? `/season.html?id=${row.season_id}`
+          : `/series.html?id=${row.series_id}`;
       const modifierCell = row.type === "film"
         ? `
           <div class="inline-actions inline-edit">
@@ -241,14 +245,14 @@ function renderPersonalRatings() {
             `}
           </div>
         `
-        : `<span class="film-meta">Notable sur la page série</span>`;
+        : `<span class="film-meta">${row.type === "season_phase" ? "Notable sur la page saison" : "Notable sur la page série"}</span>`;
 
       return `
         <tr>
           <td>${rank}</td>
           <td>
             <a href="${href}" class="film-link">${escapeHTML(row.title)}</a>
-            <small>(${escapeHTML(typeLabel)}${row.phase ? ` - ${escapeHTML(row.phase)}` : ""})</small>
+            <small>(${escapeHTML(row.type === "season_phase" ? "Saison" : typeLabel)}${row.phase ? ` - ${escapeHTML(row.phase)}` : ""})</small>
           </td>
           <td>${badge}</td>
           <td>${modifierCell}</td>
@@ -286,7 +290,7 @@ async function loadPersonalRatings(userId) {
     fetchAllRows("films", "id, title, release_date, franchise, phase", "release_date", true),
     fetchAllRowsByEq("ratings", "film_id, score, review", "user_id", userId),
     fetchAllRows("series", "id, title, start_date, franchise", "start_date", true),
-    fetchAllRows("series_seasons", "id, series_id, phase, start_date"),
+    fetchAllRows("series_seasons", "id, series_id, name, season_number, phase, start_date"),
     fetchAllRows("series_episodes", "id, season_id"),
     fetchAllRowsByEq("episode_ratings", "episode_id, score", "user_id", userId),
     fetchAllRowsByEq("season_user_ratings", "season_id, manual_score, adjustment", "user_id", userId)
@@ -332,6 +336,7 @@ async function loadPersonalRatings(userId) {
     const serieSeasons = seasonsBySeriesId.get(serie.id) || [];
     const seasonScores = [];
     const seasonScoresByPhase = new Map();
+    const seasonRowsByPhase = new Map();
 
     for (const season of serieSeasons) {
       const seasonEpisodes = episodesBySeasonId.get(season.id) || [];
@@ -362,6 +367,19 @@ async function loadPersonalRatings(userId) {
             start_date: season.start_date || null
           });
           seasonScoresByPhase.set(phase, phaseRows);
+
+          const seasonLabel = String(season.name || "").trim()
+            || (Number.isFinite(Number(season.season_number))
+              ? `Saison ${season.season_number}`
+              : "Saison");
+          const seasonPhaseRows = seasonRowsByPhase.get(phase) || [];
+          seasonPhaseRows.push({
+            season_id: season.id,
+            title: `${serie.title} - ${seasonLabel}`,
+            sort_date: season.start_date || serie.start_date || null,
+            score: effective
+          });
+          seasonRowsByPhase.set(phase, seasonPhaseRows);
         }
       }
     }
@@ -396,6 +414,20 @@ async function loadPersonalRatings(userId) {
         phase,
         score: phaseScore
       });
+
+      const seasonPhaseRows = seasonRowsByPhase.get(phase) || [];
+      for (const seasonRow of seasonPhaseRows) {
+        rows.push({
+          type: "season_phase",
+          series_id: serie.id,
+          season_id: seasonRow.season_id,
+          title: seasonRow.title,
+          sort_date: seasonRow.sort_date,
+          franchise: String(serie.franchise || "").trim(),
+          phase,
+          score: seasonRow.score
+        });
+      }
     }
 
     return rows;
