@@ -16,6 +16,7 @@ const LATEST_ACTIVITY_LIMIT = 20;
 const state = {
   latestActivityExpanded: false
 };
+const SUPABASE_PAGE_SIZE = 1000;
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -39,6 +40,28 @@ function getSeriesHighlightDate(seriesRow, seasonsBySeriesId) {
   }
 
   return seriesRow.start_date || null;
+}
+
+async function fetchAllRows(table, columns) {
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from(table)
+      .select(columns)
+      .order("id", { ascending: true })
+      .range(from, to);
+
+    if (error) throw error;
+    const chunk = data || [];
+    rows.push(...chunk);
+    if (chunk.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
 }
 
 function computeSeriesListAverages(seriesList, seasons, episodes, episodeRatings, seasonUserRatings) {
@@ -355,9 +378,14 @@ function renderLatestActivity(allRows, mediaByUserId) {
           : row.type === "episode"
             ? "\u00C9pisode"
             : "Saison";
+      const episodeSeriesPart = row.type === "episode" && row.seriesTitle
+        ? `${escapeHTML(row.seriesTitle)} - `
+        : "";
       const detailLabel = row.type === "film" || row.type === "series"
         ? `${typeLabel} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`
-        : `${typeLabel} - ${escapeHTML(row.seasonLabel || "-")} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`;
+        : row.type === "episode"
+          ? `${typeLabel} - ${episodeSeriesPart}${escapeHTML(row.seasonLabel || "-")} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`
+          : `${typeLabel} - ${escapeHTML(row.seasonLabel || "-")} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`;
 
       return `
         <article class="card review-card">
@@ -383,39 +411,27 @@ function renderLatestActivity(allRows, mediaByUserId) {
 async function loadHomePage() {
   try {
     const [
-      { data: films, error: filmsError },
-      { data: filmRatings, error: filmRatingsError },
-      { data: series, error: seriesError },
-      { data: seasons, error: seasonsError },
-      { data: episodes, error: episodesError },
-      { data: episodeRatings, error: episodeRatingsError },
-      { data: seasonUserRatings, error: seasonUserRatingsError },
-      { data: seriesReviews, error: seriesReviewsError },
-      { data: ratings, error: ratingsError }
+      films,
+      series,
+      seasons,
+      episodes,
+      episodeRatings,
+      seasonUserRatings,
+      seriesReviews,
+      ratings
     ] = await Promise.all([
-      supabase.from("films").select("id, title, release_date, poster_url, franchise, type"),
-      supabase.from("ratings").select("film_id, score"),
-      supabase.from("series").select("id, title, start_date, end_date, poster_url, franchise, type"),
-      supabase.from("series_seasons").select("id, series_id, name, season_number, start_date"),
-      supabase.from("series_episodes").select("id, season_id, title, episode_number"),
-      supabase.from("episode_ratings").select("id, user_id, episode_id, score, review, created_at, updated_at, profiles(username)"),
-      supabase.from("season_user_ratings").select("id, user_id, season_id, manual_score, adjustment, review, created_at, updated_at, profiles(username)"),
-      supabase.from("series_reviews").select("id, user_id, series_id, review, created_at, updated_at, profiles(username)"),
-      supabase.from("ratings").select("id, user_id, film_id, score, review, created_at, updated_at, profiles(username)")
+      fetchAllRows("films", "id, title, release_date, poster_url, franchise, type"),
+      fetchAllRows("series", "id, title, start_date, end_date, poster_url, franchise, type"),
+      fetchAllRows("series_seasons", "id, series_id, name, season_number, start_date"),
+      fetchAllRows("series_episodes", "id, season_id, title, episode_number"),
+      fetchAllRows("episode_ratings", "id, user_id, episode_id, score, review, created_at, updated_at, profiles(username)"),
+      fetchAllRows("season_user_ratings", "id, user_id, season_id, manual_score, adjustment, review, created_at, updated_at, profiles(username)"),
+      fetchAllRows("series_reviews", "id, user_id, series_id, review, created_at, updated_at, profiles(username)"),
+      fetchAllRows("ratings", "id, user_id, film_id, score, review, created_at, updated_at, profiles(username)")
     ]);
 
-    if (filmsError) throw filmsError;
-    if (filmRatingsError) throw filmRatingsError;
-    if (seriesError) throw seriesError;
-    if (seasonsError) throw seasonsError;
-    if (episodesError) throw episodesError;
-    if (episodeRatingsError) throw episodeRatingsError;
-    if (seasonUserRatingsError) throw seasonUserRatingsError;
-    if (seriesReviewsError) throw seriesReviewsError;
-    if (ratingsError) throw ratingsError;
-
     const filmScoreById = new Map();
-    for (const row of filmRatings || []) {
+    for (const row of ratings || []) {
       const current = filmScoreById.get(row.film_id) || { total: 0, count: 0 };
       current.total += Number(row.score || 0);
       current.count += 1;
@@ -538,6 +554,7 @@ async function loadHomePage() {
       const episode = episodeById.get(rating.episode_id);
       if (!episode) continue;
       const season = seasonById.get(episode.season_id);
+      const serie = seriesById.get(season?.series_id);
       if (!Number.isFinite(Number(rating.score)) && !String(rating.review || "").trim()) continue;
       activityRows.push({
         id: `episode-${rating.id}`,
@@ -547,6 +564,7 @@ async function loadHomePage() {
         activity_at: rating.updated_at || rating.created_at || null,
         score: Number(rating.score),
         review: rating.review || "",
+        seriesTitle: serie?.title || "",
         seasonLabel: season?.season_number ? `S${season.season_number}` : "Saison",
         title: episode.title || "Episode",
         href: `/episode.html?id=${episode.id}`,
