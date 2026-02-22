@@ -1,4 +1,5 @@
 import { supabase } from "../supabaseClient.js";
+import { clearPasswordRecoveryPending, isPasswordRecoveryPending, signOut } from "./auth.js";
 import { setMessage } from "./utils.js";
 
 async function hasRecoverySession() {
@@ -28,7 +29,7 @@ document.querySelector("#update-password-form")?.addEventListener("submit", asyn
 
   try {
     const ready = await hasRecoverySession();
-    if (!ready) {
+    if (!isPasswordRecoveryPending() || !ready) {
       setMessage(
         "#form-message",
         "Lien invalide ou expire. Redemande un email de reinitialisation.",
@@ -40,6 +41,9 @@ document.querySelector("#update-password-form")?.addEventListener("submit", asyn
     const { error } = await supabase.auth.updateUser({ password });
     if (error) throw error;
 
+    clearPasswordRecoveryPending();
+    await signOut();
+
     setMessage("#form-message", "Mot de passe mis a jour. Redirection vers la connexion...");
     window.setTimeout(() => {
       window.location.href = "/login.html?reset=success";
@@ -47,4 +51,14 @@ document.querySelector("#update-password-form")?.addEventListener("submit", asyn
   } catch (error) {
     setMessage("#form-message", error.message || "Mise a jour impossible.", true);
   }
+});
+
+document.querySelector("#cancel-recovery-button")?.addEventListener("click", async () => {
+  clearPasswordRecoveryPending();
+  try {
+    await signOut();
+  } catch (_error) {
+    // Ignore sign-out errors and continue with local recovery cleanup.
+  }
+  window.location.href = "/login.html";
 });

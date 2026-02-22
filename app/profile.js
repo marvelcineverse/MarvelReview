@@ -574,6 +574,37 @@ document.querySelector("#profile-form")?.addEventListener("submit", async (event
   }
 });
 
+document.querySelector("#change-password-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+
+  const password = document.querySelector("#profile-new-password").value;
+  const confirm = document.querySelector("#profile-new-password-confirm").value;
+
+  if (password !== confirm) {
+    setMessage("#password-message", "Les mots de passe ne correspondent pas.", true);
+    return;
+  }
+
+  if (password.length < 6) {
+    setMessage("#password-message", "Le mot de passe doit contenir au moins 6 caracteres.", true);
+    return;
+  }
+
+  try {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw error;
+
+    document.querySelector("#profile-new-password").value = "";
+    document.querySelector("#profile-new-password-confirm").value = "";
+    setMessage("#password-message", "Mot de passe mis a jour.");
+  } catch (error) {
+    setMessage("#password-message", error.message || "Mise a jour impossible.", true);
+  }
+});
+
 document.querySelector("#personal-ratings-body")?.addEventListener("click", async (event) => {
   const button = event.target.closest("button[data-action]");
   if (!button) return;

@@ -1,6 +1,13 @@
 import { supabase } from "../supabaseClient.js";
 import { injectLayout, setMessage } from "./utils.js";
-import { bindAuthVisibility, getCurrentProfile, getSession, signOut } from "./auth.js";
+import {
+  bindAuthVisibility,
+  getCurrentProfile,
+  getSession,
+  isPasswordRecoveryPending,
+  isUpdatePasswordPath,
+  signOut
+} from "./auth.js";
 
 function ensureHeadElement(selector, tagName, attributes) {
   const headEl = document.head;
@@ -156,6 +163,11 @@ async function initCommonLayout() {
 
   try {
     const session = await getSession();
+    if (session && isPasswordRecoveryPending() && !isUpdatePasswordPath()) {
+      window.location.href = "/update-password.html";
+      return;
+    }
+
     const isLoggedIn = Boolean(session);
     bindAuthVisibility(isLoggedIn);
 

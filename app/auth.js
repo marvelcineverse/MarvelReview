@@ -1,4 +1,49 @@
-﻿import { supabase } from "../supabaseClient.js";
+import { supabase } from "../supabaseClient.js";
+
+const PASSWORD_RECOVERY_PENDING_KEY = "marvelreview:password-recovery-pending";
+const PASSWORD_RECOVERY_PATH = "/update-password.html";
+
+function normalizePath(path) {
+  const value = String(path || "/").toLowerCase();
+  if (value === "/") return "/index.html";
+  return value;
+}
+
+function readRecoveryTypeFromURL() {
+  const hashParams = new URLSearchParams(String(window.location.hash || "").replace(/^#/, ""));
+  if (hashParams.get("type") === "recovery") return "recovery";
+
+  const queryParams = new URLSearchParams(window.location.search);
+  if (queryParams.get("type") === "recovery") return "recovery";
+
+  return "";
+}
+
+export function markPasswordRecoveryPending() {
+  window.sessionStorage.setItem(PASSWORD_RECOVERY_PENDING_KEY, "1");
+}
+
+export function clearPasswordRecoveryPending() {
+  window.sessionStorage.removeItem(PASSWORD_RECOVERY_PENDING_KEY);
+}
+
+export function isPasswordRecoveryPending() {
+  return window.sessionStorage.getItem(PASSWORD_RECOVERY_PENDING_KEY) === "1";
+}
+
+export function isUpdatePasswordPath(pathname = window.location.pathname) {
+  return normalizePath(pathname) === PASSWORD_RECOVERY_PATH;
+}
+
+if (readRecoveryTypeFromURL() === "recovery") {
+  markPasswordRecoveryPending();
+}
+
+supabase.auth.onAuthStateChange((event) => {
+  if (event === "PASSWORD_RECOVERY") {
+    markPasswordRecoveryPending();
+  }
+});
 
 export async function getSession() {
   const {
@@ -6,6 +51,11 @@ export async function getSession() {
     error
   } = await supabase.auth.getSession();
   if (error) throw error;
+
+  if (!session) {
+    clearPasswordRecoveryPending();
+  }
+
   return session;
 }
 
@@ -33,6 +83,7 @@ export async function getCurrentProfile() {
 }
 
 export async function signOut() {
+  clearPasswordRecoveryPending();
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
@@ -48,7 +99,16 @@ export function bindAuthVisibility(isLoggedIn) {
 
 export function redirectIfLoggedIn(path = "/index.html") {
   return getSession().then((session) => {
-    if (session) window.location.href = path;
+    if (!session) return;
+
+    if (isPasswordRecoveryPending() && !isUpdatePasswordPath()) {
+      window.location.href = PASSWORD_RECOVERY_PATH;
+      return;
+    }
+
+    if (!isPasswordRecoveryPending()) {
+      window.location.href = path;
+    }
   });
 }
 
@@ -58,5 +118,11 @@ export async function requireAuth(path = "/login.html") {
     window.location.href = path;
     return null;
   }
+
+  if (isPasswordRecoveryPending() && !isUpdatePasswordPath()) {
+    window.location.href = PASSWORD_RECOVERY_PATH;
+    return null;
+  }
+
   return session;
 }

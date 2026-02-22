@@ -43,6 +43,22 @@
       </section>
 
       <section class="card">
+        <h2>Mot de passe</h2>
+        <form id="change-password-form" class="form">
+          <label>
+            Nouveau mot de passe
+            <input id="profile-new-password" type="password" minlength="6" required />
+          </label>
+          <label>
+            Confirmer le nouveau mot de passe
+            <input id="profile-new-password-confirm" type="password" minlength="6" required />
+          </label>
+          <button type="submit">Mettre &agrave; jour le mot de passe</button>
+          <p id="password-message" class="message" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="card">
         <h2>Mon classement personnel</h2>
         <p>Note rapidement chaque film sans ouvrir sa page détail. Les séries sont affichées mais non modifiables ici.</p>
         <h3>Filtres</h3>
