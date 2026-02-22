@@ -249,16 +249,17 @@ function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRa
     const current = episodeRatingsBySeasonAndUser.get(key) || {
       total: 0,
       count: 0,
-      lastCreatedAt: null,
-      lastCreatedAtTs: 0,
+      lastActivityAt: null,
+      lastActivityAtTs: 0,
       username: null
     };
     current.total += Number(rating.score || 0);
     current.count += 1;
-    const createdTs = getTimeValue(rating.created_at);
-    if (createdTs >= current.lastCreatedAtTs) {
-      current.lastCreatedAtTs = createdTs;
-      current.lastCreatedAt = rating.created_at || null;
+    const activityAt = rating.updated_at || rating.created_at || null;
+    const activityTs = getTimeValue(activityAt);
+    if (activityTs >= current.lastActivityAtTs) {
+      current.lastActivityAtTs = activityTs;
+      current.lastActivityAt = activityAt;
       current.username = rating.profiles?.username || current.username;
     }
     episodeRatingsBySeasonAndUser.set(key, current);
@@ -283,7 +284,7 @@ function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRa
       const stats = episodeRatingsBySeasonAndUser.get(`${season.id}::${userId}`) || {
         total: 0,
         count: 0,
-        lastCreatedAt: null,
+        lastActivityAt: null,
         username: null
       };
       const seasonRow = seasonRowsBySeasonAndUser.get(`${season.id}::${userId}`);
@@ -307,7 +308,7 @@ function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRa
         type: "season",
         user_id: userId,
         username: seasonRow?.profiles?.username || stats.username || "Utilisateur",
-        created_at: seasonRow?.created_at || stats.lastCreatedAt,
+        activity_at: seasonRow?.updated_at || seasonRow?.created_at || stats.lastActivityAt,
         score: Number.isFinite(effectiveScore) ? effectiveScore : null,
         review: seasonRow?.review || "",
         adjustment,
@@ -367,7 +368,7 @@ function renderLatestActivity(allRows, mediaByUserId) {
           <p class="film-meta">${detailLabel}</p>
           <p>${scorePart}<span class="film-meta">${escapeHTML(adjustmentPart)}</span></p>
           ${String(row.review || "").trim() ? `<p>${escapeHTML(row.review)}</p>` : ""}
-          <small>${formatDate(row.created_at)}</small>
+          <small>${formatDate(row.activity_at)}</small>
         </article>
       `;
     })
@@ -397,10 +398,10 @@ async function loadHomePage() {
       supabase.from("series").select("id, title, start_date, end_date, poster_url, franchise, type"),
       supabase.from("series_seasons").select("id, series_id, name, season_number, start_date"),
       supabase.from("series_episodes").select("id, season_id, title, episode_number"),
-      supabase.from("episode_ratings").select("id, user_id, episode_id, score, review, created_at, profiles(username)"),
-      supabase.from("season_user_ratings").select("id, user_id, season_id, manual_score, adjustment, review, created_at, profiles(username)"),
-      supabase.from("series_reviews").select("id, user_id, series_id, review, created_at, profiles(username)"),
-      supabase.from("ratings").select("id, user_id, film_id, score, review, created_at, profiles(username)")
+      supabase.from("episode_ratings").select("id, user_id, episode_id, score, review, created_at, updated_at, profiles(username)"),
+      supabase.from("season_user_ratings").select("id, user_id, season_id, manual_score, adjustment, review, created_at, updated_at, profiles(username)"),
+      supabase.from("series_reviews").select("id, user_id, series_id, review, created_at, updated_at, profiles(username)"),
+      supabase.from("ratings").select("id, user_id, film_id, score, review, created_at, updated_at, profiles(username)")
     ]);
 
     if (filmsError) throw filmsError;
@@ -505,7 +506,7 @@ async function loadHomePage() {
         type: "film",
         user_id: rating.user_id,
         username: rating.profiles?.username || "Utilisateur",
-        created_at: rating.created_at || null,
+        activity_at: rating.updated_at || rating.created_at || null,
         score: Number(rating.score),
         review: rating.review || "",
         seasonLabel: "Film",
@@ -523,7 +524,7 @@ async function loadHomePage() {
         type: "series",
         user_id: review.user_id,
         username: review.profiles?.username || "Utilisateur",
-        created_at: review.created_at || null,
+        activity_at: review.updated_at || review.created_at || null,
         score: null,
         review: review.review || "",
         seasonLabel: "S\u00E9rie",
@@ -543,7 +544,7 @@ async function loadHomePage() {
         type: "episode",
         user_id: rating.user_id,
         username: rating.profiles?.username || "Utilisateur",
-        created_at: rating.created_at || null,
+        activity_at: rating.updated_at || rating.created_at || null,
         score: Number(rating.score),
         review: rating.review || "",
         seasonLabel: season?.season_number ? `S${season.season_number}` : "Saison",
@@ -562,7 +563,7 @@ async function loadHomePage() {
     activityRows.push(...seasonRows);
 
     const latestActivity = activityRows
-      .sort((a, b) => getTimeValue(b.created_at) - getTimeValue(a.created_at))
+      .sort((a, b) => getTimeValue(b.activity_at) - getTimeValue(a.activity_at))
       .slice(0, LATEST_ACTIVITY_LIMIT);
 
     const userIds = [...new Set(latestActivity.map((row) => row.user_id).filter(Boolean))];
