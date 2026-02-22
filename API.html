@@ -12,8 +12,8 @@
 
       <section class="page-intro">
         <div>
-          <h1>API Read-Only (Films)</h1>
-          <p>Documentation des routes RPC publiques pour consulter les donn&eacute;es films.</p>
+          <h1>API Read-Only (Films &amp; S&eacute;ries)</h1>
+          <p>Documentation des routes RPC publiques pour consulter les donn&eacute;es films et s&eacute;ries.</p>
         </div>
         <p id="auth-status" class="status"></p>
       </section>
@@ -47,29 +47,31 @@ Content-Type: application/json</code></pre>
               <thead>
                 <tr>
                   <th>Route</th>
-                  <th>Objectif</th>
+                  <th>Param&egrave;tres</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><code>POST /rest/v1/rpc/api_film_summary</code></td>
-                  <td>R&eacute;sum&eacute; d'un film (meta + moyenne globale).</td>
-                </tr>
-                <tr>
                   <td><code>POST /rest/v1/rpc/api_film_score</code></td>
-                  <td>Moyenne d'un film selon un scope: global, media ou user.</td>
+                  <td>
+                    <code>p_film_ref</code>, <code>p_scope</code> (<code>global</code>/<code>media</code>/<code>user</code>),
+                    <code>p_scope_value</code>
+                  </td>
                 </tr>
                 <tr>
                   <td><code>POST /rest/v1/rpc/api_film_reviews</code></td>
-                  <td>Notes + avis d'un film (global/media/user), pagin&eacute;s.</td>
+                  <td>
+                    <code>p_film_ref</code>, <code>p_scope</code>, <code>p_scope_value</code>,
+                    <code>p_limit</code>, <code>p_offset</code>
+                  </td>
                 </tr>
                 <tr>
                   <td><code>POST /rest/v1/rpc/api_film_rank_in_franchise</code></td>
-                  <td>Position d'un film dans le classement de sa franchise.</td>
+                  <td><code>p_film_ref</code>, <code>p_mode</code> (<code>all</code>/<code>films_only</code>)</td>
                 </tr>
                 <tr>
                   <td><code>POST /rest/v1/rpc/api_film_catalog</code></td>
-                  <td>Catalogue films avec moyenne globale et nombre de notes.</td>
+                  <td>Aucun</td>
                 </tr>
               </tbody>
             </table>
@@ -77,68 +79,57 @@ Content-Type: application/json</code></pre>
         </div>
 
         <div class="home-stack-chunk">
-          <h2>R&eacute;f&eacute;rence film</h2>
-          <p><code>p_film_ref</code> accepte:</p>
-          <p>- le <code>slug</code> (ex: <code>iron-man</code>)</p>
-          <p>- le titre exact (insensible &agrave; la casse, ex: <code>Iron Man</code>)</p>
-          <p>- l'id UUID du film</p>
+          <h2>Endpoints S&eacute;ries</h2>
+          <div class="table-wrapper">
+            <table class="ranking-table compact">
+              <thead>
+                <tr>
+                  <th>Route</th>
+                  <th>Param&egrave;tres</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>POST /rest/v1/rpc/api_series_score</code></td>
+                  <td>
+                    <code>p_series_ref</code>, <code>p_scope</code> (<code>global</code>/<code>media</code>/<code>user</code>),
+                    <code>p_scope_value</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>POST /rest/v1/rpc/api_series_reviews</code></td>
+                  <td>
+                    <code>p_series_ref</code>, <code>p_scope</code>, <code>p_scope_value</code>,
+                    <code>p_limit</code>, <code>p_offset</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>POST /rest/v1/rpc/api_series_rank_in_franchise</code></td>
+                  <td><code>p_series_ref</code>, <code>p_mode</code> (<code>all</code>/<code>series_only</code>)</td>
+                </tr>
+                <tr>
+                  <td><code>POST /rest/v1/rpc/api_latest_activity</code></td>
+                  <td><code>p_limit</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div class="home-stack-chunk">
-          <h2>Exemples JSON (body)</h2>
-          <p><code>api_film_summary</code></p>
-          <pre><code>{
-  "p_film_ref": "iron-man"
-}</code></pre>
-
-          <p><code>api_film_score</code> (scope media)</p>
-          <pre><code>{
-  "p_film_ref": "iron-man",
-  "p_scope": "media",
-  "p_scope_value": "Marvel CineVerse"
-}</code></pre>
-
-          <p><code>api_film_reviews</code> (scope user)</p>
-          <pre><code>{
-  "p_film_ref": "iron-man",
-  "p_scope": "user",
-  "p_scope_value": "Lucas-MarvelCineVerse",
-  "p_limit": 50,
-  "p_offset": 0
-}</code></pre>
-
-          <p><code>api_film_rank_in_franchise</code> (films only)</p>
-          <pre><code>{
-  "p_film_ref": "iron-man",
-  "p_mode": "films_only"
-}</code></pre>
+          <h2>R&eacute;f&eacute;rences accept&eacute;es</h2>
+          <p><code>p_film_ref</code> accepte: <code>slug</code>, titre exact (insensible &agrave; la casse), UUID.</p>
+          <p><code>p_series_ref</code> accepte: <code>slug</code>, titre exact (insensible &agrave; la casse), UUID.</p>
         </div>
 
         <div class="home-stack-chunk">
-          <h2>Exemple curl</h2>
-          <pre><code>curl -X POST "https://YOUR_PROJECT_ID.supabase.co/rest/v1/rpc/api_film_summary" \
-  -H "apikey: YOUR_SUPABASE_ANON_KEY" \
-  -H "Authorization: Bearer YOUR_SUPABASE_ANON_KEY" \
-  -H "Content-Type: application/json" \
-  -d "{\"p_film_ref\":\"iron-man\"}"</code></pre>
-        </div>
-
-        <div class="home-stack-chunk">
-          <h2>Exemple JavaScript</h2>
-          <pre><code>const { data, error } = await supabase.rpc("api_film_score", {
-  p_film_ref: "iron-man",
-  p_scope: "media",
-  p_scope_value: "Marvel CineVerse"
-});</code></pre>
-        </div>
-
-        <div class="home-stack-chunk">
-          <h2>Scopes et modes</h2>
+          <h2>Valeurs possibles</h2>
           <p><code>p_scope</code>: <code>global</code>, <code>media</code>, <code>user</code></p>
-          <p><code>p_mode</code>: <code>all</code>, <code>films_only</code></p>
+          <p><code>p_mode</code> films: <code>all</code>, <code>films_only</code></p>
+          <p><code>p_mode</code> s&eacute;ries: <code>all</code>, <code>series_only</code></p>
           <p>
             Quand un scope media/user ne trouve aucun profil correspondant, la r&eacute;ponse retourne
-            <code>rating_count = 0</code> et <code>average = null</code>.
+            <code>rating_count = 0</code> (films) ou <code>contributor_count = 0</code> (s&eacute;ries), avec <code>average = null</code>.
           </p>
         </div>
       </section>

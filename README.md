@@ -144,65 +144,47 @@ Apres execution du SQL, va dans `Database` > `Tables`:
 Objectif: exposer des donnees d'affichage vers un autre site Marvel, sans logique metier dupliquee cote front.
 
 Fonctions RPC disponibles (via PostgREST/Supabase):
-- `api_film_catalog()`: retourne la liste des films avec `rating_count` et `average`.
-- `api_latest_activity(p_limit integer default 20)`: retourne les dernieres notes/critiques consolidees (films, episodes, saisons, series).
-- `api_film_summary(p_film_ref text)`: resume d'un film (id, slug, meta, moyenne globale).
-- `api_film_score(p_film_ref text, p_scope text default 'global', p_scope_value text default null)`:
-  - scope `global`
-  - scope `media` + `p_scope_value` = nom media ou id media
-  - scope `user` + `p_scope_value` = username ou id user
-- `api_film_reviews(p_film_ref text, p_scope text default 'global', p_scope_value text default null, p_limit integer default 100, p_offset integer default 0)`:
-  notes + avis filtres par scope.
-- `api_film_rank_in_franchise(p_film_ref text, p_mode text default 'all')`:
-  position du film dans sa franchise
-  - mode `all` = tous les contenus de la table `films` (tous types)
-  - mode `films_only` = uniquement `type = 'Film'`
-
-`p_film_ref` accepte: `slug`, `title` exact (insensible a la casse) ou `id` UUID.
-
-Exemple (JS, cote front ou serveur):
-```js
-const { data, error } = await supabase.rpc("api_film_catalog");
-```
-
-```js
-const { data, error } = await supabase.rpc("api_latest_activity", { p_limit: 20 });
-```
-
-```js
-const { data, error } = await supabase.rpc("api_film_summary", { p_film_ref: "iron-man" });
-```
-
-```js
-const { data, error } = await supabase.rpc("api_film_score", {
-  p_film_ref: "Iron Man",
-  p_scope: "media",
-  p_scope_value: "Marvel CineVerse"
-});
-```
-
-```js
-const { data, error } = await supabase.rpc("api_film_reviews", {
-  p_film_ref: "iron-man",
-  p_scope: "media",
-  p_scope_value: "Marvel CineVerse",
-  p_limit: 50,
-  p_offset: 0
-});
-```
-
-```js
-const { data, error } = await supabase.rpc("api_film_rank_in_franchise", {
-  p_film_ref: "iron-man",
-  p_mode: "films_only"
-});
-```
+- `api_film_catalog()`
+  - Parametres: aucun
+- `api_film_score(p_film_ref text, p_scope text default 'global', p_scope_value text default null)`
+  - `p_film_ref`: `slug`, `title` exact (insensible a la casse) ou `id` UUID
+  - `p_scope`: `global`, `media`, `user`
+  - `p_scope_value`:
+    - scope `media`: nom media ou id UUID media
+    - scope `user`: username ou id UUID profil
+    - scope `global`: ignore
+- `api_film_reviews(p_film_ref text, p_scope text default 'global', p_scope_value text default null, p_limit integer default 100, p_offset integer default 0)`
+  - `p_film_ref`: `slug`, `title` exact (insensible a la casse) ou `id` UUID
+  - `p_scope`: `global`, `media`, `user`
+  - `p_scope_value`: idem `api_film_score`
+  - `p_limit`: nombre max de lignes (>= 0)
+  - `p_offset`: decallage pagination (>= 0)
+- `api_film_rank_in_franchise(p_film_ref text, p_mode text default 'all')`
+  - `p_film_ref`: `slug`, `title` exact (insensible a la casse) ou `id` UUID
+  - `p_mode`: `all`, `films_only`
+- `api_series_score(p_series_ref text, p_scope text default 'global', p_scope_value text default null)`
+  - `p_series_ref`: `slug`, `title` exact (insensible a la casse) ou `id` UUID
+  - `p_scope`: `global`, `media`, `user`
+  - `p_scope_value`: meme logique que pour les films
+- `api_series_reviews(p_series_ref text, p_scope text default 'global', p_scope_value text default null, p_limit integer default 100, p_offset integer default 0)`
+  - `p_series_ref`: `slug`, `title` exact (insensible a la casse) ou `id` UUID
+  - `p_scope`: `global`, `media`, `user`
+  - `p_scope_value`: meme logique que pour les films
+  - `p_limit`: nombre max de lignes (>= 0)
+  - `p_offset`: decallage pagination (>= 0)
+- `api_series_rank_in_franchise(p_series_ref text, p_mode text default 'all')`
+  - `p_series_ref`: `slug`, `title` exact (insensible a la casse) ou `id` UUID
+  - `p_mode`: `all`, `series_only`
+- `api_latest_activity(p_limit integer default 20)`
+  - `p_limit`: nombre max de lignes (>= 0)
 
 Routes HTTP equivalentes (Supabase REST):
-- `POST /rest/v1/rpc/api_film_summary`
 - `POST /rest/v1/rpc/api_film_score`
 - `POST /rest/v1/rpc/api_film_reviews`
 - `POST /rest/v1/rpc/api_film_rank_in_franchise`
+- `POST /rest/v1/rpc/api_series_score`
+- `POST /rest/v1/rpc/api_series_reviews`
+- `POST /rest/v1/rpc/api_series_rank_in_franchise`
 - `POST /rest/v1/rpc/api_film_catalog`
 - `POST /rest/v1/rpc/api_latest_activity`
 
