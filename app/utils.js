@@ -28,6 +28,7 @@ const navMarkup = `
         <a class="nav-link" href="/series.html">S&eacute;ries</a>
         <a class="nav-link" href="/ranking.html">Classement</a>
         <a class="nav-link" href="/media.html">M&eacute;dias</a>
+        <a class="nav-link" href="/API.html">API</a>
         <a class="nav-link" href="/profile.html" data-auth="logged-in">Profil</a>
       </div>
       <div class="top-nav-right">

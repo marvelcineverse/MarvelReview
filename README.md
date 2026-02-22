@@ -146,6 +146,19 @@ Objectif: exposer des donnees d'affichage vers un autre site Marvel, sans logiqu
 Fonctions RPC disponibles (via PostgREST/Supabase):
 - `api_film_catalog()`: retourne la liste des films avec `rating_count` et `average`.
 - `api_latest_activity(p_limit integer default 20)`: retourne les dernieres notes/critiques consolidees (films, episodes, saisons, series).
+- `api_film_summary(p_film_ref text)`: resume d'un film (id, slug, meta, moyenne globale).
+- `api_film_score(p_film_ref text, p_scope text default 'global', p_scope_value text default null)`:
+  - scope `global`
+  - scope `media` + `p_scope_value` = nom media ou id media
+  - scope `user` + `p_scope_value` = username ou id user
+- `api_film_reviews(p_film_ref text, p_scope text default 'global', p_scope_value text default null, p_limit integer default 100, p_offset integer default 0)`:
+  notes + avis filtres par scope.
+- `api_film_rank_in_franchise(p_film_ref text, p_mode text default 'all')`:
+  position du film dans sa franchise
+  - mode `all` = tous les contenus de la table `films` (tous types)
+  - mode `films_only` = uniquement `type = 'Film'`
+
+`p_film_ref` accepte: `slug`, `title` exact (insensible a la casse) ou `id` UUID.
 
 Exemple (JS, cote front ou serveur):
 ```js
@@ -155,6 +168,43 @@ const { data, error } = await supabase.rpc("api_film_catalog");
 ```js
 const { data, error } = await supabase.rpc("api_latest_activity", { p_limit: 20 });
 ```
+
+```js
+const { data, error } = await supabase.rpc("api_film_summary", { p_film_ref: "iron-man" });
+```
+
+```js
+const { data, error } = await supabase.rpc("api_film_score", {
+  p_film_ref: "Iron Man",
+  p_scope: "media",
+  p_scope_value: "Marvel CineVerse"
+});
+```
+
+```js
+const { data, error } = await supabase.rpc("api_film_reviews", {
+  p_film_ref: "iron-man",
+  p_scope: "media",
+  p_scope_value: "Marvel CineVerse",
+  p_limit: 50,
+  p_offset: 0
+});
+```
+
+```js
+const { data, error } = await supabase.rpc("api_film_rank_in_franchise", {
+  p_film_ref: "iron-man",
+  p_mode: "films_only"
+});
+```
+
+Routes HTTP equivalentes (Supabase REST):
+- `POST /rest/v1/rpc/api_film_summary`
+- `POST /rest/v1/rpc/api_film_score`
+- `POST /rest/v1/rpc/api_film_reviews`
+- `POST /rest/v1/rpc/api_film_rank_in_franchise`
+- `POST /rest/v1/rpc/api_film_catalog`
+- `POST /rest/v1/rpc/api_latest_activity`
 
 Notes d'usage:
 - Ces RPC sont `display-only`: pas d'ecriture, juste des agregats/flux pour l'affichage.

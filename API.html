@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MarvelReview - API</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <div id="nav-root"></div>
+
+      <section class="page-intro">
+        <div>
+          <h1>API Read-Only (Films)</h1>
+          <p>Documentation des routes RPC publiques pour consulter les donn&eacute;es films.</p>
+        </div>
+        <p id="auth-status" class="status"></p>
+      </section>
+
+      <section class="card home-stack-card">
+        <div class="home-stack-chunk">
+          <h2>Principe</h2>
+          <p>Cette API est en lecture seule. Aucune route d'&eacute;criture n'est expos&eacute;e ici.</p>
+          <p>
+            Les routes ci-dessous correspondent &agrave; des fonctions RPC Supabase et se consomment en HTTP:
+            <code>POST /rest/v1/rpc/&lt;function_name&gt;</code>.
+          </p>
+        </div>
+
+        <div class="home-stack-chunk">
+          <h2>Base URL et headers</h2>
+          <p>Base URL:</p>
+          <pre><code>https://YOUR_PROJECT_ID.supabase.co/rest/v1/rpc</code></pre>
+          <p>Headers minimum:</p>
+          <pre><code>apikey: YOUR_SUPABASE_ANON_KEY
+Authorization: Bearer YOUR_SUPABASE_ANON_KEY
+Content-Type: application/json</code></pre>
+        </div>
+
+        <div class="home-stack-chunk">
+          <h2>Endpoints Films</h2>
+          <div class="table-wrapper">
+            <table class="ranking-table compact">
+              <thead>
+                <tr>
+                  <th>Route</th>
+                  <th>Objectif</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>POST /rest/v1/rpc/api_film_summary</code></td>
+                  <td>R&eacute;sum&eacute; d'un film (meta + moyenne globale).</td>
+                </tr>
+                <tr>
+                  <td><code>POST /rest/v1/rpc/api_film_score</code></td>
+                  <td>Moyenne d'un film selon un scope: global, media ou user.</td>
+                </tr>
+                <tr>
+                  <td><code>POST /rest/v1/rpc/api_film_reviews</code></td>
+                  <td>Notes + avis d'un film (global/media/user), pagin&eacute;s.</td>
+                </tr>
+                <tr>
+                  <td><code>POST /rest/v1/rpc/api_film_rank_in_franchise</code></td>
+                  <td>Position d'un film dans le classement de sa franchise.</td>
+                </tr>
+                <tr>
+                  <td><code>POST /rest/v1/rpc/api_film_catalog</code></td>
+                  <td>Catalogue films avec moyenne globale et nombre de notes.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="home-stack-chunk">
+          <h2>R&eacute;f&eacute;rence film</h2>
+          <p><code>p_film_ref</code> accepte:</p>
+          <p>- le <code>slug</code> (ex: <code>iron-man</code>)</p>
+          <p>- le titre exact (insensible &agrave; la casse, ex: <code>Iron Man</code>)</p>
+          <p>- l'id UUID du film</p>
+        </div>
+
+        <div class="home-stack-chunk">
+          <h2>Exemples JSON (body)</h2>
+          <p><code>api_film_summary</code></p>
+          <pre><code>{
+  "p_film_ref": "iron-man"
+}</code></pre>
+
+          <p><code>api_film_score</code> (scope media)</p>
+          <pre><code>{
+  "p_film_ref": "iron-man",
+  "p_scope": "media",
+  "p_scope_value": "Marvel CineVerse"
+}</code></pre>
+
+          <p><code>api_film_reviews</code> (scope user)</p>
+          <pre><code>{
+  "p_film_ref": "iron-man",
+  "p_scope": "user",
+  "p_scope_value": "Lucas-MarvelCineVerse",
+  "p_limit": 50,
+  "p_offset": 0
+}</code></pre>
+
+          <p><code>api_film_rank_in_franchise</code> (films only)</p>
+          <pre><code>{
+  "p_film_ref": "iron-man",
+  "p_mode": "films_only"
+}</code></pre>
+        </div>
+
+        <div class="home-stack-chunk">
+          <h2>Exemple curl</h2>
+          <pre><code>curl -X POST "https://YOUR_PROJECT_ID.supabase.co/rest/v1/rpc/api_film_summary" \
+  -H "apikey: YOUR_SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer YOUR_SUPABASE_ANON_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"p_film_ref\":\"iron-man\"}"</code></pre>
+        </div>
+
+        <div class="home-stack-chunk">
+          <h2>Exemple JavaScript</h2>
+          <pre><code>const { data, error } = await supabase.rpc("api_film_score", {
+  p_film_ref: "iron-man",
+  p_scope: "media",
+  p_scope_value: "Marvel CineVerse"
+});</code></pre>
+        </div>
+
+        <div class="home-stack-chunk">
+          <h2>Scopes et modes</h2>
+          <p><code>p_scope</code>: <code>global</code>, <code>media</code>, <code>user</code></p>
+          <p><code>p_mode</code>: <code>all</code>, <code>films_only</code></p>
+          <p>
+            Quand un scope media/user ne trouve aucun profil correspondant, la r&eacute;ponse retourne
+            <code>rating_count = 0</code> et <code>average = null</code>.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/app/common.js"></script>
+  </body>
+</html>

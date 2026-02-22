@@ -992,6 +992,371 @@ for delete
 using (auth.uid() = user_id or public.is_admin(auth.uid()));
 
 -- Public read-only API (RPC) for external display use-cases
+create or replace function public.api_film_summary(p_film_ref text)
+returns table (
+  id uuid,
+  title text,
+  slug text,
+  release_date date,
+  poster_url text,
+  franchise text,
+  phase text,
+  type text,
+  rating_count bigint,
+  average numeric
+)
+language sql
+stable
+set search_path = public
+as $$
+  with input_ref as (
+    select trim(coalesce(p_film_ref, '')) as film_ref
+  ),
+  target_film as (
+    select f.*
+    from public.films f
+    cross join input_ref i
+    where
+      i.film_ref <> ''
+      and (
+        (i.film_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and f.id = i.film_ref::uuid)
+        or lower(coalesce(f.slug, '')) = lower(i.film_ref)
+        or lower(f.title) = lower(i.film_ref)
+      )
+    order by
+      case
+        when lower(coalesce(f.slug, '')) = lower(i.film_ref) then 0
+        when lower(f.title) = lower(i.film_ref) then 1
+        else 2
+      end
+    limit 1
+  )
+  select
+    tf.id,
+    tf.title,
+    tf.slug,
+    tf.release_date,
+    tf.poster_url,
+    tf.franchise,
+    tf.phase,
+    tf.type,
+    count(r.id)::bigint as rating_count,
+    case when count(r.id) > 0 then avg(r.score)::numeric else null end as average
+  from target_film tf
+  left join public.ratings r
+    on r.film_id = tf.id
+  group by
+    tf.id,
+    tf.title,
+    tf.slug,
+    tf.release_date,
+    tf.poster_url,
+    tf.franchise,
+    tf.phase,
+    tf.type;
+$$;
+
+create or replace function public.api_film_score(
+  p_film_ref text,
+  p_scope text default 'global',
+  p_scope_value text default null
+)
+returns table (
+  film_id uuid,
+  film_title text,
+  film_slug text,
+  scope text,
+  scope_value text,
+  rating_count bigint,
+  average numeric
+)
+language sql
+stable
+set search_path = public
+as $$
+  with input_params as (
+    select
+      trim(coalesce(p_film_ref, '')) as film_ref,
+      lower(trim(coalesce(p_scope, 'global'))) as scope_kind,
+      nullif(trim(coalesce(p_scope_value, '')), '') as scope_ref
+  ),
+  target_film as (
+    select f.*
+    from public.films f
+    cross join input_params p
+    where
+      p.film_ref <> ''
+      and (
+        (p.film_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and f.id = p.film_ref::uuid)
+        or lower(coalesce(f.slug, '')) = lower(p.film_ref)
+        or lower(f.title) = lower(p.film_ref)
+      )
+    order by
+      case
+        when lower(coalesce(f.slug, '')) = lower(p.film_ref) then 0
+        when lower(f.title) = lower(p.film_ref) then 1
+        else 2
+      end
+    limit 1
+  ),
+  scoped_user_ids as (
+    select distinct pm.profile_id as user_id
+    from input_params p
+    join public.profile_media_memberships pm
+      on p.scope_kind = 'media'
+      and pm.status = 'approved'
+    join public.media_outlets mo
+      on mo.id = pm.media_id
+    where
+      p.scope_ref is not null
+      and (
+        lower(mo.name) = lower(p.scope_ref)
+        or (p.scope_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and mo.id = p.scope_ref::uuid)
+      )
+    union
+    select distinct pr.id as user_id
+    from input_params p
+    join public.profiles pr
+      on p.scope_kind = 'user'
+    where
+      p.scope_ref is not null
+      and (
+        lower(pr.username) = lower(p.scope_ref)
+        or (p.scope_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and pr.id = p.scope_ref::uuid)
+      )
+  ),
+  scoped_ratings as (
+    select r.*
+    from target_film tf
+    join public.ratings r
+      on r.film_id = tf.id
+    cross join input_params p
+    where
+      p.scope_kind = 'global'
+      or r.user_id in (select su.user_id from scoped_user_ids su)
+  )
+  select
+    tf.id as film_id,
+    tf.title as film_title,
+    tf.slug as film_slug,
+    p.scope_kind as scope,
+    p.scope_ref as scope_value,
+    count(sr.id)::bigint as rating_count,
+    case when count(sr.id) > 0 then avg(sr.score)::numeric else null end as average
+  from target_film tf
+  cross join input_params p
+  left join scoped_ratings sr
+    on true
+  where p.scope_kind in ('global', 'media', 'user')
+  group by tf.id, tf.title, tf.slug, p.scope_kind, p.scope_ref;
+$$;
+
+create or replace function public.api_film_reviews(
+  p_film_ref text,
+  p_scope text default 'global',
+  p_scope_value text default null,
+  p_limit integer default 100,
+  p_offset integer default 0
+)
+returns table (
+  film_id uuid,
+  film_title text,
+  film_slug text,
+  user_id uuid,
+  username text,
+  user_media text,
+  score numeric,
+  review text,
+  rated_at timestamptz
+)
+language sql
+stable
+set search_path = public
+as $$
+  with input_params as (
+    select
+      trim(coalesce(p_film_ref, '')) as film_ref,
+      lower(trim(coalesce(p_scope, 'global'))) as scope_kind,
+      nullif(trim(coalesce(p_scope_value, '')), '') as scope_ref,
+      greatest(coalesce(p_limit, 100), 0) as row_limit,
+      greatest(coalesce(p_offset, 0), 0) as row_offset
+  ),
+  target_film as (
+    select f.*
+    from public.films f
+    cross join input_params p
+    where
+      p.film_ref <> ''
+      and (
+        (p.film_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and f.id = p.film_ref::uuid)
+        or lower(coalesce(f.slug, '')) = lower(p.film_ref)
+        or lower(f.title) = lower(p.film_ref)
+      )
+    order by
+      case
+        when lower(coalesce(f.slug, '')) = lower(p.film_ref) then 0
+        when lower(f.title) = lower(p.film_ref) then 1
+        else 2
+      end
+    limit 1
+  ),
+  scoped_user_ids as (
+    select distinct pm.profile_id as user_id
+    from input_params p
+    join public.profile_media_memberships pm
+      on p.scope_kind = 'media'
+      and pm.status = 'approved'
+    join public.media_outlets mo
+      on mo.id = pm.media_id
+    where
+      p.scope_ref is not null
+      and (
+        lower(mo.name) = lower(p.scope_ref)
+        or (p.scope_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and mo.id = p.scope_ref::uuid)
+      )
+    union
+    select distinct pr.id as user_id
+    from input_params p
+    join public.profiles pr
+      on p.scope_kind = 'user'
+    where
+      p.scope_ref is not null
+      and (
+        lower(pr.username) = lower(p.scope_ref)
+        or (p.scope_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and pr.id = p.scope_ref::uuid)
+      )
+  )
+  select
+    tf.id as film_id,
+    tf.title as film_title,
+    tf.slug as film_slug,
+    r.user_id,
+    coalesce(pr.username, 'Utilisateur') as username,
+    um.user_media,
+    r.score::numeric as score,
+    coalesce(r.review, '') as review,
+    coalesce(r.updated_at, r.created_at) as rated_at
+  from target_film tf
+  join public.ratings r
+    on r.film_id = tf.id
+  join input_params p
+    on p.scope_kind in ('global', 'media', 'user')
+  left join public.profiles pr
+    on pr.id = r.user_id
+  left join lateral (
+    select string_agg(mo.name, ', ' order by mo.name) as user_media
+    from public.profile_media_memberships pm
+    join public.media_outlets mo
+      on mo.id = pm.media_id
+    where pm.profile_id = r.user_id and pm.status = 'approved'
+  ) um on true
+  where
+    p.scope_kind = 'global'
+    or r.user_id in (select su.user_id from scoped_user_ids su)
+  order by coalesce(r.updated_at, r.created_at) desc, r.id desc
+  limit (select row_limit from input_params)
+  offset (select row_offset from input_params);
+$$;
+
+create or replace function public.api_film_rank_in_franchise(
+  p_film_ref text,
+  p_mode text default 'all'
+)
+returns table (
+  film_id uuid,
+  film_title text,
+  film_slug text,
+  franchise text,
+  type text,
+  mode text,
+  rating_count bigint,
+  average numeric,
+  rank_position bigint,
+  ranked_items_count bigint,
+  total_items_count bigint
+)
+language sql
+stable
+set search_path = public
+as $$
+  with input_params as (
+    select
+      trim(coalesce(p_film_ref, '')) as film_ref,
+      lower(trim(coalesce(p_mode, 'all'))) as rank_mode
+  ),
+  target_film as (
+    select f.*
+    from public.films f
+    cross join input_params p
+    where
+      p.film_ref <> ''
+      and (
+        (p.film_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and f.id = p.film_ref::uuid)
+        or lower(coalesce(f.slug, '')) = lower(p.film_ref)
+        or lower(f.title) = lower(p.film_ref)
+      )
+    order by
+      case
+        when lower(coalesce(f.slug, '')) = lower(p.film_ref) then 0
+        when lower(f.title) = lower(p.film_ref) then 1
+        else 2
+      end
+    limit 1
+  ),
+  peers as (
+    select f.id, f.title, f.slug, f.franchise, f.type
+    from public.films f
+    join target_film tf
+      on tf.franchise = f.franchise
+    cross join input_params p
+    where
+      p.rank_mode = 'all'
+      or (p.rank_mode = 'films_only' and lower(f.type) = 'film')
+  ),
+  peer_scores as (
+    select
+      p.id,
+      p.title,
+      p.slug,
+      p.franchise,
+      p.type,
+      count(r.id)::bigint as rating_count,
+      case when count(r.id) > 0 then avg(r.score)::numeric else null end as average
+    from peers p
+    left join public.ratings r
+      on r.film_id = p.id
+    group by p.id, p.title, p.slug, p.franchise, p.type
+  ),
+  ranked as (
+    select
+      ps.*,
+      case
+        when ps.average is null then null::bigint
+        else dense_rank() over (order by ps.average desc nulls last, ps.title asc)::bigint
+      end as rank_position,
+      count(*) filter (where ps.average is not null) over ()::bigint as ranked_items_count,
+      count(*) over ()::bigint as total_items_count
+    from peer_scores ps
+  )
+  select
+    r.id as film_id,
+    r.title as film_title,
+    r.slug as film_slug,
+    r.franchise,
+    r.type,
+    p.rank_mode as mode,
+    r.rating_count,
+    r.average,
+    r.rank_position,
+    r.ranked_items_count,
+    r.total_items_count
+  from ranked r
+  join target_film tf
+    on tf.id = r.id
+  cross join input_params p
+  where p.rank_mode in ('all', 'films_only');
+$$;
+
 create or replace function public.api_film_catalog()
 returns table (
   id uuid,
@@ -1216,3 +1581,7 @@ $$;
 
 grant execute on function public.api_film_catalog() to anon, authenticated;
 grant execute on function public.api_latest_activity(integer) to anon, authenticated;
+grant execute on function public.api_film_summary(text) to anon, authenticated;
+grant execute on function public.api_film_score(text, text, text) to anon, authenticated;
+grant execute on function public.api_film_reviews(text, text, text, integer, integer) to anon, authenticated;
+grant execute on function public.api_film_rank_in_franchise(text, text) to anon, authenticated;
