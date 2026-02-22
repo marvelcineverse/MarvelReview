@@ -104,6 +104,12 @@ function getDateSortValue(value) {
   return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
 }
 
+function toNumericOrNull(value) {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 async function fetchAllRows(table, columns) {
   const rows = [];
   let from = 0;
@@ -124,6 +130,52 @@ async function fetchAllRows(table, columns) {
   }
 
   return rows;
+}
+
+function normalizeFilmRow(row) {
+  const ratingCount = Number(row.rating_count || 0);
+  const average = toNumericOrNull(row.average);
+  return {
+    id: row.id,
+    title: row.title || "",
+    release_date: row.release_date || null,
+    poster_url: row.poster_url || "",
+    franchise: row.franchise || "",
+    phase: row.phase || "",
+    type: row.type || "",
+    rating_count: Number.isFinite(ratingCount) ? ratingCount : 0,
+    average
+  };
+}
+
+async function loadFilmsFromApi() {
+  const { data, error } = await supabase.rpc("api_film_catalog");
+  if (error) throw error;
+  return (data || []).map(normalizeFilmRow);
+}
+
+async function loadFilmsFromTables() {
+  const [films, ratings] = await Promise.all([
+    fetchAllRows("films", "id, title, release_date, poster_url, franchise, phase, type"),
+    fetchAllRows("ratings", "film_id, score")
+  ]);
+
+  const scoreByFilmId = new Map();
+  for (const rating of ratings || []) {
+    const existing = scoreByFilmId.get(rating.film_id) || { total: 0, count: 0 };
+    existing.total += Number(rating.score || 0);
+    existing.count += 1;
+    scoreByFilmId.set(rating.film_id, existing);
+  }
+
+  return (films || []).map((film) => {
+    const ratingData = scoreByFilmId.get(film.id) || { total: 0, count: 0 };
+    return {
+      ...film,
+      rating_count: ratingData.count,
+      average: ratingData.count ? ratingData.total / ratingData.count : null
+    };
+  });
 }
 
 function sortFilms(rows) {
@@ -263,32 +315,18 @@ function renderFilms() {
 
 async function loadFilms() {
   try {
-    const [films, ratings] = await Promise.all([
-      fetchAllRows("films", "id, title, release_date, poster_url, franchise, phase, type"),
-      fetchAllRows("ratings", "film_id, score")
-    ]);
+    let films = [];
+    try {
+      films = await loadFilmsFromApi();
+    } catch (_apiError) {
+      films = await loadFilmsFromTables();
+    }
 
-    if (!films || films.length === 0) {
+    if (!films.length) {
       listEl.innerHTML = "<p>Aucun film pour le moment.</p>";
       return;
     }
-
-    const scoreByFilmId = new Map();
-    for (const rating of ratings || []) {
-      const existing = scoreByFilmId.get(rating.film_id) || { total: 0, count: 0 };
-      existing.total += Number(rating.score || 0);
-      existing.count += 1;
-      scoreByFilmId.set(rating.film_id, existing);
-    }
-
-    state.films = (films || []).map((film) => {
-      const ratingData = scoreByFilmId.get(film.id) || { total: 0, count: 0 };
-      return {
-        ...film,
-        rating_count: ratingData.count,
-        average: ratingData.count ? ratingData.total / ratingData.count : null
-      };
-    });
+    state.films = films;
 
     setupFilters();
     renderFilms();

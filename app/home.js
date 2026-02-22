@@ -28,6 +28,12 @@ function getTimeValue(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function toNumericOrNull(value) {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function getSeriesHighlightDate(seriesRow, seasonsBySeriesId) {
   const seasons = seasonsBySeriesId.get(seriesRow.id) || [];
   const releasedSeasonDates = seasons
@@ -253,7 +259,7 @@ function renderTopRankedContent(items) {
     .join("");
 }
 
-function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRatings) {
+function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRatings, seriesById = new Map()) {
   const rows = [];
   const seasonsById = new Map((seasons || []).map((season) => [season.id, season]));
   const episodesBySeasonId = new Map();
@@ -335,6 +341,7 @@ function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRa
         score: Number.isFinite(effectiveScore) ? effectiveScore : null,
         review: seasonRow?.review || "",
         adjustment,
+        seriesTitle: seriesById.get(season.series_id)?.title || "",
         title: season.name || "Saison",
         seasonLabel: season.season_number ? `S${season.season_number}` : "Saison",
         href: `/season.html?id=${season.id}`
@@ -343,6 +350,38 @@ function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRa
   }
 
   return rows;
+}
+
+async function fetchLatestActivityViaApi(limit = LATEST_ACTIVITY_LIMIT) {
+  const safeLimit = Math.max(0, Number(limit) || LATEST_ACTIVITY_LIMIT);
+  const { data, error } = await supabase.rpc("api_latest_activity", { p_limit: safeLimit });
+  if (error) throw error;
+
+  return (data || []).map((row) => {
+    const type = row.activity_type || "film";
+    const targetId = row.target_id || null;
+    let href = "#";
+    if (type === "film" && targetId) href = `/film.html?id=${targetId}`;
+    if (type === "series" && targetId) href = `/series.html?id=${targetId}`;
+    if (type === "episode" && targetId) href = `/episode.html?id=${targetId}`;
+    if (type === "season" && targetId) href = `/season.html?id=${targetId}`;
+
+    const seasonNumber = Number(row.season_number);
+    return {
+      id: row.activity_id || `${type}-${targetId || "unknown"}`,
+      type,
+      user_id: row.user_id,
+      username: row.username || "Utilisateur",
+      activity_at: row.activity_at || null,
+      score: toNumericOrNull(row.score),
+      review: row.review || "",
+      adjustment: toNumericOrNull(row.adjustment) || 0,
+      title: row.title || "",
+      seriesTitle: row.series_title || "",
+      seasonLabel: Number.isFinite(seasonNumber) ? `S${seasonNumber}` : "Saison",
+      href
+    };
+  });
 }
 
 function renderLatestActivity(allRows, mediaByUserId) {
@@ -381,11 +420,14 @@ function renderLatestActivity(allRows, mediaByUserId) {
       const episodeSeriesPart = row.type === "episode" && row.seriesTitle
         ? `${escapeHTML(row.seriesTitle)} - `
         : "";
+      const seasonSeriesPart = row.type === "season" && row.seriesTitle
+        ? `${escapeHTML(row.seriesTitle)} - `
+        : "";
       const detailLabel = row.type === "film" || row.type === "series"
         ? `${typeLabel} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`
         : row.type === "episode"
           ? `${typeLabel} - ${episodeSeriesPart}${escapeHTML(row.seasonLabel || "-")} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`
-          : `${typeLabel} - ${escapeHTML(row.seasonLabel || "-")} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`;
+          : `${typeLabel} - ${seasonSeriesPart}${escapeHTML(row.seasonLabel || "-")} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`;
 
       return `
         <article class="card review-card">
@@ -507,82 +549,87 @@ async function loadHomePage() {
     renderTopRankedContent(topRankedContent);
     renderLatestContent(latestContent);
 
-    const filmById = new Map((films || []).map((film) => [film.id, film]));
-    const seriesById = new Map((series || []).map((row) => [row.id, row]));
-    const seasonById = new Map((seasons || []).map((season) => [season.id, season]));
-    const episodeById = new Map((episodes || []).map((episode) => [episode.id, episode]));
+    let latestActivity = [];
+    try {
+      latestActivity = await fetchLatestActivityViaApi(LATEST_ACTIVITY_LIMIT);
+    } catch (_apiError) {
+      const filmById = new Map((films || []).map((film) => [film.id, film]));
+      const seriesById = new Map((series || []).map((row) => [row.id, row]));
+      const seasonById = new Map((seasons || []).map((season) => [season.id, season]));
+      const episodeById = new Map((episodes || []).map((episode) => [episode.id, episode]));
+      const activityRows = [];
 
-    const activityRows = [];
+      for (const rating of ratings || []) {
+        const film = filmById.get(rating.film_id);
+        if (!film) continue;
+        activityRows.push({
+          id: `film-${rating.id}`,
+          type: "film",
+          user_id: rating.user_id,
+          username: rating.profiles?.username || "Utilisateur",
+          activity_at: rating.updated_at || rating.created_at || null,
+          score: Number(rating.score),
+          review: rating.review || "",
+          seasonLabel: "Film",
+          title: film.title || "Film",
+          href: `/film.html?id=${film.id}`,
+          adjustment: 0
+        });
+      }
 
-    for (const rating of ratings || []) {
-      const film = filmById.get(rating.film_id);
-      if (!film) continue;
-      activityRows.push({
-        id: `film-${rating.id}`,
-        type: "film",
-        user_id: rating.user_id,
-        username: rating.profiles?.username || "Utilisateur",
-        activity_at: rating.updated_at || rating.created_at || null,
-        score: Number(rating.score),
-        review: rating.review || "",
-        seasonLabel: "Film",
-        title: film.title || "Film",
-        href: `/film.html?id=${film.id}`,
-        adjustment: 0
-      });
+      for (const review of seriesReviews || []) {
+        const serie = seriesById.get(review.series_id);
+        if (!serie) continue;
+        activityRows.push({
+          id: `series-${review.id}`,
+          type: "series",
+          user_id: review.user_id,
+          username: review.profiles?.username || "Utilisateur",
+          activity_at: review.updated_at || review.created_at || null,
+          score: null,
+          review: review.review || "",
+          seasonLabel: "S\u00E9rie",
+          title: serie.title || "S\u00E9rie",
+          href: `/series.html?id=${serie.id}`,
+          adjustment: 0
+        });
+      }
+
+      for (const rating of episodeRatings || []) {
+        const episode = episodeById.get(rating.episode_id);
+        if (!episode) continue;
+        const season = seasonById.get(episode.season_id);
+        const serie = seriesById.get(season?.series_id);
+        if (!Number.isFinite(Number(rating.score)) && !String(rating.review || "").trim()) continue;
+        activityRows.push({
+          id: `episode-${rating.id}`,
+          type: "episode",
+          user_id: rating.user_id,
+          username: rating.profiles?.username || "Utilisateur",
+          activity_at: rating.updated_at || rating.created_at || null,
+          score: Number(rating.score),
+          review: rating.review || "",
+          seriesTitle: serie?.title || "",
+          seasonLabel: season?.season_number ? `S${season.season_number}` : "Saison",
+          title: episode.title || "Episode",
+          href: `/episode.html?id=${episode.id}`,
+          adjustment: 0
+        });
+      }
+
+      const seasonRows = buildSeasonActivityRows(
+        seasons || [],
+        episodes || [],
+        episodeRatings || [],
+        seasonUserRatings || [],
+        seriesById
+      );
+      activityRows.push(...seasonRows);
+
+      latestActivity = activityRows
+        .sort((a, b) => getTimeValue(b.activity_at) - getTimeValue(a.activity_at))
+        .slice(0, LATEST_ACTIVITY_LIMIT);
     }
-
-    for (const review of seriesReviews || []) {
-      const serie = seriesById.get(review.series_id);
-      if (!serie) continue;
-      activityRows.push({
-        id: `series-${review.id}`,
-        type: "series",
-        user_id: review.user_id,
-        username: review.profiles?.username || "Utilisateur",
-        activity_at: review.updated_at || review.created_at || null,
-        score: null,
-        review: review.review || "",
-        seasonLabel: "S\u00E9rie",
-        title: serie.title || "S\u00E9rie",
-        href: `/series.html?id=${serie.id}`,
-        adjustment: 0
-      });
-    }
-
-    for (const rating of episodeRatings || []) {
-      const episode = episodeById.get(rating.episode_id);
-      if (!episode) continue;
-      const season = seasonById.get(episode.season_id);
-      const serie = seriesById.get(season?.series_id);
-      if (!Number.isFinite(Number(rating.score)) && !String(rating.review || "").trim()) continue;
-      activityRows.push({
-        id: `episode-${rating.id}`,
-        type: "episode",
-        user_id: rating.user_id,
-        username: rating.profiles?.username || "Utilisateur",
-        activity_at: rating.updated_at || rating.created_at || null,
-        score: Number(rating.score),
-        review: rating.review || "",
-        seriesTitle: serie?.title || "",
-        seasonLabel: season?.season_number ? `S${season.season_number}` : "Saison",
-        title: episode.title || "Episode",
-        href: `/episode.html?id=${episode.id}`,
-        adjustment: 0
-      });
-    }
-
-    const seasonRows = buildSeasonActivityRows(
-      seasons || [],
-      episodes || [],
-      episodeRatings || [],
-      seasonUserRatings || []
-    );
-    activityRows.push(...seasonRows);
-
-    const latestActivity = activityRows
-      .sort((a, b) => getTimeValue(b.activity_at) - getTimeValue(a.activity_at))
-      .slice(0, LATEST_ACTIVITY_LIMIT);
 
     const userIds = [...new Set(latestActivity.map((row) => row.user_id).filter(Boolean))];
     const mediaByUserId = await loadMembershipMapForUsers(userIds);
