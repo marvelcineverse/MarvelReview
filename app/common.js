@@ -2,6 +2,59 @@ import { supabase } from "../supabaseClient.js";
 import { injectLayout, setMessage } from "./utils.js";
 import { bindAuthVisibility, getCurrentProfile, getSession, signOut } from "./auth.js";
 
+function ensureHeadElement(selector, tagName, attributes) {
+  const headEl = document.head;
+  if (!headEl) return;
+
+  let element = headEl.querySelector(selector);
+  if (!element) {
+    element = document.createElement(tagName);
+    headEl.appendChild(element);
+  }
+
+  Object.entries(attributes).forEach(([key, value]) => {
+    element.setAttribute(key, value);
+  });
+}
+
+function ensureAppHeadMetadata() {
+  ensureHeadElement("link[rel='icon']", "link", {
+    rel: "icon",
+    type: "image/svg+xml",
+    href: "/favicon.svg"
+  });
+
+  ensureHeadElement("link[rel='manifest']", "link", {
+    rel: "manifest",
+    href: "/site.webmanifest"
+  });
+
+  ensureHeadElement("link[rel='apple-touch-icon']", "link", {
+    rel: "apple-touch-icon",
+    href: "/favicon.svg"
+  });
+
+  ensureHeadElement("meta[name='theme-color']", "meta", {
+    name: "theme-color",
+    content: "#cf1c1c"
+  });
+
+  ensureHeadElement("meta[name='apple-mobile-web-app-title']", "meta", {
+    name: "apple-mobile-web-app-title",
+    content: "MarvelReview"
+  });
+
+  ensureHeadElement("meta[name='mobile-web-app-capable']", "meta", {
+    name: "mobile-web-app-capable",
+    content: "yes"
+  });
+
+  ensureHeadElement("meta[name='apple-mobile-web-app-capable']", "meta", {
+    name: "apple-mobile-web-app-capable",
+    content: "yes"
+  });
+}
+
 function setAdminOnlyVisibility(isAdmin) {
   document.querySelectorAll("[data-admin-only='true']").forEach((el) => {
     if (!isAdmin) {
@@ -94,6 +147,7 @@ function initMobileNav() {
 }
 
 async function initCommonLayout() {
+  ensureAppHeadMetadata();
   injectLayout();
   markActiveNavLink();
   initMobileNav();

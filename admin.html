@@ -13,7 +13,7 @@
       <section class="page-intro">
         <div>
           <h1>Administration</h1>
-          <p>Gestion des mÃ©dias, rattachements et contenus.</p>
+          <p>Gestion des m&eacute;dias, rattachements et contenus.</p>
         </div>
         <p id="auth-status" class="status"></p>
       </section>
@@ -22,21 +22,21 @@
 
       <section id="admin-root" class="grid admin-grid">
         <section class="card admin-media-card">
-          <h2>Gestion des mÃ©dias</h2>
+          <h2>Gestion des m&eacute;dias</h2>
           <p id="media-role-hint" class="film-meta"></p>
           <form id="create-media-form" class="form admin-media-form">
             <label class="form-span-2">
-              MÃ©dia existant
+              M&eacute;dia existant
               <select id="media-id"></select>
             </label>
 
             <label>
-              Nom du mÃ©dia
+              Nom du m&eacute;dia
               <input id="media-name" type="text" required />
             </label>
 
             <label id="media-admin-field" data-admin-section="true">
-              Gestionnaire du mÃ©dia (optionnel)
+              Gestionnaire du m&eacute;dia (optionnel)
               <select id="media-admin-profile-id">
                 <option value="">Aucun gestionnaire pour le moment</option>
               </select>
@@ -83,7 +83,7 @@
             </label>
 
             <label>
-              Image de profil du mÃ©dia (upload)
+              Image de profil du m&eacute;dia (upload)
               <input id="media-avatar-file" type="file" accept="image/*" />
             </label>
 
@@ -99,18 +99,18 @@
               <textarea id="media-description"></textarea>
             </label>
 
-            <button id="media-submit-button" class="form-span-2" type="submit">CrÃ©er le mÃ©dia</button>
+            <button id="media-submit-button" class="form-span-2" type="submit">Cr&eacute;er le m&eacute;dia</button>
             <p id="create-media-message" class="message form-span-2" aria-live="polite"></p>
           </form>
         </section>
 
         <section id="media-manager-section" class="card admin-membership-card">
-          <h2>Gestionnaire de mÃ©dia</h2>
+          <h2>Gestionnaire de m&eacute;dia</h2>
           <p id="media-manager-scope" class="film-meta"></p>
 
           <form id="membership-manual-form" class="form admin-membership-form">
             <label>
-              MÃ©dia
+              M&eacute;dia
               <select id="membership-media-id"></select>
             </label>
 
@@ -128,8 +128,8 @@
           </form>
 
           <section class="admin-members-list">
-            <h3>Membres du mÃ©dia</h3>
-            <p class="film-meta">Supprime un membre avec la croix. Une confirmation est demandÃ©e.</p>
+            <h3>Membres du m&eacute;dia</h3>
+            <p class="film-meta">Supprime un membre avec la croix. Une confirmation est demand&eacute;e.</p>
             <div class="table-wrapper">
               <table class="ranking-table compact admin-members-table">
                 <thead>
@@ -149,7 +149,7 @@
             <table class="ranking-table">
               <thead>
                 <tr>
-                  <th>MÃ©dia</th>
+                  <th>M&eacute;dia</th>
                   <th>Profil</th>
                   <th>Statut</th>
                   <th>Action</th>
@@ -161,19 +161,19 @@
         </section>
 
         <section class="card content-creation-card" data-admin-section="true">
-          <h2>CrÃ©ation de contenus</h2>
-          <div class="creation-tabs" role="tablist" aria-label="CrÃ©ation de contenus">
+          <h2>Cr&eacute;ation de contenus</h2>
+          <div class="creation-tabs" role="tablist" aria-label="Cr&eacute;ation de contenus">
             <button type="button" class="creation-tab is-active" role="tab" aria-selected="true" data-tab-target="film">
               Film
             </button>
             <button type="button" class="creation-tab" role="tab" aria-selected="false" data-tab-target="series">
-              SÃ©ries
+              S&eacute;ries
             </button>
             <button type="button" class="creation-tab" role="tab" aria-selected="false" data-tab-target="seasons">
               Saisons
             </button>
             <button type="button" class="creation-tab" role="tab" aria-selected="false" data-tab-target="episodes">
-              Ã‰pisodes
+              &Eacute;pisodes
             </button>
           </div>
 
@@ -192,34 +192,34 @@
               <label>Type <input id="film-type" type="text" value="Film" /></label>
               <label>Poster URL <input id="film-poster-url" type="url" /></label>
               <label>Synopsis <textarea id="film-synopsis"></textarea></label>
-              <button type="submit">CrÃ©er / Mettre Ã  jour le film</button>
+              <button type="submit">Cr&eacute;er / Mettre &agrave; jour le film</button>
               <p id="film-message" class="message" aria-live="polite"></p>
             </form>
           </section>
 
           <section class="creation-panel" data-tab-panel="series">
             <form id="series-form" class="form">
-              <label>SÃ©rie existante (optionnel)
+              <label>S&eacute;rie existante (optionnel)
                 <select id="series-id">
-                  <option value="">Nouvelle sÃ©rie</option>
+                  <option value="">Nouvelle s&eacute;rie</option>
                 </select>
               </label>
               <label>Titre <input id="series-title" type="text" required /></label>
               <label>Slug <input id="series-slug" type="text" /></label>
               <label>Synopsis <textarea id="series-synopsis"></textarea></label>
               <label>Poster URL <input id="series-poster-url" type="url" /></label>
-              <label>Date de dÃ©but <input id="series-start-date" type="date" /></label>
+              <label>Date de d&eacute;but <input id="series-start-date" type="date" /></label>
               <label>Date de fin <input id="series-end-date" type="date" /></label>
               <label>Franchise <input id="series-franchise" type="text" value="MCU" /></label>
               <label>Type <input id="series-type" type="text" value="Serie" /></label>
-              <button type="submit">CrÃ©er / Mettre Ã  jour la sÃ©rie</button>
+              <button type="submit">Cr&eacute;er / Mettre &agrave; jour la s&eacute;rie</button>
               <p id="series-message" class="message" aria-live="polite"></p>
             </form>
           </section>
 
           <section class="creation-panel" data-tab-panel="seasons">
             <form id="season-form" class="form">
-              <label>SÃ©rie parent
+              <label>S&eacute;rie parent
                 <select id="season-series-id" required></select>
               </label>
               <label>Saison existante (optionnel)
@@ -228,13 +228,13 @@
                 </select>
               </label>
               <label>Nom <input id="season-name" type="text" required /></label>
-              <label>NumÃ©ro <input id="season-number" type="number" min="1" step="1" required /></label>
+              <label>Num&eacute;ro <input id="season-number" type="number" min="1" step="1" required /></label>
               <label>Slug <input id="season-slug" type="text" /></label>
               <label>Poster URL <input id="season-poster-url" type="url" /></label>
-              <label>Date de dÃ©but <input id="season-start-date" type="date" /></label>
+              <label>Date de d&eacute;but <input id="season-start-date" type="date" /></label>
               <label>Date de fin <input id="season-end-date" type="date" /></label>
               <label>Phase <input id="season-phase" type="text" /></label>
-              <button type="submit">CrÃ©er / Mettre Ã  jour la saison</button>
+              <button type="submit">Cr&eacute;er / Mettre &agrave; jour la saison</button>
               <p id="season-message" class="message" aria-live="polite"></p>
             </form>
           </section>
@@ -244,38 +244,38 @@
               <label>Saison parent
                 <select id="episode-season-id" required></select>
               </label>
-              <label>Ã‰pisode existant (optionnel)
+              <label>&Eacute;pisode existant (optionnel)
                 <select id="episode-id">
-                  <option value="">Nouvel Ã©pisode</option>
+                  <option value="">Nouvel &eacute;pisode</option>
                 </select>
               </label>
-              <label>NumÃ©ro Ã©pisode <input id="episode-number" type="number" min="1" step="1" required /></label>
+              <label>Num&eacute;ro &eacute;pisode <input id="episode-number" type="number" min="1" step="1" required /></label>
               <label>Titre <input id="episode-title" type="text" required /></label>
               <label>Date de diffusion <input id="episode-air-date" type="date" /></label>
               <div class="inline-actions">
-                <button type="submit">CrÃ©er / Mettre Ã  jour l'Ã©pisode</button>
+                <button type="submit">Cr&eacute;er / Mettre &agrave; jour l'&eacute;pisode</button>
                 <button id="episode-delete-button" type="button" class="ghost-button" disabled>
-                  Supprimer l'Ã©pisode sÃ©lectionnÃ©
+                  Supprimer l'&eacute;pisode s&eacute;lectionn&eacute;
                 </button>
               </div>
               <p id="episode-message" class="message" aria-live="polite"></p>
             </form>
             <hr />
             <form id="episode-bulk-form" class="form episode-bulk-form">
-              <h3>Ajout Ã©pisodes en masse</h3>
+              <h3>Ajout &eacute;pisodes en masse</h3>
               <label>Saison parent
                 <select id="episode-bulk-season-id" required></select>
               </label>
-              <label>Nombre d'Ã©pisodes
+              <label>Nombre d'&eacute;pisodes
                 <input id="episode-bulk-count" type="number" min="1" max="50" step="1" value="6" />
               </label>
-              <button id="episode-bulk-generate" type="button">GÃ©nÃ©rer les lignes</button>
+              <button id="episode-bulk-generate" type="button">G&eacute;n&eacute;rer les lignes</button>
               <div class="table-wrapper">
                 <table class="ranking-table compact bulk-episodes-table">
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>NumÃ©ro Ã©pisode</th>
+                      <th>Num&eacute;ro &eacute;pisode</th>
                       <th>Titre</th>
                       <th>Date diffusion</th>
                     </tr>
@@ -284,10 +284,10 @@
                 </table>
               </div>
               <p class="film-meta">
-                Une ligne = 1 Ã©pisode. Date optionnelle (YYYY-MM-DD ou DD/MM/YYYY). Le collage multi-lignes
-                (tableur) est supportÃ©.
+                Une ligne = 1 &eacute;pisode. Date optionnelle (YYYY-MM-DD ou DD/MM/YYYY). Le collage multi-lignes
+                (tableur) est support&eacute;.
               </p>
-              <button type="submit">Importer les Ã©pisodes</button>
+              <button type="submit">Importer les &eacute;pisodes</button>
               <p id="episode-bulk-message" class="message" aria-live="polite"></p>
             </form>
           </section>
@@ -295,8 +295,8 @@
 
         <section id="users-root" class="card admin-users-card" data-admin-section="true">
           <h2>Utilisateurs</h2>
-          <p>Liste des comptes et envoi de rÃ©initialisation de mot de passe.</p>
-          <p class="film-meta">Valide le CAPTCHA avant d'envoyer un email de rÃ©initialisation.</p>
+          <p>Liste des comptes et envoi de r&eacute;initialisation de mot de passe.</p>
+          <p class="film-meta">Valide le CAPTCHA avant d'envoyer un email de r&eacute;initialisation.</p>
           <div id="admin-reset-captcha" class="captcha-block"></div>
           <div class="table-wrapper">
             <table class="ranking-table">
