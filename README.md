@@ -138,3 +138,25 @@ Apres execution du SQL, va dans `Database` > `Tables`:
 - Le style front est gere via `styles.css` (CSS classique, sans pipeline build).
 - Le front est volontairement simple et pedagogique.
 - Pour un deploiement public, pense a durcir la validation cote DB (longueur review, URL avatar, etc.).
+
+## 6) API SQL publique (lecture seule)
+
+Objectif: exposer des donnees d'affichage vers un autre site Marvel, sans logique metier dupliquee cote front.
+
+Fonctions RPC disponibles (via PostgREST/Supabase):
+- `api_film_catalog()`: retourne la liste des films avec `rating_count` et `average`.
+- `api_latest_activity(p_limit integer default 20)`: retourne les dernieres notes/critiques consolidees (films, episodes, saisons, series).
+
+Exemple (JS, cote front ou serveur):
+```js
+const { data, error } = await supabase.rpc("api_film_catalog");
+```
+
+```js
+const { data, error } = await supabase.rpc("api_latest_activity", { p_limit: 20 });
+```
+
+Notes d'usage:
+- Ces RPC sont `display-only`: pas d'ecriture, juste des agregats/flux pour l'affichage.
+- Les droits d'execution sont accordes a `anon` et `authenticated`.
+- En production, si l'autre site est public, utiliser uniquement la cle `anon` et des policies strictement en lecture sur les tables sous-jacentes.

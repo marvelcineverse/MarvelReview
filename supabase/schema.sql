@@ -990,3 +990,229 @@ create policy "series_reviews_delete_own_or_admin"
 on public.series_reviews
 for delete
 using (auth.uid() = user_id or public.is_admin(auth.uid()));
+
+-- Public read-only API (RPC) for external display use-cases
+create or replace function public.api_film_catalog()
+returns table (
+  id uuid,
+  title text,
+  release_date date,
+  poster_url text,
+  franchise text,
+  phase text,
+  type text,
+  rating_count bigint,
+  average numeric
+)
+language sql
+stable
+set search_path = public
+as $$
+  select
+    f.id,
+    f.title,
+    f.release_date,
+    f.poster_url,
+    f.franchise,
+    f.phase,
+    f.type,
+    count(r.id)::bigint as rating_count,
+    case
+      when count(r.id) > 0 then avg(r.score)::numeric
+      else null
+    end as average
+  from public.films f
+  left join public.ratings r
+    on r.film_id = f.id
+  group by f.id
+  order by f.release_date desc nulls last, f.title asc;
+$$;
+
+create or replace function public.api_latest_activity(p_limit integer default 20)
+returns table (
+  activity_id text,
+  activity_type text,
+  target_id uuid,
+  user_id uuid,
+  username text,
+  activity_at timestamptz,
+  score numeric,
+  review text,
+  adjustment numeric,
+  title text,
+  series_title text,
+  season_number integer
+)
+language sql
+stable
+set search_path = public
+as $$
+  with season_episode_counts as (
+    select
+      ep.season_id,
+      count(*)::integer as episode_count
+    from public.series_episodes ep
+    group by ep.season_id
+  ),
+  season_episode_stats as (
+    select
+      ep.season_id,
+      er.user_id,
+      count(er.id)::integer as rated_episode_count,
+      avg(er.score)::numeric as episode_average,
+      max(coalesce(er.updated_at, er.created_at)) as last_activity_at
+    from public.episode_ratings er
+    join public.series_episodes ep
+      on ep.id = er.episode_id
+    group by ep.season_id, er.user_id
+  ),
+  season_keys as (
+    select sur.season_id, sur.user_id
+    from public.season_user_ratings sur
+    union
+    select ses.season_id, ses.user_id
+    from season_episode_stats ses
+  ),
+  season_activity as (
+    select
+      concat('season-', coalesce(sur.id::text, concat(sk.season_id::text, '-', sk.user_id::text))) as activity_id,
+      'season'::text as activity_type,
+      sk.season_id as target_id,
+      sk.user_id,
+      coalesce(p.username, 'Utilisateur') as username,
+      coalesce(sur.updated_at, sur.created_at, ses.last_activity_at) as activity_at,
+      case
+        when sur.manual_score is not null then greatest(0::numeric, least(10::numeric, sur.manual_score))
+        when coalesce(sec.episode_count, 0) > 0
+          and ses.rated_episode_count = sec.episode_count
+          and ses.episode_average is not null
+          then greatest(0::numeric, least(10::numeric, ses.episode_average + coalesce(sur.adjustment, 0)))
+        else null
+      end as score,
+      coalesce(sur.review, '') as review,
+      coalesce(sur.adjustment, 0)::numeric as adjustment,
+      coalesce(ss.name, 'Saison') as title,
+      coalesce(s.title, '') as series_title,
+      ss.season_number
+    from season_keys sk
+    left join public.season_user_ratings sur
+      on sur.season_id = sk.season_id
+      and sur.user_id = sk.user_id
+    left join season_episode_stats ses
+      on ses.season_id = sk.season_id
+      and ses.user_id = sk.user_id
+    left join season_episode_counts sec
+      on sec.season_id = sk.season_id
+    left join public.series_seasons ss
+      on ss.id = sk.season_id
+    left join public.series s
+      on s.id = ss.series_id
+    left join public.profiles p
+      on p.id = sk.user_id
+    where
+      sur.manual_score is not null
+      or coalesce(sur.adjustment, 0) <> 0
+      or char_length(btrim(coalesce(sur.review, ''))) > 0
+      or (
+        coalesce(sec.episode_count, 0) > 0
+        and ses.rated_episode_count = sec.episode_count
+        and ses.episode_average is not null
+      )
+  ),
+  film_activity as (
+    select
+      concat('film-', r.id::text) as activity_id,
+      'film'::text as activity_type,
+      r.film_id as target_id,
+      r.user_id,
+      coalesce(p.username, 'Utilisateur') as username,
+      coalesce(r.updated_at, r.created_at) as activity_at,
+      r.score::numeric as score,
+      coalesce(r.review, '') as review,
+      0::numeric as adjustment,
+      coalesce(f.title, 'Film') as title,
+      ''::text as series_title,
+      null::integer as season_number
+    from public.ratings r
+    join public.films f
+      on f.id = r.film_id
+    left join public.profiles p
+      on p.id = r.user_id
+  ),
+  series_activity as (
+    select
+      concat('series-', sr.id::text) as activity_id,
+      'series'::text as activity_type,
+      sr.series_id as target_id,
+      sr.user_id,
+      coalesce(p.username, 'Utilisateur') as username,
+      coalesce(sr.updated_at, sr.created_at) as activity_at,
+      null::numeric as score,
+      coalesce(sr.review, '') as review,
+      0::numeric as adjustment,
+      coalesce(s.title, 'Serie') as title,
+      ''::text as series_title,
+      null::integer as season_number
+    from public.series_reviews sr
+    join public.series s
+      on s.id = sr.series_id
+    left join public.profiles p
+      on p.id = sr.user_id
+  ),
+  episode_activity as (
+    select
+      concat('episode-', er.id::text) as activity_id,
+      'episode'::text as activity_type,
+      er.episode_id as target_id,
+      er.user_id,
+      coalesce(p.username, 'Utilisateur') as username,
+      coalesce(er.updated_at, er.created_at) as activity_at,
+      er.score::numeric as score,
+      coalesce(er.review, '') as review,
+      0::numeric as adjustment,
+      coalesce(ep.title, 'Episode') as title,
+      coalesce(s.title, '') as series_title,
+      ss.season_number
+    from public.episode_ratings er
+    join public.series_episodes ep
+      on ep.id = er.episode_id
+    join public.series_seasons ss
+      on ss.id = ep.season_id
+    join public.series s
+      on s.id = ss.series_id
+    left join public.profiles p
+      on p.id = er.user_id
+    where
+      er.score is not null
+      or char_length(btrim(coalesce(er.review, ''))) > 0
+  ),
+  all_activity as (
+    select * from film_activity
+    union all
+    select * from series_activity
+    union all
+    select * from episode_activity
+    union all
+    select * from season_activity
+  )
+  select
+    a.activity_id,
+    a.activity_type,
+    a.target_id,
+    a.user_id,
+    a.username,
+    a.activity_at,
+    a.score,
+    a.review,
+    a.adjustment,
+    a.title,
+    a.series_title,
+    a.season_number
+  from all_activity a
+  where a.activity_at is not null
+  order by a.activity_at desc, a.activity_id desc
+  limit greatest(coalesce(p_limit, 20), 0);
+$$;
+
+grant execute on function public.api_film_catalog() to anon, authenticated;
+grant execute on function public.api_latest_activity(integer) to anon, authenticated;
