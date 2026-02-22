@@ -1265,9 +1265,9 @@ function renderSeasons(openSeasonIds = null) {
                     const averageBadge = Number.isFinite(episodeAverage)
                       ? `<span class="score-badge ${getScoreClass(episodeAverage)}">${formatScore(episodeAverage, 2, 2)}</span>`
                       : `<span class="score-badge stade-neutre">-</span>`;
-                    const reviewRowMarkup = showUserEpisodeActions
+                    const reviewRowMarkup = showUserEpisodeActions && showReviewEditor
                       ? `
-                        <tr class="episode-mini-review-row" data-episode-review-row="${episode.id}" ${showReviewEditor ? "" : "hidden"}>
+                        <tr class="episode-mini-review-row" data-episode-review-row="${episode.id}">
                           <td colspan="6">
                             <div class="episode-mini-review-box">
                               <label for="episode-review-${episode.id}">Mini-critique (optionnel)</label>
