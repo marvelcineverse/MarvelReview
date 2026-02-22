@@ -580,8 +580,14 @@ document.querySelector("#change-password-form")?.addEventListener("submit", asyn
   const session = await requireAuth("/login.html");
   if (!session) return;
 
+  const currentPassword = document.querySelector("#profile-current-password").value;
   const password = document.querySelector("#profile-new-password").value;
   const confirm = document.querySelector("#profile-new-password-confirm").value;
+
+  if (!currentPassword) {
+    setMessage("#password-message", "Saisis ton mot de passe actuel.", true);
+    return;
+  }
 
   if (password !== confirm) {
     setMessage("#password-message", "Les mots de passe ne correspondent pas.", true);
@@ -594,9 +600,25 @@ document.querySelector("#change-password-form")?.addEventListener("submit", asyn
   }
 
   try {
+    const email = session.user?.email || "";
+    if (!email) {
+      setMessage("#password-message", "Adresse email introuvable pour verifier le mot de passe actuel.", true);
+      return;
+    }
+
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email,
+      password: currentPassword
+    });
+    if (verifyError) {
+      setMessage("#password-message", "Mot de passe actuel incorrect.", true);
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ password });
     if (error) throw error;
 
+    document.querySelector("#profile-current-password").value = "";
     document.querySelector("#profile-new-password").value = "";
     document.querySelector("#profile-new-password-confirm").value = "";
     setMessage("#password-message", "Mot de passe mis a jour.");

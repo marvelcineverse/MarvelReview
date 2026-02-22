@@ -46,12 +46,22 @@
         <h2>Mot de passe</h2>
         <form id="change-password-form" class="form">
           <label>
+            Mot de passe actuel
+            <input id="profile-current-password" type="password" required autocomplete="current-password" />
+          </label>
+          <label>
             Nouveau mot de passe
-            <input id="profile-new-password" type="password" minlength="6" required />
+            <input id="profile-new-password" type="password" minlength="6" required autocomplete="new-password" />
           </label>
           <label>
             Confirmer le nouveau mot de passe
-            <input id="profile-new-password-confirm" type="password" minlength="6" required />
+            <input
+              id="profile-new-password-confirm"
+              type="password"
+              minlength="6"
+              required
+              autocomplete="new-password"
+            />
           </label>
           <button type="submit">Mettre &agrave; jour le mot de passe</button>
           <p id="password-message" class="message" aria-live="polite"></p>
