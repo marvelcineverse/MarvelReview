@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient.js";
 import { getCurrentProfile, requireAuth } from "./auth.js";
+import { createCaptchaController } from "./captcha.js";
 import { escapeHTML, setMessage } from "./utils.js";
 
 const state = {
@@ -18,6 +19,18 @@ const accessState = {
   managedMediaIds: new Set()
 };
 const SUPABASE_PAGE_SIZE = 1000;
+let adminResetCaptchaControllerPromise = null;
+
+function getAdminResetCaptchaController() {
+  if (!adminResetCaptchaControllerPromise) {
+    adminResetCaptchaControllerPromise = createCaptchaController({
+      containerSelector: "#admin-reset-captcha",
+      messageSelector: "#admin-users-message"
+    });
+  }
+
+  return adminResetCaptchaControllerPromise;
+}
 
 async function fetchPagedRows(buildQuery) {
   const rows = [];
@@ -483,9 +496,15 @@ function bindAdminResetActions() {
       return;
     }
 
+    const captchaController = await getAdminResetCaptchaController();
+    if (!captchaController.ensureToken()) return;
+
     try {
       const redirectTo = `${window.location.origin}/update-password.html`;
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+        captchaToken: captchaController.getToken()
+      });
       if (error) throw error;
 
       setMessage("#admin-users-message", `Email de reinitialisation envoye a ${email}.`);
@@ -495,6 +514,8 @@ function bindAdminResetActions() {
         error.message || "Impossible d'envoyer l'email de reinitialisation.",
         true
       );
+    } finally {
+      captchaController.reset();
     }
   });
 }
