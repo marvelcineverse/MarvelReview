@@ -36,7 +36,9 @@ const state = {
     reviews: false,
     activity: false
   },
-  socialExpandedEntries: new Set()
+  socialExpandedEntries: new Set(),
+  episodeReviewEditorEpisodeIds: new Set(),
+  episodeReviewPromptEpisodeId: null
 };
 
 const SOCIAL_MOBILE_QUERY = "(max-width: 700px)";
@@ -232,6 +234,29 @@ function getOpenSeasonIdsFromDOM() {
   );
 }
 
+function syncEpisodeMiniReviewUiState() {
+  const validEpisodeIds = new Set(state.episodes.map((episode) => episode.id));
+  for (const episodeId of [...state.episodeReviewEditorEpisodeIds]) {
+    if (!validEpisodeIds.has(episodeId)) {
+      state.episodeReviewEditorEpisodeIds.delete(episodeId);
+    }
+  }
+
+  if (state.episodeReviewPromptEpisodeId && !validEpisodeIds.has(state.episodeReviewPromptEpisodeId)) {
+    state.episodeReviewPromptEpisodeId = null;
+  }
+}
+
+function focusEpisodeReviewInput(episodeId) {
+  window.requestAnimationFrame(() => {
+    const textarea = document.querySelector(`[data-field="episode-review"][data-episode-id="${episodeId}"]`);
+    if (!textarea) return;
+    textarea.focus();
+    const textLength = textarea.value.length;
+    textarea.setSelectionRange(textLength, textLength);
+  });
+}
+
 function canReviewSeries() {
   return isReleasedOnOrBeforeToday(state.series?.start_date || null);
 }
@@ -247,6 +272,11 @@ function applySeriesAuthVisibility() {
 
   if (reviewSection) {
     reviewSection.style.display = isLoggedIn ? "" : "none";
+  }
+
+  if (!isLoggedIn) {
+    state.episodeReviewEditorEpisodeIds.clear();
+    state.episodeReviewPromptEpisodeId = null;
   }
 }
 
@@ -1224,6 +1254,10 @@ function renderSeasons(openSeasonIds = null) {
                       : null;
                     const canRate = isReleasedOnOrBeforeToday(episode.air_date);
                     const scoreValue = userRating ? String(userRating.score) : "";
+                    const reviewValue = userRating?.review ? String(userRating.review) : "";
+                    const hasReview = reviewValue.trim().length > 0;
+                    const showReviewEditor = hasReview || state.episodeReviewEditorEpisodeIds.has(episode.id);
+                    const showReviewPrompt = state.episodeReviewPromptEpisodeId === episode.id;
                     const scoreBadge = userRating
                       ? `<span class="score-badge ${getScoreClass(userRating.score)}">${formatScore(userRating.score)} / 10</span>`
                       : `<span class="score-badge stade-neutre">-</span>`;
@@ -1231,6 +1265,18 @@ function renderSeasons(openSeasonIds = null) {
                     const averageBadge = Number.isFinite(episodeAverage)
                       ? `<span class="score-badge ${getScoreClass(episodeAverage)}">${formatScore(episodeAverage, 2, 2)}</span>`
                       : `<span class="score-badge stade-neutre">-</span>`;
+                    const reviewRowMarkup = showUserEpisodeActions
+                      ? `
+                        <tr class="episode-mini-review-row" data-episode-review-row="${episode.id}" ${showReviewEditor ? "" : "hidden"}>
+                          <td colspan="6">
+                            <div class="episode-mini-review-box">
+                              <label for="episode-review-${episode.id}">Mini-critique (optionnel)</label>
+                              <textarea id="episode-review-${episode.id}" data-field="episode-review" data-episode-id="${episode.id}" maxlength="420" placeholder="Ton avis rapide en quelques lignes...">${escapeHTML(reviewValue)}</textarea>
+                            </div>
+                          </td>
+                        </tr>
+                      `
+                      : "";
 
                     return `
                       <tr>
@@ -1259,9 +1305,19 @@ function renderSeasons(openSeasonIds = null) {
                                 </button>
                               ` : ""}
                             </div>
+                            ${showReviewPrompt ? `
+                              <div class="episode-mini-review-prompt" role="group" aria-live="polite">
+                                <span>Ajouter une mini-critique ?</span>
+                                <div class="episode-mini-review-prompt-actions">
+                                  <button type="button" class="ghost-button" data-action="show-episode-review-editor" data-episode-id="${episode.id}">Oui</button>
+                                  <button type="button" class="ghost-button" data-action="dismiss-episode-review-prompt" data-episode-id="${episode.id}">Non</button>
+                                </div>
+                              </div>
+                            ` : ""}
                           </td>
                         ` : ""}
                       </tr>
+                      ${reviewRowMarkup}
                     `;
                   }).join("")}
                 </tbody>
@@ -1344,6 +1400,7 @@ async function loadRatingsData() {
   state.episodeRatings = episodeRatings || [];
   state.seasonUserRatings = seasonUserRatings || [];
   state.seriesReviews = seriesReviews || [];
+  syncEpisodeMiniReviewUiState();
 }
 
 async function reloadSeriesDetails(seriesId) {
@@ -1352,6 +1409,8 @@ async function reloadSeriesDetails(seriesId) {
   state.socialExpanded.reviews = false;
   state.socialExpanded.activity = false;
   state.socialExpandedEntries.clear();
+  state.episodeReviewEditorEpisodeIds.clear();
+  state.episodeReviewPromptEpisodeId = null;
   applySeriesAuthVisibility();
   renderSeriesHeader();
   applySeriesReviewAvailability();
@@ -1422,36 +1481,44 @@ async function deleteSeriesReview() {
 
 async function saveEpisodeRating(episodeId) {
   const session = await requireAuth("/login.html");
-  if (!session) return;
+  if (!session) return { saved: false };
 
   const episode = state.episodes.find((item) => item.id === episodeId);
   if (!isReleasedOnOrBeforeToday(episode?.air_date || null)) {
     setMessage("#page-message", "Impossible de noter un episode non diffuse ou sans date de diffusion.", true);
-    return;
+    return { saved: false };
   }
 
   const scoreInput = document.querySelector(`[data-field="episode-score"][data-episode-id="${episodeId}"]`);
   const scoreRaw = scoreInput?.value.trim() || "";
   if (!scoreRaw) {
     setMessage("#page-message", "Le score est obligatoire.", true);
-    return;
+    return { saved: false };
   }
 
   const score = Number(scoreRaw.replace(",", "."));
   if (!Number.isFinite(score) || score < 0 || score > 10 || !isQuarterStep(score)) {
     setMessage("#page-message", "Le score doit etre entre 0 et 10, par pas de 0,25.", true);
-    return;
+    return { saved: false };
   }
+
+  const existing = state.episodeRatings.find((row) => row.episode_id === episodeId && row.user_id === session.user.id);
+  const reviewInput = document.querySelector(`[data-field="episode-review"][data-episode-id="${episodeId}"]`);
+  const reviewValue = reviewInput ? reviewInput.value.trim() : "";
+  const hasExistingReview = String(existing?.review || "").trim().length > 0;
+  const nextReview = reviewInput ? (reviewValue || null) : (existing?.review ?? null);
 
   const { error } = await supabase.from("episode_ratings").upsert(
     {
       user_id: session.user.id,
       episode_id: episodeId,
-      score
+      score,
+      review: nextReview
     },
     { onConflict: "user_id,episode_id" }
   );
   if (error) throw error;
+  return { saved: true, shouldOfferMiniReview: !reviewInput && !hasExistingReview };
 }
 
 async function deleteEpisodeRating(episodeId) {
@@ -1635,10 +1702,15 @@ function bindDetailEvents() {
     const seasonId = button.dataset.seasonId;
 
     try {
+      let shouldRefresh = false;
+      let shouldShowSuccess = false;
+
       if (action === "toggle-series-reviews-more") {
         state.socialExpanded.reviews = !state.socialExpanded.reviews;
+        shouldRefresh = true;
       } else if (action === "toggle-series-activity-more") {
         state.socialExpanded.activity = !state.socialExpanded.activity;
+        shouldRefresh = true;
       } else if (action === "toggle-series-review-preview") {
         const entryId = button.dataset.entryId || "";
         if (!entryId) return;
@@ -1647,28 +1719,65 @@ function bindDetailEvents() {
         } else {
           state.socialExpandedEntries.add(entryId);
         }
+        shouldRefresh = true;
+      } else if (action === "show-episode-review-editor" && episodeId) {
+        state.episodeReviewEditorEpisodeIds.add(episodeId);
+        state.episodeReviewPromptEpisodeId = null;
+        const openSeasonIds = getOpenSeasonIdsFromDOM();
+        renderSeasons(openSeasonIds);
+        focusEpisodeReviewInput(episodeId);
+        return;
+      } else if (action === "dismiss-episode-review-prompt" && episodeId) {
+        if (state.episodeReviewPromptEpisodeId === episodeId) {
+          state.episodeReviewPromptEpisodeId = null;
+        }
+        const openSeasonIds = getOpenSeasonIdsFromDOM();
+        renderSeasons(openSeasonIds);
+        return;
       } else if (action === "save-episode-rating" && episodeId) {
-        await saveEpisodeRating(episodeId);
+        const saveResult = await saveEpisodeRating(episodeId);
+        if (!saveResult?.saved) return;
+        state.episodeReviewPromptEpisodeId = saveResult?.shouldOfferMiniReview ? episodeId : null;
+        shouldRefresh = true;
+        shouldShowSuccess = true;
       } else if (action === "delete-episode-rating" && episodeId) {
         await deleteEpisodeRating(episodeId);
+        state.episodeReviewEditorEpisodeIds.delete(episodeId);
+        if (state.episodeReviewPromptEpisodeId === episodeId) {
+          state.episodeReviewPromptEpisodeId = null;
+        }
+        shouldRefresh = true;
+        shouldShowSuccess = true;
       } else if (action === "save-season-manual" && seasonId) {
         await saveSeasonManualScore(seasonId);
+        shouldRefresh = true;
+        shouldShowSuccess = true;
       } else if (action === "delete-season-manual" && seasonId) {
         await deleteSeasonManualScore(seasonId);
+        shouldRefresh = true;
+        shouldShowSuccess = true;
       } else if (action === "adjust-season-up" && seasonId) {
         await adjustSeason(seasonId, 0.25);
+        shouldRefresh = true;
+        shouldShowSuccess = true;
       } else if (action === "adjust-season-down" && seasonId) {
         await adjustSeason(seasonId, -0.25);
+        shouldRefresh = true;
+        shouldShowSuccess = true;
       } else if (action === "reset-season-adjustment" && seasonId) {
         await resetSeasonAdjustment(seasonId);
+        shouldRefresh = true;
+        shouldShowSuccess = true;
       } else {
         return;
       }
 
-      if (!action.startsWith("toggle-series-")) {
+      if (shouldShowSuccess) {
         setMessage("#page-message", "Sauvegarde reussie.");
       }
-      await refreshRatingsOnly();
+      if (shouldRefresh) {
+        await refreshRatingsOnly();
+      }
     } catch (error) {
       const message = error?.message || "Operation impossible.";
       if (message.includes("season_user_ratings_adjustment_check")) {

@@ -592,6 +592,52 @@ button:hover {
   padding: 0.38rem 0.7rem;
 }
 
+.episode-mini-review-prompt {
+  margin-top: 0.35rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #d5e1ef;
+  border-radius: 10px;
+  background: #f4f8fc;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.87rem;
+  color: #304a63;
+  min-width: 210px;
+}
+
+.episode-mini-review-prompt-actions {
+  display: inline-flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.episode-mini-review-row td {
+  text-align: left !important;
+  background: #f8fbff;
+}
+
+.episode-mini-review-box {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.episode-mini-review-box label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.episode-mini-review-box textarea {
+  width: 100%;
+  min-height: 72px;
+  max-height: 180px;
+  resize: vertical;
+  border: 1px solid #ccd9e7;
+  border-radius: 9px;
+  padding: 0.5rem 0.58rem;
+  font: inherit;
+}
+
 .icon-circle-btn {
   width: 32px;
   height: 32px;
@@ -1727,6 +1773,11 @@ textarea {
   .inline-actions.inline-edit input {
     max-width: none;
     flex: 1 1 120px;
+  }
+
+  .episode-mini-review-prompt {
+    min-width: 0;
+    width: 100%;
   }
 
   .film-hero {
