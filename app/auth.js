@@ -20,15 +20,15 @@ function readRecoveryTypeFromURL() {
 }
 
 export function markPasswordRecoveryPending() {
-  window.sessionStorage.setItem(PASSWORD_RECOVERY_PENDING_KEY, "1");
+  window.localStorage.setItem(PASSWORD_RECOVERY_PENDING_KEY, "1");
 }
 
 export function clearPasswordRecoveryPending() {
-  window.sessionStorage.removeItem(PASSWORD_RECOVERY_PENDING_KEY);
+  window.localStorage.removeItem(PASSWORD_RECOVERY_PENDING_KEY);
 }
 
 export function isPasswordRecoveryPending() {
-  return window.sessionStorage.getItem(PASSWORD_RECOVERY_PENDING_KEY) === "1";
+  return window.localStorage.getItem(PASSWORD_RECOVERY_PENDING_KEY) === "1";
 }
 
 export function isUpdatePasswordPath(pathname = window.location.pathname) {

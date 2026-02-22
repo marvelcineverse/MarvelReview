@@ -168,7 +168,8 @@ async function initCommonLayout() {
       return;
     }
 
-    const isLoggedIn = Boolean(session);
+    const isRecoveryOnlySession = Boolean(session) && isPasswordRecoveryPending();
+    const isLoggedIn = Boolean(session) && !isRecoveryOnlySession;
     bindAuthVisibility(isLoggedIn);
 
     if (statusEl) {
