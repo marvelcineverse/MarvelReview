@@ -1270,7 +1270,7 @@ as $$
       ps.*,
       case
         when ps.average is null then null::bigint
-        else dense_rank() over (order by ps.average desc nulls last, ps.title asc)::bigint
+        else dense_rank() over (order by round(ps.average::numeric, 2) desc nulls last)::bigint
       end as rank_position,
       count(*) filter (where ps.average is not null) over ()::bigint as ranked_items_count,
       count(*) over ()::bigint as total_items_count
@@ -1503,7 +1503,7 @@ as $$
       acs.*,
       case
         when acs.average is null then null::bigint
-        else dense_rank() over (order by acs.average desc nulls last, acs.content_title asc, acs.content_kind asc)::bigint
+        else dense_rank() over (order by round(acs.average::numeric, 2) desc nulls last)::bigint
       end as rank_position,
       count(*) filter (where acs.average is not null) over ()::bigint as ranked_items_count,
       count(*) over ()::bigint as total_items_count

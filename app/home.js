@@ -13,8 +13,10 @@ const LATEST_CONTENT_LIMIT = 2;
 const TOP_RANKED_LIMIT = 10;
 const LATEST_ACTIVITY_INITIAL_LIMIT = 6;
 const LATEST_ACTIVITY_LIMIT = 20;
+const ACTIVITY_REVIEW_PREVIEW_LENGTH = 320;
 const state = {
-  latestActivityExpanded: false
+  latestActivityExpanded: false,
+  latestActivityExpandedReviewIds: new Set()
 };
 const SUPABASE_PAGE_SIZE = 1000;
 
@@ -32,6 +34,24 @@ function toNumericOrNull(value) {
   if (value === null || value === undefined) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getReviewPreview(rawReview, maxLength = ACTIVITY_REVIEW_PREVIEW_LENGTH) {
+  const full = String(rawReview || "").trim();
+  if (!full) return { full: "", preview: "", isTruncated: false };
+  if (full.length <= maxLength) return { full, preview: full, isTruncated: false };
+
+  let preview = full.slice(0, maxLength);
+  const lastSpace = preview.lastIndexOf(" ");
+  if (lastSpace > Math.floor(maxLength * 0.6)) {
+    preview = preview.slice(0, lastSpace);
+  }
+
+  return {
+    full,
+    preview: `${preview.trimEnd()} [...]`,
+    isTruncated: true
+  };
 }
 
 function getSeriesHighlightDate(seriesRow, seasonsBySeriesId) {
@@ -428,6 +448,19 @@ function renderLatestActivity(allRows, mediaByUserId) {
         : row.type === "episode"
           ? `${typeLabel} - ${episodeSeriesPart}${escapeHTML(row.seasonLabel || "-")} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`
           : `${typeLabel} - ${seasonSeriesPart}${escapeHTML(row.seasonLabel || "-")} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`;
+      const reviewPreview = getReviewPreview(row.review);
+      const isReviewExpanded = state.latestActivityExpandedReviewIds.has(row.id);
+      const displayedReview = isReviewExpanded || !reviewPreview.isTruncated
+        ? reviewPreview.full
+        : reviewPreview.preview;
+      const reviewMarkup = reviewPreview.full
+        ? `
+          <p class="social-review-text">${escapeHTML(displayedReview).replace(/\n/g, "<br>")}</p>
+          ${reviewPreview.isTruncated
+            ? `<button type="button" class="button social-inline-more" data-action="toggle-activity-review" data-activity-id="${escapeHTML(row.id)}">${isReviewExpanded ? "Voir moins" : "Voir plus"}</button>`
+            : ""}
+        `
+        : "";
 
       return `
         <article class="card review-card">
@@ -437,12 +470,25 @@ function renderLatestActivity(allRows, mediaByUserId) {
           </div>
           <p class="film-meta">${detailLabel}</p>
           <p>${scorePart}<span class="film-meta">${escapeHTML(adjustmentPart)}</span></p>
-          ${String(row.review || "").trim() ? `<p>${escapeHTML(row.review)}</p>` : ""}
+          ${reviewMarkup}
           <small>${formatDate(row.activity_at)}</small>
         </article>
       `;
     })
     .join("");
+
+  listEl.querySelectorAll('[data-action="toggle-activity-review"]').forEach((button) => {
+    button.addEventListener("click", () => {
+      const activityId = button.getAttribute("data-activity-id");
+      if (!activityId) return;
+      if (state.latestActivityExpandedReviewIds.has(activityId)) {
+        state.latestActivityExpandedReviewIds.delete(activityId);
+      } else {
+        state.latestActivityExpandedReviewIds.add(activityId);
+      }
+      renderLatestActivity(allRows, mediaByUserId);
+    });
+  });
 
   if (!toggleEl) return;
   const canExpand = allRows.length > LATEST_ACTIVITY_INITIAL_LIMIT;
@@ -633,6 +679,7 @@ async function loadHomePage() {
 
     const userIds = [...new Set(latestActivity.map((row) => row.user_id).filter(Boolean))];
     const mediaByUserId = await loadMembershipMapForUsers(userIds);
+    state.latestActivityExpandedReviewIds = new Set();
     renderLatestActivity(latestActivity, mediaByUserId);
     const activityToggleEl = document.querySelector("#home-latest-activity-toggle");
     activityToggleEl?.addEventListener("click", () => {
