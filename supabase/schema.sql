@@ -1295,6 +1295,294 @@ as $$
   where p.rank_mode in ('all', 'films_only');
 $$;
 
+create or replace function public.api_film_rank_in_franchise_all_content(
+  p_film_ref text
+)
+returns table (
+  film_id uuid,
+  film_title text,
+  film_slug text,
+  franchise text,
+  mode text,
+  rating_count bigint,
+  average numeric,
+  rank_position bigint,
+  ranked_items_count bigint,
+  total_items_count bigint
+)
+language sql
+stable
+set search_path = public
+as $$
+  with input_params as (
+    select trim(coalesce(p_film_ref, '')) as film_ref
+  ),
+  target_film as (
+    select f.*
+    from public.films f
+    cross join input_params p
+    where
+      p.film_ref <> ''
+      and (
+        (p.film_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and f.id = p.film_ref::uuid)
+        or lower(coalesce(f.slug, '')) = lower(p.film_ref)
+        or lower(f.title) = lower(p.film_ref)
+      )
+    order by
+      case
+        when lower(coalesce(f.slug, '')) = lower(p.film_ref) then 0
+        when lower(f.title) = lower(p.film_ref) then 1
+        else 2
+      end
+    limit 1
+  ),
+  film_peers as (
+    select f.id, f.title, f.slug, f.franchise
+    from public.films f
+    join target_film tf
+      on tf.franchise = f.franchise
+  ),
+  film_scores as (
+    select
+      fp.id as content_id,
+      fp.title as content_title,
+      fp.slug as content_slug,
+      fp.franchise,
+      'film'::text as content_kind,
+      count(r.id)::bigint as rating_count,
+      case when count(r.id) > 0 then avg(r.score)::numeric else null end as average
+    from film_peers fp
+    left join public.ratings r
+      on r.film_id = fp.id
+    group by fp.id, fp.title, fp.slug, fp.franchise
+  ),
+  series_peers as (
+    select s.id, s.title, s.slug, s.franchise
+    from public.series s
+    join target_film tf
+      on tf.franchise = s.franchise
+  ),
+  series_total_seasons as (
+    select
+      sp.id as series_id,
+      count(ss.id)::integer as total_seasons
+    from series_peers sp
+    left join public.series_seasons ss
+      on ss.series_id = sp.id
+    group by sp.id
+  ),
+  series_season_episode_counts as (
+    select
+      ss.id as season_id,
+      ss.series_id,
+      count(ep.id)::integer as episode_count
+    from public.series_seasons ss
+    join series_peers sp
+      on sp.id = ss.series_id
+    left join public.series_episodes ep
+      on ep.season_id = ss.id
+    group by ss.id, ss.series_id
+  ),
+  series_season_episode_user_stats as (
+    select
+      ss.series_id,
+      ep.season_id,
+      er.user_id,
+      count(er.id)::integer as rated_episode_count,
+      avg(er.score)::numeric as episode_average
+    from public.series_episodes ep
+    join public.episode_ratings er
+      on er.episode_id = ep.id
+    join public.series_seasons ss
+      on ss.id = ep.season_id
+    join series_peers sp
+      on sp.id = ss.series_id
+    group by ss.series_id, ep.season_id, er.user_id
+  ),
+  series_season_user_rows as (
+    select
+      ss.series_id,
+      sur.season_id,
+      sur.user_id,
+      sur.manual_score,
+      sur.adjustment
+    from public.season_user_ratings sur
+    join public.series_seasons ss
+      on ss.id = sur.season_id
+    join series_peers sp
+      on sp.id = ss.series_id
+  ),
+  series_season_user_keys as (
+    select series_id, season_id, user_id from series_season_episode_user_stats
+    union
+    select series_id, season_id, user_id from series_season_user_rows
+  ),
+  series_season_user_effective as (
+    select
+      sk.series_id,
+      sk.user_id,
+      sk.season_id,
+      case
+        when sur.manual_score is not null then greatest(0::numeric, least(10::numeric, sur.manual_score))
+        when coalesce(sec.episode_count, 0) > 0
+          and seus.rated_episode_count = sec.episode_count
+          and seus.episode_average is not null
+          then greatest(0::numeric, least(10::numeric, seus.episode_average + coalesce(sur.adjustment, 0)))
+        else null
+      end as effective_score
+    from series_season_user_keys sk
+    left join series_season_episode_counts sec
+      on sec.series_id = sk.series_id
+      and sec.season_id = sk.season_id
+    left join series_season_episode_user_stats seus
+      on seus.series_id = sk.series_id
+      and seus.season_id = sk.season_id
+      and seus.user_id = sk.user_id
+    left join series_season_user_rows sur
+      on sur.series_id = sk.series_id
+      and sur.season_id = sk.season_id
+      and sur.user_id = sk.user_id
+  ),
+  series_user_scores as (
+    select
+      se.series_id,
+      se.user_id,
+      avg(se.effective_score)::numeric as user_series_score,
+      count(*)::integer as covered_seasons
+    from series_season_user_effective se
+    where se.effective_score is not null
+    group by se.series_id, se.user_id
+  ),
+  series_scores as (
+    select
+      sp.id as content_id,
+      sp.title as content_title,
+      sp.slug as content_slug,
+      sp.franchise,
+      'series'::text as content_kind,
+      count(sus.user_id)::bigint as rating_count,
+      case
+        when coalesce(sum(
+          case
+            when sts.total_seasons > 0 then sus.covered_seasons::numeric / sts.total_seasons::numeric
+            else 0::numeric
+          end
+        ), 0) > 0
+          then (
+            sum(
+              sus.user_series_score *
+              case
+                when sts.total_seasons > 0 then sus.covered_seasons::numeric / sts.total_seasons::numeric
+                else 0::numeric
+              end
+            )
+            /
+            sum(
+              case
+                when sts.total_seasons > 0 then sus.covered_seasons::numeric / sts.total_seasons::numeric
+                else 0::numeric
+              end
+            )
+          )::numeric
+        else null
+      end as average
+    from series_peers sp
+    left join series_total_seasons sts
+      on sts.series_id = sp.id
+    left join series_user_scores sus
+      on sus.series_id = sp.id
+    group by sp.id, sp.title, sp.slug, sp.franchise
+  ),
+  all_content_scores as (
+    select * from film_scores
+    union all
+    select * from series_scores
+  ),
+  ranked as (
+    select
+      acs.*,
+      case
+        when acs.average is null then null::bigint
+        else dense_rank() over (order by acs.average desc nulls last, acs.content_title asc, acs.content_kind asc)::bigint
+      end as rank_position,
+      count(*) filter (where acs.average is not null) over ()::bigint as ranked_items_count,
+      count(*) over ()::bigint as total_items_count
+    from all_content_scores acs
+  )
+  select
+    tf.id as film_id,
+    tf.title as film_title,
+    tf.slug as film_slug,
+    tf.franchise,
+    'all_content'::text as mode,
+    fs.rating_count,
+    fs.average,
+    r.rank_position,
+    r.ranked_items_count,
+    r.total_items_count
+  from target_film tf
+  join film_scores fs
+    on fs.content_id = tf.id
+    and fs.content_kind = 'film'
+  join ranked r
+    on r.content_id = tf.id
+    and r.content_kind = 'film';
+$$;
+
+create or replace function public.api_media_members(
+  p_media_ref text
+)
+returns table (
+  media_id uuid,
+  media_name text,
+  user_id uuid,
+  username text,
+  is_media_admin boolean,
+  joined_at timestamptz
+)
+language sql
+stable
+set search_path = public
+as $$
+  with input_params as (
+    select trim(coalesce(p_media_ref, '')) as media_ref
+  ),
+  target_media as (
+    select mo.*
+    from public.media_outlets mo
+    cross join input_params p
+    where
+      p.media_ref <> ''
+      and (
+        lower(mo.name) = lower(p.media_ref)
+        or (p.media_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and mo.id = p.media_ref::uuid)
+      )
+    order by
+      case
+        when lower(mo.name) = lower(p.media_ref) then 0
+        else 1
+      end
+    limit 1
+  )
+  select
+    tm.id as media_id,
+    tm.name as media_name,
+    pm.profile_id as user_id,
+    coalesce(pr.username, 'Utilisateur') as username,
+    (tm.admin_profile_id = pm.profile_id) as is_media_admin,
+    pm.requested_at as joined_at
+  from target_media tm
+  join public.profile_media_memberships pm
+    on pm.media_id = tm.id
+    and pm.status = 'approved'
+  left join public.profiles pr
+    on pr.id = pm.profile_id
+  order by
+    (tm.admin_profile_id = pm.profile_id) desc,
+    lower(coalesce(pr.username, '')) asc,
+    pm.requested_at asc;
+$$;
+
 create or replace function public.api_series_score(
   p_series_ref text,
   p_scope text default 'global',
@@ -2107,6 +2395,8 @@ grant execute on function public.api_latest_activity(integer) to anon, authentic
 grant execute on function public.api_film_score(text, text, text) to anon, authenticated;
 grant execute on function public.api_film_reviews(text, text, text, integer, integer) to anon, authenticated;
 grant execute on function public.api_film_rank_in_franchise(text, text) to anon, authenticated;
+grant execute on function public.api_film_rank_in_franchise_all_content(text) to anon, authenticated;
+grant execute on function public.api_media_members(text) to anon, authenticated;
 grant execute on function public.api_series_score(text, text, text) to anon, authenticated;
 grant execute on function public.api_series_reviews(text, text, text, integer, integer) to anon, authenticated;
 grant execute on function public.api_series_rank_in_franchise(text, text) to anon, authenticated;

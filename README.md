@@ -162,6 +162,12 @@ Fonctions RPC disponibles (via PostgREST/Supabase):
 - `api_film_rank_in_franchise(p_film_ref text, p_mode text default 'all')`
   - `p_film_ref`: `slug`, `title` exact (insensible a la casse) ou `id` UUID
   - `p_mode`: `all`, `films_only`
+- `api_film_rank_in_franchise_all_content(p_film_ref text)`
+  - `p_film_ref`: `slug`, `title` exact (insensible a la casse) ou `id` UUID
+  - Retourne le rang du film parmi tous les contenus notes de la meme franchise (`films` + `series`)
+- `api_media_members(p_media_ref text)`
+  - `p_media_ref`: nom media exact (insensible a la casse) ou `id` UUID media
+  - Retourne les membres approuves du media, y compris ceux sans note sur un film donne
 - `api_series_score(p_series_ref text, p_scope text default 'global', p_scope_value text default null)`
   - `p_series_ref`: `slug`, `title` exact (insensible a la casse) ou `id` UUID
   - `p_scope`: `global`, `media`, `user`
@@ -182,6 +188,8 @@ Routes HTTP equivalentes (Supabase REST):
 - `POST /rest/v1/rpc/api_film_score`
 - `POST /rest/v1/rpc/api_film_reviews`
 - `POST /rest/v1/rpc/api_film_rank_in_franchise`
+- `POST /rest/v1/rpc/api_film_rank_in_franchise_all_content`
+- `POST /rest/v1/rpc/api_media_members`
 - `POST /rest/v1/rpc/api_series_score`
 - `POST /rest/v1/rpc/api_series_reviews`
 - `POST /rest/v1/rpc/api_series_rank_in_franchise`

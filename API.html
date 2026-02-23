@@ -70,6 +70,14 @@ Content-Type: application/json</code></pre>
                   <td><code>p_film_ref</code>, <code>p_mode</code> (<code>all</code>/<code>films_only</code>)</td>
                 </tr>
                 <tr>
+                  <td><code>POST /rest/v1/rpc/api_film_rank_in_franchise_all_content</code></td>
+                  <td><code>p_film_ref</code></td>
+                </tr>
+                <tr>
+                  <td><code>POST /rest/v1/rpc/api_media_members</code></td>
+                  <td><code>p_media_ref</code> (nom media exact ou UUID)</td>
+                </tr>
+                <tr>
                   <td><code>POST /rest/v1/rpc/api_film_catalog</code></td>
                   <td>Aucun</td>
                 </tr>
@@ -120,6 +128,7 @@ Content-Type: application/json</code></pre>
           <h2>R&eacute;f&eacute;rences accept&eacute;es</h2>
           <p><code>p_film_ref</code> accepte: <code>slug</code>, titre exact (insensible &agrave; la casse), UUID.</p>
           <p><code>p_series_ref</code> accepte: <code>slug</code>, titre exact (insensible &agrave; la casse), UUID.</p>
+          <p><code>p_media_ref</code> accepte: nom media exact (insensible &agrave; la casse), UUID.</p>
         </div>
 
         <div class="home-stack-chunk">
