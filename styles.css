@@ -1182,12 +1182,19 @@ textarea {
   margin: 0.2rem 0 0.45rem;
 }
 
+.social-inline-footer {
+  margin-top: 0.08rem;
+}
+
 .social-inline-more {
-  min-height: 32px;
-  border-radius: 9px;
-  padding: 0.34rem 0.62rem;
-  margin: -0.05rem 0 0.5rem;
-  font-size: 0.84rem;
+  display: block;
+  width: fit-content;
+  min-height: 34px;
+  min-width: 122px;
+  border-radius: var(--radius-sm);
+  padding: 0.38rem 0.72rem;
+  margin: 0 auto 0.38rem;
+  font-size: 0.9rem;
   font-weight: 700;
   line-height: 1.15;
 }
@@ -1196,6 +1203,10 @@ textarea {
   background: #eaf1f8;
   border-color: #c5d3e2;
   box-shadow: none;
+}
+
+.social-inline-date {
+  display: block;
 }
 
 .home-activity-grid {

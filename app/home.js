@@ -453,14 +453,20 @@ function renderLatestActivity(allRows, mediaByUserId) {
       const displayedReview = isReviewExpanded || !reviewPreview.isTruncated
         ? reviewPreview.full
         : reviewPreview.preview;
+      const toggleReviewButton = reviewPreview.full && reviewPreview.isTruncated
+        ? `<button type="button" class="ghost-button social-inline-more" data-action="toggle-activity-review" data-activity-id="${escapeHTML(row.id)}">${isReviewExpanded ? "Voir moins" : "Voir plus"}</button>`
+        : "";
       const reviewMarkup = reviewPreview.full
         ? `
           <p class="social-review-text">${escapeHTML(displayedReview).replace(/\n/g, "<br>")}</p>
-          ${reviewPreview.isTruncated
-            ? `<button type="button" class="button social-inline-more" data-action="toggle-activity-review" data-activity-id="${escapeHTML(row.id)}">${isReviewExpanded ? "Voir moins" : "Voir plus"}</button>`
-            : ""}
         `
         : "";
+      const footerMarkup = `
+        <div class="social-inline-footer">
+          ${toggleReviewButton}
+          <small class="social-inline-date">${formatDate(row.activity_at)}</small>
+        </div>
+      `;
 
       return `
         <article class="card review-card">
@@ -471,7 +477,7 @@ function renderLatestActivity(allRows, mediaByUserId) {
           <p class="film-meta">${detailLabel}</p>
           <p>${scorePart}<span class="film-meta">${escapeHTML(adjustmentPart)}</span></p>
           ${reviewMarkup}
-          <small>${formatDate(row.activity_at)}</small>
+          ${footerMarkup}
         </article>
       `;
     })
