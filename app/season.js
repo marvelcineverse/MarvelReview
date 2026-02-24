@@ -372,7 +372,7 @@ function renderSeasonCard() {
                       <td colspan="6">
                         <div class="episode-mini-review-box">
                           <label for="episode-review-${episode.id}">Mini-critique (optionnel)</label>
-                          <textarea id="episode-review-${episode.id}" data-field="episode-review" data-episode-id="${episode.id}" maxlength="420" placeholder="Ton avis rapide en quelques lignes...">${escapeHTML(reviewValue)}</textarea>
+                          <textarea id="episode-review-${episode.id}" data-field="episode-review" data-episode-id="${episode.id}" maxlength="2500" placeholder="Ton avis rapide en quelques lignes...">${escapeHTML(reviewValue)}</textarea>
                         </div>
                       </td>
                     </tr>
