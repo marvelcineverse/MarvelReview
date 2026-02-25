@@ -76,6 +76,7 @@ function updatePhaseVisibility() {
 
 function buildSeasonScoresByUser(season, episodesBySeasonId, episodeRatingsByEpisodeId, seasonRowsBySeasonId) {
   const seasonEpisodes = episodesBySeasonId.get(season.id) || [];
+  const totalEpisodeCount = seasonEpisodes.length;
   const episodeByUser = new Map();
 
   for (const episode of seasonEpisodes) {
@@ -101,11 +102,14 @@ function buildSeasonScoresByUser(season, episodesBySeasonId, episodeRatingsByEpi
     const adjustment = Number(manualRow?.adjustment || 0);
     const episodeValues = episodeByUser.get(userId);
     const episodeAverage = episodeValues ? episodeValues.total / episodeValues.count : null;
+    const hasCompleteEpisodeCoverage = totalEpisodeCount > 0
+      && episodeValues
+      && episodeValues.count === totalEpisodeCount;
 
     let effective = null;
     if (Number.isFinite(manual)) {
       effective = clamp(manual, 0, 10);
-    } else if (Number.isFinite(episodeAverage)) {
+    } else if (hasCompleteEpisodeCoverage && Number.isFinite(episodeAverage)) {
       effective = clamp(episodeAverage + adjustment, 0, 10);
     }
 
