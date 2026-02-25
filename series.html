@@ -75,6 +75,7 @@
       <section id="series-detail-section" class="card home-stack-card" style="display: none;">
         <div class="home-stack-chunk">
           <div id="series-details"></div>
+          <p id="series-admin-context-message" class="message" style="display: none;" aria-live="polite"></p>
         </div>
 
         <section class="home-stack-chunk">
@@ -143,10 +144,24 @@
           <h2>Saisons</h2>
           <div id="series-seasons-list" class="grid"></div>
         </section>
+
+        <section id="series-admin-section" class="home-stack-chunk" style="display: none;">
+          <h2>Attribution admin</h2>
+          <form id="series-admin-form" class="form">
+            <label>
+              Utilisateur cible
+              <select id="series-admin-target-user"></select>
+            </label>
+            <p class="film-meta">
+              Toutes les notes / critiques / ajustements de cette page s'appliquent au profil selectionne.
+            </p>
+            <p id="series-admin-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
       </section>
     </main>
 
     <script type="module" src="/app/common.js"></script>
-    <script type="module" src="/app/series.js?v=3.2.5"></script>
+    <script type="module" src="/app/series.js?v=3.2.6"></script>
   </body>
 </html>

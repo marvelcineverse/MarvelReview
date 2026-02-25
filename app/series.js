@@ -10,7 +10,7 @@ import {
   isReleasedOnOrBeforeToday,
   setMessage
 } from "./utils.js";
-import { getSession, requireAuth } from "./auth.js";
+import { getCurrentProfile, getSession, requireAuth } from "./auth.js";
 
 const SERIES_LIST_FILTERS_STORAGE_KEY = "marvelreview:series:list-filters:v1";
 const VALID_SERIES_SORT_MODES = new Set(["date_desc", "date_asc", "rating_desc", "rating_asc"]);
@@ -24,6 +24,10 @@ const DEFAULT_SERIES_LIST_FILTERS = Object.freeze({
 
 const state = {
   currentUserId: null,
+  currentProfile: null,
+  isAdmin: false,
+  adminTargetUserId: null,
+  adminTargetUsername: "",
   series: null,
   seasons: [],
   episodes: [],
@@ -194,6 +198,75 @@ async function fetchAllRowsByIn(table, columns, field, values, orderBy = "id", a
   return rows;
 }
 
+function getProfileDisplayName(profile) {
+  const username = String(profile?.username || "").trim();
+  if (username) return username;
+  const shortId = String(profile?.id || "").slice(0, 8);
+  return shortId ? `Utilisateur (${shortId})` : "Utilisateur";
+}
+
+async function loadAdminTargetUsers() {
+  const sectionEl = document.querySelector("#series-admin-section");
+  const selectEl = document.querySelector("#series-admin-target-user");
+  if (!sectionEl || !selectEl) return;
+
+  if (!state.isAdmin || !state.currentUserId) {
+    sectionEl.style.display = "none";
+    return;
+  }
+
+  const users = await fetchPagedRows((from, to) =>
+    supabase
+      .from("profiles")
+      .select("id, username")
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
+
+  const sortedUsers = [...(users || [])].sort((a, b) => {
+    const nameA = getProfileDisplayName(a);
+    const nameB = getProfileDisplayName(b);
+    return nameA.localeCompare(nameB, "fr");
+  });
+
+  selectEl.innerHTML = sortedUsers
+    .map((user) => `<option value="${escapeHTML(user.id)}">${escapeHTML(getProfileDisplayName(user))}</option>`)
+    .join("");
+
+  const validUserIds = new Set(sortedUsers.map((user) => user.id));
+  const defaultUserId = validUserIds.has(state.adminTargetUserId)
+    ? state.adminTargetUserId
+    : (validUserIds.has(state.currentUserId) ? state.currentUserId : sortedUsers[0]?.id || null);
+
+  state.adminTargetUserId = defaultUserId;
+  if (defaultUserId) {
+    selectEl.value = defaultUserId;
+  }
+
+  const selectedProfile = sortedUsers.find((user) => user.id === state.adminTargetUserId);
+  state.adminTargetUsername = getProfileDisplayName(selectedProfile);
+  sectionEl.style.display = "";
+  updateAdminContextMessage();
+  setMessage("#series-admin-message", state.adminTargetUserId
+    ? `Profil actif: ${state.adminTargetUsername}.`
+    : "Aucun profil cible disponible.", !state.adminTargetUserId);
+
+  selectEl.onchange = async () => {
+    try {
+      state.adminTargetUserId = selectEl.value || null;
+      const selected = sortedUsers.find((user) => user.id === state.adminTargetUserId);
+      state.adminTargetUsername = getProfileDisplayName(selected);
+      state.episodeReviewEditorEpisodeIds.clear();
+      state.episodeReviewPromptEpisodeId = null;
+      updateAdminContextMessage();
+      setMessage("#series-admin-message", `Profil actif: ${state.adminTargetUsername}.`);
+      await refreshRatingsOnly();
+    } catch (error) {
+      setMessage("#series-admin-message", error.message || "Impossible de changer le profil cible.", true);
+    }
+  };
+}
+
 function getDateSortValue(value) {
   if (!value) return Number.NEGATIVE_INFINITY;
   const parsed = Date.parse(value);
@@ -259,6 +332,32 @@ function focusEpisodeReviewInput(episodeId) {
 
 function canReviewSeries() {
   return isReleasedOnOrBeforeToday(state.series?.start_date || null);
+}
+
+function getActiveRatingUserId() {
+  if (!state.currentUserId) return null;
+  if (!state.isAdmin) return state.currentUserId;
+  return state.adminTargetUserId || state.currentUserId;
+}
+
+function isAdminProxyMode() {
+  const activeUserId = getActiveRatingUserId();
+  return Boolean(state.isAdmin && activeUserId && activeUserId !== state.currentUserId);
+}
+
+function updateAdminContextMessage() {
+  const messageEl = document.querySelector("#series-admin-context-message");
+  if (!messageEl) return;
+
+  if (!isAdminProxyMode()) {
+    messageEl.textContent = "";
+    messageEl.style.display = "none";
+    return;
+  }
+
+  const username = state.adminTargetUsername || "profil selectionne";
+  messageEl.textContent = `Mode admin actif: les notes et critiques sont appliquees a ${username}.`;
+  messageEl.style.display = "block";
 }
 
 function applySeriesAuthVisibility() {
@@ -380,7 +479,7 @@ function resolveSeasonUserScoreFromContext(context, userId) {
   };
 }
 
-function computeSeasonMetrics(seasonId) {
+function computeSeasonMetrics(seasonId, userId = getActiveRatingUserId()) {
   const context = buildSeasonComputationContext(seasonId);
   const allUserIds = new Set([...context.episodeStatsByUser.keys(), ...context.seasonRowsByUser.keys()]);
   const effectiveScores = [];
@@ -395,7 +494,7 @@ function computeSeasonMetrics(seasonId) {
     ? effectiveScores.reduce((sum, score) => sum + score, 0) / effectiveScores.length
     : null;
 
-  const user = resolveSeasonUserScoreFromContext(context, state.currentUserId);
+  const user = resolveSeasonUserScoreFromContext(context, userId);
 
   return {
     episodeCount: context.episodeCount,
@@ -442,7 +541,7 @@ function computeSeriesAverageByUserId() {
   return userAverageById;
 }
 
-function computeSeriesAverages() {
+function computeSeriesAverages(userId = getActiveRatingUserId()) {
   const totalSeasons = state.seasons.length;
   const userAverageById = computeSeriesAverageByUserId();
   if (!totalSeasons || !userAverageById.size) {
@@ -476,7 +575,7 @@ function computeSeriesAverages() {
 
   return {
     globalAverage: weightedSum / coverageWeightSum,
-    myAverage: state.currentUserId ? (userAverageById.get(state.currentUserId) ?? null) : null,
+    myAverage: userId ? (userAverageById.get(userId) ?? null) : null,
     contributorCount: userAverageById.size
   };
 }
@@ -979,7 +1078,14 @@ function fillCurrentUserSeriesReview() {
   const deleteBtn = document.querySelector("#series-review-delete-button");
   if (!textarea || !deleteBtn) return;
 
-  const myReview = state.seriesReviews.find((row) => row.user_id === state.currentUserId);
+  const activeUserId = getActiveRatingUserId();
+  if (!activeUserId) {
+    textarea.value = "";
+    deleteBtn.style.display = "none";
+    return;
+  }
+
+  const myReview = state.seriesReviews.find((row) => row.user_id === activeUserId);
   textarea.value = myReview?.review || "";
   deleteBtn.style.display = myReview ? "inline-flex" : "none";
 }
@@ -987,7 +1093,8 @@ function fillCurrentUserSeriesReview() {
 function renderSeriesAverage() {
   const globalEl = document.querySelector("#series-global-average");
   const myEl = document.querySelector("#series-my-average");
-  const metrics = computeSeriesAverages();
+  const activeUserId = getActiveRatingUserId();
+  const metrics = computeSeriesAverages(activeUserId);
 
   globalEl.innerHTML = metrics.globalAverage === null
     ? `<span class="score-badge stade-neutre">Pas encore de note</span>`
@@ -996,13 +1103,16 @@ function renderSeriesAverage() {
       <span>${metrics.contributorCount} profil(s) contributeur(s)</span>
     `;
 
-  if (!state.currentUserId) {
+  if (!activeUserId) {
     myEl.innerHTML = "";
     return;
   }
 
+  const emptyLabel = isAdminProxyMode()
+    ? "Ce profil n'a pas encore de moyenne sur cette serie"
+    : "Tu n'as pas encore de moyenne sur cette serie";
   myEl.innerHTML = metrics.myAverage === null
-    ? `<span class="score-badge stade-neutre">Tu n'as pas encore de moyenne sur cette serie</span>`
+    ? `<span class="score-badge stade-neutre">${emptyLabel}</span>`
     : `<span class="score-badge ${getScoreClass(metrics.myAverage)}">${formatScore(metrics.myAverage, 2, 2)} / 10</span>`;
 }
 
@@ -1130,14 +1240,21 @@ function renderSeasons(openSeasonIds = null) {
   }
 
   const initialOpenAll = openSeasonIds === null;
-  const showUserEpisodeActions = Boolean(state.currentUserId);
+  const activeUserId = getActiveRatingUserId();
+  const showUserEpisodeActions = Boolean(activeUserId);
+  const isOwnProfile = !isAdminProxyMode();
+  const effectiveSeasonLabel = isOwnProfile ? "Ta note effective de la saison" : "Note effective du profil";
+  const baseNoteLabel = isOwnProfile ? "Base utilisee pour ta note" : "Base utilisee pour la note du profil";
+  const episodeBaseLabel = isOwnProfile ? "Moyenne de tes episodes" : "Moyenne des episodes";
+  const episodeAverageLabel = isOwnProfile ? "Moyenne de tes episodes" : "Moyenne des episodes du profil";
+  const tableScoreLabel = isOwnProfile ? "Ta note" : "Note profil";
 
   container.innerHTML = state.seasons
     .map((season) => {
       const seasonEpisodes = state.episodes
         .filter((episode) => episode.season_id === season.id)
         .sort((a, b) => a.episode_number - b.episode_number);
-      const metrics = computeSeasonMetrics(season.id);
+      const metrics = computeSeasonMetrics(season.id, activeUserId);
       const canRateSeason = isSeasonRateable(season);
       const episodeAverageById = new Map();
       for (const episode of seasonEpisodes) {
@@ -1187,8 +1304,8 @@ function renderSeasons(openSeasonIds = null) {
 
           ${showUserEpisodeActions ? `
             <div class="season-rating-separator" aria-hidden="true"></div>
-            <p>Ta note effective de la saison: ${userAverage}</p>
-            <p class="film-meta">Base utilis\u00E9e pour ta note : ${metrics.userManualScore === null ? "Moyenne de tes \u00E9pisodes" : "Note manuelle de saison"} | \u00C9pisodes: ${metrics.episodeCount}</p>
+            <p>${effectiveSeasonLabel}: ${userAverage}</p>
+            <p class="film-meta">${baseNoteLabel} : ${metrics.userManualScore === null ? episodeBaseLabel : "Note manuelle de saison"} | \u00C9pisodes: ${metrics.episodeCount}</p>
 
             <div class="season-rating-layout">
               <section class="season-rating-panel">
@@ -1207,7 +1324,7 @@ function renderSeasons(openSeasonIds = null) {
               </section>
 
               <section class="season-rating-panel">
-                <p>Moyenne de tes \u00E9pisodes: <b>${seasonAverage}</b></p>
+                <p>${episodeAverageLabel}: <b>${seasonAverage}</b></p>
                 <div class="inline-actions season-adjuster">
                   <span>Ajusteur de moyenne</span>
                   <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" data-season-id="${season.id}" aria-label="Diminuer l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
@@ -1241,7 +1358,7 @@ function renderSeasons(openSeasonIds = null) {
                     <th>\u00C9pisode</th>
                     <th>Diffusion</th>
                     <th>Moyenne</th>
-                    ${showUserEpisodeActions ? "<th>Ta note</th>" : ""}
+                    ${showUserEpisodeActions ? `<th>${tableScoreLabel}</th>` : ""}
                     ${showUserEpisodeActions ? "<th>Modifier</th>" : ""}
                   </tr>
                 </thead>
@@ -1249,7 +1366,7 @@ function renderSeasons(openSeasonIds = null) {
                   ${seasonEpisodes.map((episode) => {
                     const userRating = showUserEpisodeActions
                       ? state.episodeRatings.find(
-                        (rating) => rating.episode_id === episode.id && rating.user_id === state.currentUserId
+                        (rating) => rating.episode_id === episode.id && rating.user_id === activeUserId
                       )
                       : null;
                     const canRate = isReleasedOnOrBeforeToday(episode.air_date);
@@ -1412,6 +1529,7 @@ async function reloadSeriesDetails(seriesId) {
   state.episodeReviewEditorEpisodeIds.clear();
   state.episodeReviewPromptEpisodeId = null;
   applySeriesAuthVisibility();
+  updateAdminContextMessage();
   renderSeriesHeader();
   applySeriesReviewAvailability();
   fillCurrentUserSeriesReview();
@@ -1428,6 +1546,7 @@ async function refreshRatingsOnly() {
   const openSeasonIds = getOpenSeasonIdsFromDOM();
   await loadRatingsData();
   applySeriesAuthVisibility();
+  updateAdminContextMessage();
   applySeriesReviewAvailability();
   fillCurrentUserSeriesReview();
   renderSeriesAverage();
@@ -1440,8 +1559,7 @@ async function refreshRatingsOnly() {
 }
 
 async function saveSeriesReview() {
-  const session = await requireAuth("/login.html");
-  if (!session) return;
+  if (!(await requireAuth("/login.html"))) return;
   if (!canReviewSeries()) {
     setMessage("#series-review-message", "Impossible de commenter une serie non sortie ou sans date de debut.", true);
     return;
@@ -1454,34 +1572,50 @@ async function saveSeriesReview() {
     return;
   }
 
+  const activeUserId = getActiveRatingUserId();
+  if (!activeUserId) {
+    setMessage("#series-review-message", "Aucun profil actif.", true);
+    return;
+  }
+
   const { error } = await supabase.from("series_reviews").upsert(
     {
-      user_id: session.user.id,
+      user_id: activeUserId,
       series_id: state.series.id,
       review: reviewValue
     },
     { onConflict: "user_id,series_id" }
   );
   if (error) throw error;
-  setMessage("#series-review-message", "Critique serie enregistree.");
+  const message = isAdminProxyMode()
+    ? `Critique serie enregistree pour ${state.adminTargetUsername || "le profil cible"}.`
+    : "Critique serie enregistree.";
+  setMessage("#series-review-message", message);
 }
 
 async function deleteSeriesReview() {
-  const session = await requireAuth("/login.html");
-  if (!session) return;
+  if (!(await requireAuth("/login.html"))) return;
+
+  const activeUserId = getActiveRatingUserId();
+  if (!activeUserId) {
+    setMessage("#series-review-message", "Aucun profil actif.", true);
+    return;
+  }
 
   const { error } = await supabase
     .from("series_reviews")
     .delete()
-    .eq("user_id", session.user.id)
+    .eq("user_id", activeUserId)
     .eq("series_id", state.series.id);
   if (error) throw error;
-  setMessage("#series-review-message", "Critique serie supprimee.");
+  const message = isAdminProxyMode()
+    ? `Critique serie supprimee pour ${state.adminTargetUsername || "le profil cible"}.`
+    : "Critique serie supprimee.";
+  setMessage("#series-review-message", message);
 }
 
 async function saveEpisodeRating(episodeId) {
-  const session = await requireAuth("/login.html");
-  if (!session) return { saved: false };
+  if (!(await requireAuth("/login.html"))) return { saved: false };
 
   const episode = state.episodes.find((item) => item.id === episodeId);
   if (!isReleasedOnOrBeforeToday(episode?.air_date || null)) {
@@ -1502,7 +1636,13 @@ async function saveEpisodeRating(episodeId) {
     return { saved: false };
   }
 
-  const existing = state.episodeRatings.find((row) => row.episode_id === episodeId && row.user_id === session.user.id);
+  const activeUserId = getActiveRatingUserId();
+  if (!activeUserId) {
+    setMessage("#page-message", "Aucun profil actif.", true);
+    return { saved: false };
+  }
+
+  const existing = state.episodeRatings.find((row) => row.episode_id === episodeId && row.user_id === activeUserId);
   const reviewInput = document.querySelector(`[data-field="episode-review"][data-episode-id="${episodeId}"]`);
   const reviewValue = reviewInput ? reviewInput.value.trim() : "";
   const hasExistingReview = String(existing?.review || "").trim().length > 0;
@@ -1510,7 +1650,7 @@ async function saveEpisodeRating(episodeId) {
 
   const { error } = await supabase.from("episode_ratings").upsert(
     {
-      user_id: session.user.id,
+      user_id: activeUserId,
       episode_id: episodeId,
       score,
       review: nextReview
@@ -1522,26 +1662,32 @@ async function saveEpisodeRating(episodeId) {
 }
 
 async function deleteEpisodeRating(episodeId) {
-  const session = await requireAuth("/login.html");
-  if (!session) return;
+  if (!(await requireAuth("/login.html"))) return;
+
+  const activeUserId = getActiveRatingUserId();
+  if (!activeUserId) {
+    setMessage("#page-message", "Aucun profil actif.", true);
+    return;
+  }
 
   const { error } = await supabase
     .from("episode_ratings")
     .delete()
-    .eq("user_id", session.user.id)
+    .eq("user_id", activeUserId)
     .eq("episode_id", episodeId);
   if (error) throw error;
 }
 
 function getCurrentSeasonUserRow(seasonId) {
+  const activeUserId = getActiveRatingUserId();
+  if (!activeUserId) return null;
   return state.seasonUserRatings.find(
-    (row) => row.season_id === seasonId && row.user_id === state.currentUserId
+    (row) => row.season_id === seasonId && row.user_id === activeUserId
   );
 }
 
 async function saveSeasonManualScore(seasonId) {
-  const session = await requireAuth("/login.html");
-  if (!session) return;
+  if (!(await requireAuth("/login.html"))) return;
 
   const season = state.seasons.find((item) => item.id === seasonId);
   if (!isSeasonRateable(season)) {
@@ -1563,9 +1709,15 @@ async function saveSeasonManualScore(seasonId) {
     return;
   }
 
+  const activeUserId = getActiveRatingUserId();
+  if (!activeUserId) {
+    setMessage("#page-message", "Aucun profil actif.", true);
+    return;
+  }
+
   const { error } = await supabase.from("season_user_ratings").upsert(
     {
-      user_id: session.user.id,
+      user_id: activeUserId,
       season_id: seasonId,
       manual_score: score,
       adjustment: 0,
@@ -1577,8 +1729,13 @@ async function saveSeasonManualScore(seasonId) {
 }
 
 async function deleteSeasonManualScore(seasonId) {
-  const session = await requireAuth("/login.html");
-  if (!session) return;
+  if (!(await requireAuth("/login.html"))) return;
+
+  const activeUserId = getActiveRatingUserId();
+  if (!activeUserId) {
+    setMessage("#page-message", "Aucun profil actif.", true);
+    return;
+  }
 
   const existing = getCurrentSeasonUserRow(seasonId);
   if (!existing) return;
@@ -1587,7 +1744,7 @@ async function deleteSeasonManualScore(seasonId) {
     const { error } = await supabase
       .from("season_user_ratings")
       .delete()
-      .eq("user_id", session.user.id)
+      .eq("user_id", activeUserId)
       .eq("season_id", seasonId);
     if (error) throw error;
     return;
@@ -1596,14 +1753,13 @@ async function deleteSeasonManualScore(seasonId) {
   const { error } = await supabase
     .from("season_user_ratings")
     .update({ manual_score: null })
-    .eq("user_id", session.user.id)
+    .eq("user_id", activeUserId)
     .eq("season_id", seasonId);
   if (error) throw error;
 }
 
 async function adjustSeason(seasonId, delta) {
-  const session = await requireAuth("/login.html");
-  if (!session) return;
+  if (!(await requireAuth("/login.html"))) return;
 
   const season = state.seasons.find((item) => item.id === seasonId);
   if (!isSeasonRateable(season)) {
@@ -1611,8 +1767,14 @@ async function adjustSeason(seasonId, delta) {
     return;
   }
 
+  const activeUserId = getActiveRatingUserId();
+  if (!activeUserId) {
+    setMessage("#page-message", "Aucun profil actif.", true);
+    return;
+  }
+
   const existing = getCurrentSeasonUserRow(seasonId);
-  const metrics = computeSeasonMetrics(seasonId);
+  const metrics = computeSeasonMetrics(seasonId, activeUserId);
   const base = Number.isFinite(metrics.userEpisodeAverage)
     ? toFixedNumber(metrics.userEpisodeAverage, 2)
     : null;
@@ -1648,7 +1810,7 @@ async function adjustSeason(seasonId, delta) {
   const nextAdjustment = toFixedNumber(clamp(nextEffective - base, -2, 2), 2);
 
   const payload = {
-    user_id: session.user.id,
+    user_id: activeUserId,
     season_id: seasonId,
     manual_score: existing?.manual_score ?? null,
     adjustment: nextAdjustment,
@@ -1659,7 +1821,7 @@ async function adjustSeason(seasonId, delta) {
     const { error } = await supabase
       .from("season_user_ratings")
       .delete()
-      .eq("user_id", session.user.id)
+      .eq("user_id", activeUserId)
       .eq("season_id", seasonId);
     if (error) throw error;
     return;
@@ -1670,8 +1832,13 @@ async function adjustSeason(seasonId, delta) {
 }
 
 async function resetSeasonAdjustment(seasonId) {
-  const session = await requireAuth("/login.html");
-  if (!session) return;
+  if (!(await requireAuth("/login.html"))) return;
+
+  const activeUserId = getActiveRatingUserId();
+  if (!activeUserId) {
+    setMessage("#page-message", "Aucun profil actif.", true);
+    return;
+  }
 
   const existing = getCurrentSeasonUserRow(seasonId);
   if (!existing) return;
@@ -1680,7 +1847,7 @@ async function resetSeasonAdjustment(seasonId) {
     .from("season_user_ratings")
     .upsert(
       {
-        user_id: session.user.id,
+        user_id: activeUserId,
         season_id: seasonId,
         manual_score: existing.manual_score ?? null,
         adjustment: 0,
@@ -1797,6 +1964,10 @@ async function initPage() {
   try {
     const session = await getSession();
     state.currentUserId = session?.user?.id || null;
+    state.currentProfile = null;
+    state.isAdmin = false;
+    state.adminTargetUserId = null;
+    state.adminTargetUsername = "";
     const pageTitleEl = document.querySelector("#series-page-title");
 
     const seriesId = getSeriesIdFromURL();
@@ -1860,8 +2031,24 @@ async function initPage() {
       subtitleNoteEl.textContent = "Tant qu'une saison n'est pas compl\u00E8te, la moyenne partielle reste visible dans \"Moyenne de tes \u00E9pisodes\" mais n'est pas comptabilis\u00E9e comme note effective.";
     }
 
+    if (session) {
+      state.currentProfile = await getCurrentProfile();
+      state.isAdmin = Boolean(state.currentProfile?.is_admin);
+      if (state.isAdmin) {
+        state.adminTargetUserId = state.currentUserId;
+        state.adminTargetUsername = getProfileDisplayName(state.currentProfile);
+      }
+    }
+
     await reloadSeriesDetails(seriesId);
     bindDetailEvents();
+
+    const adminSectionEl = document.querySelector("#series-admin-section");
+    if (state.isAdmin) {
+      await loadAdminTargetUsers();
+    } else if (adminSectionEl) {
+      adminSectionEl.style.display = "none";
+    }
 
     document.querySelector("#series-review-form")?.addEventListener("submit", async (event) => {
       event.preventDefault();
