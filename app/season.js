@@ -223,12 +223,14 @@ function renderSeasonDetails() {
   if (!detailsEl) return;
 
   const seasonLabel = state.season?.name || `Saison ${state.season?.season_number || "?"}`;
+  const slugLabel = state.season?.slug ? escapeHTML(state.season.slug) : "-";
   detailsEl.innerHTML = `
     <h1>${escapeHTML(seasonLabel)}</h1>
     <p>
       S&eacute;rie:
       <a href="/series.html?id=${state.series?.id || ""}" class="film-link">${escapeHTML(state.series?.title || "-")}</a>
     </p>
+    <p class="film-meta">Slug: <code>${slugLabel}</code></p>
   `;
 }
 
@@ -507,7 +509,7 @@ async function loadSeasonData() {
 
   const { data: season, error: seasonError } = await supabase
     .from("series_seasons")
-    .select("id, series_id, name, season_number, start_date, end_date, phase")
+    .select("id, series_id, name, season_number, slug, start_date, end_date, phase")
     .eq("id", seasonId)
     .single();
   if (seasonError) throw seasonError;

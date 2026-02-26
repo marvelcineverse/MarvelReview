@@ -76,12 +76,14 @@ function applyRatingAvailability() {
 
 function renderFilmDetails(film) {
   const container = document.querySelector("#film-details");
+  const slugLabel = film?.slug ? escapeHTML(film.slug) : "-";
   container.innerHTML = `
     <article class="film-hero">
       <div class="film-hero-content">
         <h1>${escapeHTML(film.title)}</h1>
         <p>Date de sortie: ${formatDate(film.release_date)}</p>
         <p>${escapeHTML(film.synopsis || "Aucun synopsis.")}</p>
+        <p class="film-meta">Slug: <code>${slugLabel}</code></p>
       </div>
       <img class="film-hero-poster" src="${escapeHTML(film.poster_url || "https://via.placeholder.com/260x390?text=Marvel")}" alt="Affiche de ${escapeHTML(film.title)}" />
     </article>

@@ -826,12 +826,14 @@ function renderSeriesList(rows) {
 function renderSeriesHeader() {
   const detailsEl = document.querySelector("#series-details");
   const series = state.series;
+  const slugLabel = series?.slug ? escapeHTML(series.slug) : "-";
   detailsEl.innerHTML = `
     <article class="film-hero">
       <div class="film-hero-content">
         <h1>${escapeHTML(series.title)}</h1>
         <p><u>D\u00E9but</u> : ${formatDate(series.start_date)} - <u>Fin</u> : ${formatDate(series.end_date)}</p>
         <p>${escapeHTML(series.synopsis || "Aucun synopsis.")}</p>
+        <p class="film-meta">Slug: <code>${slugLabel}</code></p>
       </div>
       <img class="film-hero-poster" src="${escapeHTML(series.poster_url || "https://via.placeholder.com/260x390?text=Serie")}" alt="Affiche de ${escapeHTML(series.title)}" />
     </article>

@@ -96,6 +96,7 @@ function renderEpisodeDetails() {
   if (!detailsEl) return;
 
   const seasonLabel = state.season?.name || `Saison ${state.season?.season_number || "?"}`;
+  const slugLabel = state.episode?.slug ? escapeHTML(state.episode.slug) : "-";
   detailsEl.innerHTML = `
     <h1>Ep. ${state.episode?.episode_number || "-"} - ${escapeHTML(state.episode?.title || "Episode")}</h1>
     <p>
@@ -103,6 +104,7 @@ function renderEpisodeDetails() {
       | Saison: <a href="/season.html?id=${state.season?.id || ""}" class="film-link">${escapeHTML(seasonLabel)}</a>
     </p>
     <p>Date de diffusion: ${formatDate(state.episode?.air_date)}</p>
+    <p class="film-meta">Slug: <code>${slugLabel}</code></p>
   `;
 }
 

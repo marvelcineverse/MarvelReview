@@ -101,6 +101,35 @@ begin
 end;
 $$;
 
+create or replace function public.set_episode_slug_from_season()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_season_slug text;
+begin
+  if new.slug is not null and btrim(new.slug) <> '' then
+    return new;
+  end if;
+
+  if new.season_id is null or new.episode_number is null then
+    return new;
+  end if;
+
+  select nullif(btrim(ss.slug), '')
+  into v_season_slug
+  from public.series_seasons ss
+  where ss.id = new.season_id;
+
+  if v_season_slug is not null then
+    new.slug = v_season_slug || '-' || new.episode_number::text;
+  end if;
+
+  return new;
+end;
+$$;
+
 create or replace function public.is_admin(p_user_id uuid)
 returns boolean
 language sql
@@ -693,6 +722,12 @@ create trigger trg_season_user_ratings_updated_at
 before update on public.season_user_ratings
 for each row
 execute function public.set_updated_at();
+
+drop trigger if exists trg_series_episodes_auto_slug on public.series_episodes;
+create trigger trg_series_episodes_auto_slug
+before insert or update of season_id, episode_number, slug on public.series_episodes
+for each row
+execute function public.set_episode_slug_from_season();
 
 alter table public.series enable row level security;
 alter table public.series_seasons enable row level security;
