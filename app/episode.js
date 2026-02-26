@@ -3,7 +3,6 @@ import {
   escapeHTML,
   formatDate,
   formatScore,
-  getEpisodeIdFromURL,
   getScoreClass,
   isQuarterStep,
   isReleasedOnOrBeforeToday,
@@ -20,6 +19,16 @@ const state = {
 };
 const SUPABASE_PAGE_SIZE = 1000;
 const IN_FILTER_CHUNK_SIZE = 200;
+
+function getEpisodeRefFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const id = (params.get("id") || "").trim();
+  const slug = (params.get("slug") || "").trim();
+  return {
+    id: id || null,
+    slug: slug || null
+  };
+}
 
 function chunkArray(values, size) {
   const chunks = [];
@@ -176,20 +185,22 @@ function fillCurrentUserRating() {
 }
 
 async function loadEpisodePage() {
-  const episodeId = getEpisodeIdFromURL();
-  if (!episodeId) {
-    setMessage("#page-message", "Episode introuvable: parametre id manquant.", true);
+  const { id: episodeId, slug: episodeSlug } = getEpisodeRefFromURL();
+  if (!episodeId && !episodeSlug) {
+    setMessage("#page-message", "Episode introuvable: parametre id ou slug manquant.", true);
     return;
   }
 
   const session = await getSession();
   state.currentUserId = session?.user?.id || null;
 
-  const { data: episode, error: episodeError } = await supabase
+  let episodeQuery = supabase
     .from("series_episodes")
-    .select("id, season_id, episode_number, title, air_date")
-    .eq("id", episodeId)
-    .single();
+    .select("id, season_id, episode_number, title, air_date, slug");
+
+  episodeQuery = episodeId ? episodeQuery.eq("id", episodeId) : episodeQuery.eq("slug", episodeSlug);
+
+  const { data: episode, error: episodeError } = await episodeQuery.single();
   if (episodeError) throw episodeError;
 
   const [
@@ -205,7 +216,7 @@ async function loadEpisodePage() {
       supabase
         .from("episode_ratings")
         .select("id, episode_id, user_id, score, review, created_at, profiles(username)")
-        .eq("episode_id", episodeId)
+        .eq("episode_id", episode.id)
         .order("created_at", { ascending: false })
         .range(from, to)
     )

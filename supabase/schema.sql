@@ -629,6 +629,7 @@ create table if not exists public.series_episodes (
   created_at timestamptz not null default timezone('utc', now()),
   unique (season_id, episode_number)
 );
+alter table public.series_episodes add column if not exists slug text;
 
 create table if not exists public.episode_ratings (
   id uuid primary key default gen_random_uuid(),
@@ -1964,6 +1965,174 @@ as $$
   offset (select row_offset from input_params);
 $$;
 
+create or replace function public.api_episode_score(
+  p_episode_ref text,
+  p_scope text default 'global',
+  p_scope_value text default null
+)
+returns table (
+  episode_id uuid,
+  episode_title text,
+  season_id uuid,
+  season_title text,
+  season_number integer,
+  series_id uuid,
+  series_title text,
+  scope text,
+  scope_value text,
+  rating_count bigint,
+  average numeric,
+  rank_position bigint,
+  ranked_items_count bigint,
+  total_items_count bigint
+)
+language sql
+stable
+set search_path = public
+as $$
+  with input_params as (
+    select
+      trim(coalesce(p_episode_ref, '')) as episode_ref,
+      lower(trim(coalesce(p_scope, 'global'))) as scope_kind,
+      nullif(trim(coalesce(p_scope_value, '')), '') as scope_ref
+  ),
+  target_episode as (
+    select
+      ep.id as episode_id,
+      ep.title as episode_title,
+      ep.season_id,
+      ss.name as season_title,
+      ss.season_number,
+      ss.series_id,
+      s.title as series_title
+    from public.series_episodes ep
+    join public.series_seasons ss
+      on ss.id = ep.season_id
+    join public.series s
+      on s.id = ss.series_id
+    cross join input_params p
+    where
+      p.episode_ref <> ''
+      and (
+        (p.episode_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and ep.id = p.episode_ref::uuid)
+        or lower(coalesce(ep.slug, '')) = lower(p.episode_ref)
+        or lower(ep.title) = lower(p.episode_ref)
+      )
+    order by
+      case
+        when (p.episode_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and ep.id = p.episode_ref::uuid) then 0
+        when lower(coalesce(ep.slug, '')) = lower(p.episode_ref) then 1
+        when lower(ep.title) = lower(p.episode_ref) then 2
+        else 3
+      end,
+      ss.season_number asc nulls last,
+      ep.episode_number asc nulls last
+    limit 1
+  ),
+  peer_episodes as (
+    select
+      ep.id as episode_id,
+      ep.title as episode_title,
+      ep.season_id,
+      ss.name as season_title,
+      ss.season_number,
+      ss.series_id
+    from public.series_episodes ep
+    join public.series_seasons ss
+      on ss.id = ep.season_id
+    join target_episode te
+      on te.series_id = ss.series_id
+  ),
+  scoped_user_ids as (
+    select distinct pm.profile_id as user_id
+    from input_params p
+    join public.profile_media_memberships pm
+      on p.scope_kind = 'media'
+      and pm.status = 'approved'
+    join public.media_outlets mo
+      on mo.id = pm.media_id
+    where
+      p.scope_ref is not null
+      and (
+        lower(mo.name) = lower(p.scope_ref)
+        or (p.scope_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and mo.id = p.scope_ref::uuid)
+      )
+    union
+    select distinct pr.id as user_id
+    from input_params p
+    join public.profiles pr
+      on p.scope_kind = 'user'
+    where
+      p.scope_ref is not null
+      and (
+        lower(pr.username) = lower(p.scope_ref)
+        or (p.scope_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' and pr.id = p.scope_ref::uuid)
+      )
+  ),
+  scoped_ratings as (
+    select er.*
+    from public.episode_ratings er
+    join peer_episodes pe
+      on pe.episode_id = er.episode_id
+    cross join input_params p
+    where
+      p.scope_kind = 'global'
+      or er.user_id in (select su.user_id from scoped_user_ids su)
+  ),
+  peer_scores as (
+    select
+      pe.episode_id,
+      pe.episode_title,
+      pe.season_id,
+      pe.season_title,
+      pe.season_number,
+      pe.series_id,
+      count(sr.id)::bigint as rating_count,
+      case when count(sr.id) > 0 then avg(sr.score)::numeric else null end as average
+    from peer_episodes pe
+    left join scoped_ratings sr
+      on sr.episode_id = pe.episode_id
+    group by
+      pe.episode_id,
+      pe.episode_title,
+      pe.season_id,
+      pe.season_title,
+      pe.season_number,
+      pe.series_id
+  ),
+  ranked as (
+    select
+      ps.*,
+      case
+        when ps.average is null then null::bigint
+        else dense_rank() over (order by round(ps.average::numeric, 2) desc nulls last)::bigint
+      end as rank_position,
+      count(*) filter (where ps.average is not null) over ()::bigint as ranked_items_count,
+      count(*) over ()::bigint as total_items_count
+    from peer_scores ps
+  )
+  select
+    r.episode_id,
+    r.episode_title,
+    r.season_id,
+    r.season_title,
+    r.season_number,
+    r.series_id,
+    te.series_title,
+    p.scope_kind as scope,
+    p.scope_ref as scope_value,
+    r.rating_count,
+    r.average,
+    r.rank_position,
+    r.ranked_items_count,
+    r.total_items_count
+  from ranked r
+  join target_episode te
+    on te.episode_id = r.episode_id
+  cross join input_params p
+  where p.scope_kind in ('global', 'media', 'user');
+$$;
+
 create or replace function public.api_series_rank_in_franchise(
   p_series_ref text,
   p_mode text default 'all'
@@ -2694,5 +2863,6 @@ grant execute on function public.api_film_rank_in_franchise_all_content(text) to
 grant execute on function public.api_media_members(text) to anon, authenticated;
 grant execute on function public.api_series_score(text, text, text) to anon, authenticated;
 grant execute on function public.api_series_reviews(text, text, text, integer, integer) to anon, authenticated;
+grant execute on function public.api_episode_score(text, text, text) to anon, authenticated;
 grant execute on function public.api_series_rank_in_franchise(text, text) to anon, authenticated;
 grant execute on function public.api_series_rank_in_franchise_all_content(text) to anon, authenticated;

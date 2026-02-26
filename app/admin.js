@@ -831,7 +831,10 @@ function renderEpisodeOptions(seasonId = "") {
     `<option value="">Nouvel episode</option>`,
     ...filtered
       .sort((a, b) => a.episode_number - b.episode_number)
-      .map((episode) => `<option value="${episode.id}">Ep ${episode.episode_number} - ${escapeHTML(episode.title)}</option>`)
+      .map((episode) => {
+        const slugLabel = episode.slug ? ` (${escapeHTML(episode.slug)})` : "";
+        return `<option value="${episode.id}">Ep ${episode.episode_number} - ${escapeHTML(episode.title)}${slugLabel}</option>`;
+      })
   ].join("");
 
   updateEpisodeDeleteButtonState();
@@ -886,6 +889,7 @@ function fillEpisodeForm(episodeId) {
 
   document.querySelector("#episode-number").value = row?.episode_number || "";
   document.querySelector("#episode-title").value = row?.title || "";
+  document.querySelector("#episode-slug").value = row?.slug || "";
   document.querySelector("#episode-air-date").value = row?.air_date || "";
 
   renderEpisodeOptions(document.querySelector("#episode-season-id").value || "");
@@ -898,7 +902,7 @@ async function refreshSeriesData() {
     fetchAllRows("films", "id, title, slug, release_date, franchise, phase, type, poster_url, synopsis", "release_date", true),
     fetchAllRows("series", "id, title, slug, synopsis, poster_url, start_date, end_date, franchise, type", "title", true),
     fetchAllRows("series_seasons", "id, series_id, name, season_number, slug, poster_url, start_date, end_date, phase", "season_number", true),
-    fetchAllRows("series_episodes", "id, season_id, episode_number, title, air_date", "episode_number", true)
+    fetchAllRows("series_episodes", "id, season_id, episode_number, title, slug, air_date", "episode_number", true)
   ]);
 
   state.films = films || [];
@@ -959,6 +963,7 @@ function getBulkRowsValues() {
     index: index + 1,
     episode_number: row.querySelector("[data-field='episode-number']")?.value?.trim() || "",
     title: row.querySelector("[data-field='episode-title']")?.value?.trim() || "",
+    slug: row.querySelector("[data-field='episode-slug']")?.value?.trim() || "",
     air_date: row.querySelector("[data-field='episode-air-date']")?.value?.trim() || ""
   }));
 }
@@ -972,12 +977,14 @@ function renderBulkEpisodeRows(count, previousRows = []) {
     const row = previousRows[idx] || {};
     const episodeNumber = row.episode_number || String(idx + 1);
     const title = escapeHTML(row.title || "");
+    const slug = escapeHTML(row.slug || "");
     const airDate = escapeHTML(row.air_date || "");
     return `
       <tr class="bulk-episode-row" data-bulk-row>
         <td class="bulk-episode-index">${idx + 1}</td>
         <td><input data-field="episode-number" type="number" min="1" step="1" value="${escapeHTML(episodeNumber)}" placeholder="Numero" /></td>
         <td><input data-field="episode-title" type="text" value="${title}" placeholder="Titre episode" /></td>
+        <td><input data-field="episode-slug" type="text" value="${slug}" placeholder="Slug (optionnel)" /></td>
         <td><input data-field="episode-air-date" type="text" value="${airDate}" placeholder="Date (YYYY-MM-DD ou DD/MM/YYYY)" /></td>
       </tr>
     `;
@@ -1017,6 +1024,7 @@ function parseBulkEpisodesRows() {
     parsed.push({
       episode_number: episodeNumber,
       title: row.title,
+      slug: row.slug || null,
       air_date: airDate || null
     });
   }
@@ -1039,7 +1047,7 @@ function fillBulkTableFromPaste(event) {
     .map((line) => line.split("\t"));
   if (!matrix.length) return;
 
-  const fields = ["episode-number", "episode-title", "episode-air-date"];
+  const fields = ["episode-number", "episode-title", "episode-slug", "episode-air-date"];
   const startFieldIndex = fields.indexOf(input.dataset.field);
   if (startFieldIndex === -1) return;
 
@@ -1060,6 +1068,17 @@ function fillBulkTableFromPaste(event) {
   matrix.forEach((columns, rowOffset) => {
     const rowEl = rowEls[startRowIndex + rowOffset];
     if (!rowEl) return;
+
+    if (startFieldIndex === 0 && columns.length === 3) {
+      const legacyFields = ["episode-number", "episode-title", "episode-air-date"];
+      columns.forEach((value, legacyIndex) => {
+        const field = legacyFields[legacyIndex];
+        if (!field) return;
+        const cellInput = rowEl.querySelector(`[data-field='${field}']`);
+        if (cellInput) cellInput.value = value.trim();
+      });
+      return;
+    }
 
     columns.forEach((value, columnOffset) => {
       const field = fields[startFieldIndex + columnOffset];
@@ -1210,6 +1229,7 @@ function bindSeriesForms() {
       season_id: seasonId,
       episode_number: Number(document.querySelector("#episode-number").value),
       title: document.querySelector("#episode-title").value.trim(),
+      slug: document.querySelector("#episode-slug").value.trim() || null,
       air_date: document.querySelector("#episode-air-date").value || null
     };
 
@@ -1287,6 +1307,7 @@ function bindSeriesForms() {
       season_id: seasonId,
       episode_number: episode.episode_number,
       title: episode.title,
+      slug: episode.slug,
       air_date: episode.air_date
     }));
 
