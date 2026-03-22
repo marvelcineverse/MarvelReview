@@ -36,6 +36,20 @@
           <input id="password" type="password" required minlength="6" />
         </label>
 
+        <section class="signup-rules-card">
+          <label class="signup-rules-checkbox">
+            <span class="checkbox-inline">
+              <input id="accept-rules" type="checkbox" required />
+              <span>J'ai lu et j'accepte les <a href="/regles-utilisation.html" target="_blank" rel="noopener noreferrer">r&egrave;gles d'utilisation</a>.</span>
+            </span>
+          </label>
+          <p class="signup-rules-summary">
+            Marvel Review attend des notes honn&ecirc;tes et des critiques utiles, pas des contenus post&eacute;s pour provoquer ou manipuler les moyennes.
+            Les insultes, le harc&egrave;lement, le spam et les propos haineux n'ont pas leur place ici.
+            En cas d'abus, le compte peut &ecirc;tre suspendu ou banni et ses contenus ne seront plus pris en compte.
+          </p>
+        </section>
+
         <p class="field-required-note"><span class="required-star" aria-hidden="true">*</span> obligatoire</p>
 
         <div id="signup-captcha" class="captcha-block"></div>
@@ -49,7 +63,7 @@
       </form>
     </main>
 
-    <script type="module" src="/app/common.js"></script>
-    <script type="module" src="/app/signup.js"></script>
+    <script type="module" src="/app/common.js?v=3.2.7"></script>
+    <script type="module" src="/app/signup.js?v=3.2.7"></script>
   </body>
 </html>

@@ -6,13 +6,24 @@ create table if not exists public.profiles (
   username text not null unique check (char_length(username) between 2 and 30),
   avatar_url text,
   is_admin boolean not null default false,
+  moderation_status text not null default 'active',
+  moderation_note text,
+  accepted_rules_at timestamptz,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
 
 alter table public.profiles add column if not exists is_admin boolean not null default false;
 alter table public.profiles add column if not exists avatar_url text;
+alter table public.profiles add column if not exists moderation_status text not null default 'active';
+alter table public.profiles add column if not exists moderation_note text;
+alter table public.profiles add column if not exists accepted_rules_at timestamptz;
 alter table public.profiles drop column if exists media;
+
+alter table public.profiles drop constraint if exists profiles_moderation_status_check;
+alter table public.profiles
+  add constraint profiles_moderation_status_check
+  check (moderation_status in ('active', 'suspended', 'banned'));
 
 create table if not exists public.media_outlets (
   id uuid primary key default gen_random_uuid(),
@@ -144,11 +155,46 @@ as $$
   );
 $$;
 
+create or replace function public.is_profile_active(p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.id = p_user_id
+      and coalesce(p.moderation_status, 'active') = 'active'
+  );
+$$;
+
+create or replace function public.protect_profile_system_fields()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if public.is_admin(auth.uid()) then
+    return new;
+  end if;
+
+  new.is_admin := old.is_admin;
+  new.moderation_status := old.moderation_status;
+  new.moderation_note := old.moderation_note;
+  new.accepted_rules_at := old.accepted_rules_at;
+  return new;
+end;
+$$;
+
 create or replace function public.admin_list_users()
 returns table (
   user_id uuid,
   email text,
-  username text
+  username text,
+  moderation_status text,
+  accepted_rules_at timestamptz
 )
 language plpgsql
 security definer
@@ -163,7 +209,9 @@ begin
   select
     u.id::uuid as user_id,
     u.email::text as email,
-    p.username::text as username
+    p.username::text as username,
+    coalesce(p.moderation_status, 'active')::text as moderation_status,
+    p.accepted_rules_at
   from auth.users u
   left join public.profiles p on p.id = u.id
   where u.deleted_at is null
@@ -180,10 +228,15 @@ as $$
 declare
   media_outlet_text text;
 begin
-  insert into public.profiles (id, username)
+  insert into public.profiles (id, username, accepted_rules_at)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data ->> 'username', 'user_' || substring(new.id::text from 1 for 8))
+    coalesce(new.raw_user_meta_data ->> 'username', 'user_' || substring(new.id::text from 1 for 8)),
+    case
+      when nullif(new.raw_user_meta_data ->> 'accepted_rules_at', '') is not null
+        then (new.raw_user_meta_data ->> 'accepted_rules_at')::timestamptz
+      else null
+    end
   )
   on conflict (id) do nothing;
 
@@ -348,6 +401,12 @@ before update on public.profiles
 for each row
 execute function public.set_updated_at();
 
+drop trigger if exists trg_profiles_protect_system_fields on public.profiles;
+create trigger trg_profiles_protect_system_fields
+before update on public.profiles
+for each row
+execute function public.protect_profile_system_fields();
+
 drop trigger if exists trg_ratings_updated_at on public.ratings;
 create trigger trg_ratings_updated_at
 before update on public.ratings
@@ -376,7 +435,11 @@ drop policy if exists "profiles_public_read" on public.profiles;
 create policy "profiles_public_read"
 on public.profiles
 for select
-using (true);
+using (
+  public.is_admin(auth.uid())
+  or auth.uid() = id
+  or coalesce(moderation_status, 'active') = 'active'
+);
 
 drop policy if exists "profiles_insert_own" on public.profiles;
 create policy "profiles_insert_own"
@@ -429,7 +492,7 @@ for select
 using (
   public.is_admin(auth.uid())
   or
-  status = 'approved'
+  (status = 'approved' and public.is_profile_active(profile_id))
   or auth.uid() = profile_id
   or exists (
     select 1
@@ -524,26 +587,29 @@ drop policy if exists "ratings_public_read" on public.ratings;
 create policy "ratings_public_read"
 on public.ratings
 for select
-using (true);
+using (public.is_profile_active(user_id));
 
 drop policy if exists "ratings_insert_own_or_admin" on public.ratings;
 create policy "ratings_insert_own_or_admin"
 on public.ratings
 for insert
-with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+with check (
+  (auth.uid() = user_id or public.is_admin(auth.uid()))
+  and public.is_profile_active(user_id)
+);
 
 drop policy if exists "ratings_update_own_or_admin" on public.ratings;
 create policy "ratings_update_own_or_admin"
 on public.ratings
 for update
-using (auth.uid() = user_id or public.is_admin(auth.uid()))
-with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+using ((auth.uid() = user_id or public.is_admin(auth.uid())) and public.is_profile_active(user_id))
+with check ((auth.uid() = user_id or public.is_admin(auth.uid())) and public.is_profile_active(user_id));
 
 drop policy if exists "ratings_delete_own_or_admin" on public.ratings;
 create policy "ratings_delete_own_or_admin"
 on public.ratings
 for delete
-using (auth.uid() = user_id or public.is_admin(auth.uid()));
+using ((auth.uid() = user_id or public.is_admin(auth.uid())) and public.is_profile_active(user_id));
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -814,51 +880,57 @@ drop policy if exists "episode_ratings_public_read" on public.episode_ratings;
 create policy "episode_ratings_public_read"
 on public.episode_ratings
 for select
-using (true);
+using (public.is_profile_active(user_id));
 
 drop policy if exists "episode_ratings_insert_own_or_admin" on public.episode_ratings;
 create policy "episode_ratings_insert_own_or_admin"
 on public.episode_ratings
 for insert
-with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+with check (
+  (auth.uid() = user_id or public.is_admin(auth.uid()))
+  and public.is_profile_active(user_id)
+);
 
 drop policy if exists "episode_ratings_update_own_or_admin" on public.episode_ratings;
 create policy "episode_ratings_update_own_or_admin"
 on public.episode_ratings
 for update
-using (auth.uid() = user_id or public.is_admin(auth.uid()))
-with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+using ((auth.uid() = user_id or public.is_admin(auth.uid())) and public.is_profile_active(user_id))
+with check ((auth.uid() = user_id or public.is_admin(auth.uid())) and public.is_profile_active(user_id));
 
 drop policy if exists "episode_ratings_delete_own_or_admin" on public.episode_ratings;
 create policy "episode_ratings_delete_own_or_admin"
 on public.episode_ratings
 for delete
-using (auth.uid() = user_id or public.is_admin(auth.uid()));
+using ((auth.uid() = user_id or public.is_admin(auth.uid())) and public.is_profile_active(user_id));
 
 drop policy if exists "season_user_ratings_public_read" on public.season_user_ratings;
 create policy "season_user_ratings_public_read"
 on public.season_user_ratings
 for select
-using (true);
+using (public.is_profile_active(user_id));
 
 drop policy if exists "season_user_ratings_insert_own_or_admin" on public.season_user_ratings;
 create policy "season_user_ratings_insert_own_or_admin"
 on public.season_user_ratings
 for insert
-with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+with check (
+  (auth.uid() = user_id or public.is_admin(auth.uid()))
+  and public.is_profile_active(user_id)
+);
 
 drop policy if exists "season_user_ratings_update_own_or_admin" on public.season_user_ratings;
 create policy "season_user_ratings_update_own_or_admin"
 on public.season_user_ratings
 for update
-using (auth.uid() = user_id or public.is_admin(auth.uid()))
-with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+using ((auth.uid() = user_id or public.is_admin(auth.uid())) and public.is_profile_active(user_id))
+with check ((auth.uid() = user_id or public.is_admin(auth.uid())) and public.is_profile_active(user_id));
 
 drop policy if exists "season_user_ratings_delete_own_or_admin" on public.season_user_ratings;
 create policy "season_user_ratings_delete_own_or_admin"
 on public.season_user_ratings
 for delete
-using (auth.uid() = user_id or public.is_admin(auth.uid()));
+using ((auth.uid() = user_id or public.is_admin(auth.uid())) and public.is_profile_active(user_id));
 
 -- Jeu de donnees de test: Loki
 with upsert_loki as (
@@ -1006,26 +1078,29 @@ drop policy if exists "series_reviews_public_read" on public.series_reviews;
 create policy "series_reviews_public_read"
 on public.series_reviews
 for select
-using (true);
+using (public.is_profile_active(user_id));
 
 drop policy if exists "series_reviews_insert_own_or_admin" on public.series_reviews;
 create policy "series_reviews_insert_own_or_admin"
 on public.series_reviews
 for insert
-with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+with check (
+  (auth.uid() = user_id or public.is_admin(auth.uid()))
+  and public.is_profile_active(user_id)
+);
 
 drop policy if exists "series_reviews_update_own_or_admin" on public.series_reviews;
 create policy "series_reviews_update_own_or_admin"
 on public.series_reviews
 for update
-using (auth.uid() = user_id or public.is_admin(auth.uid()))
-with check (auth.uid() = user_id or public.is_admin(auth.uid()));
+using ((auth.uid() = user_id or public.is_admin(auth.uid())) and public.is_profile_active(user_id))
+with check ((auth.uid() = user_id or public.is_admin(auth.uid())) and public.is_profile_active(user_id));
 
 drop policy if exists "series_reviews_delete_own_or_admin" on public.series_reviews;
 create policy "series_reviews_delete_own_or_admin"
 on public.series_reviews
 for delete
-using (auth.uid() = user_id or public.is_admin(auth.uid()));
+using ((auth.uid() = user_id or public.is_admin(auth.uid())) and public.is_profile_active(user_id));
 
 -- Public read-only API (RPC) for external display use-cases
 drop function if exists public.api_film_summary(text);

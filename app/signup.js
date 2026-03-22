@@ -23,10 +23,16 @@ document.querySelector("#signup-form")?.addEventListener("submit", async (event)
   const email = document.querySelector("#email").value.trim();
   const password = document.querySelector("#password").value;
   const username = document.querySelector("#username").value.trim();
+  const acceptRules = Boolean(document.querySelector("#accept-rules")?.checked);
   const captchaController = await captchaControllerPromise;
 
   if (!username) {
     setMessage("#form-message", "Nom d'utilisateur / pseudonyme obligatoire.", true);
+    return;
+  }
+
+  if (!acceptRules) {
+    setMessage("#form-message", "Tu dois accepter les règles d'utilisation pour créer un compte.", true);
     return;
   }
 
@@ -42,7 +48,8 @@ document.querySelector("#signup-form")?.addEventListener("submit", async (event)
         captchaToken: captchaController.getToken(),
         emailRedirectTo,
         data: {
-          username
+          username,
+          accepted_rules_at: new Date().toISOString()
         }
       }
     });

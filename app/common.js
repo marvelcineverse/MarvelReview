@@ -179,6 +179,13 @@ async function initCommonLayout() {
 
     if (isLoggedIn) {
       const profile = await getCurrentProfile();
+      const moderationStatus = String(profile?.moderation_status || "active").toLowerCase();
+      if (moderationStatus === "suspended" || moderationStatus === "banned") {
+        await signOut();
+        window.location.href = `/login.html?blocked=${encodeURIComponent(moderationStatus)}`;
+        return;
+      }
+
       const displayName = String(profile?.username || "").trim() || session.user.email;
       if (navUserValueEl) navUserValueEl.textContent = displayName;
 

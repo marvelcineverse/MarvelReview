@@ -297,7 +297,10 @@
 
         <section id="users-root" class="card admin-users-card" data-admin-section="true">
           <h2>Utilisateurs</h2>
-          <p>Liste des comptes et envoi de r&eacute;initialisation de mot de passe.</p>
+          <p>Liste des comptes, r&eacute;initialisation de mot de passe et mod&eacute;ration.</p>
+          <p class="film-meta">
+            Un compte suspendu ou banni n'appara&icirc;t plus dans les notes, critiques, moyennes et activit&eacute;s publiques.
+          </p>
           <p class="film-meta">Valide le CAPTCHA avant d'envoyer un email de r&eacute;initialisation.</p>
           <div id="admin-reset-captcha" class="captcha-block"></div>
           <div class="table-wrapper">
@@ -306,7 +309,9 @@
                 <tr>
                   <th>Email</th>
                   <th>Pseudo</th>
-                  <th>Action</th>
+                  <th>Statut</th>
+                  <th>R&egrave;gles lues</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="admin-users-table-body"></tbody>
@@ -317,7 +322,7 @@
       </section>
     </main>
 
-    <script type="module" src="/app/common.js"></script>
-    <script type="module" src="/app/admin.js?v=3.2.11"></script>
+    <script type="module" src="/app/common.js?v=3.2.7"></script>
+    <script type="module" src="/app/admin.js?v=3.2.12"></script>
   </body>
 </html>

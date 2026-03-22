@@ -12,6 +12,15 @@ const captchaControllerPromise = createCaptchaController({
 
 function showAuthQueryMessage() {
   const params = new URLSearchParams(window.location.search);
+  if (params.get("blocked") === "suspended") {
+    setMessage("#form-message", "Ce compte est actuellement suspendu. Tu ne peux pas utiliser Marvel Review pour le moment.", true);
+    return;
+  }
+
+  if (params.get("blocked") === "banned") {
+    setMessage("#form-message", "Ce compte a ete banni. Tu ne peux plus utiliser Marvel Review.", true);
+    return;
+  }
 
   if (params.get("confirmed") === "1") {
     setMessage("#form-message", "Email confirmé. Tu peux te connecter.");

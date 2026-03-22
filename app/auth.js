@@ -74,12 +74,20 @@ export async function getCurrentProfile() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, is_admin")
+    .select("id, username, is_admin, moderation_status, accepted_rules_at")
     .eq("id", session.user.id)
     .maybeSingle();
 
   if (error) throw error;
   return data;
+}
+
+function getBlockedRedirectPath(profile) {
+  const status = String(profile?.moderation_status || "active").trim().toLowerCase();
+  if (status === "suspended" || status === "banned") {
+    return `/login.html?blocked=${encodeURIComponent(status)}`;
+  }
+  return "";
 }
 
 export async function signOut() {
@@ -98,11 +106,16 @@ export function bindAuthVisibility(isLoggedIn) {
 }
 
 export function redirectIfLoggedIn(path = "/index.html") {
-  return getSession().then((session) => {
+  return getSession().then(async (session) => {
     if (!session) return;
 
     if (isPasswordRecoveryPending() && !isUpdatePasswordPath()) {
       window.location.href = PASSWORD_RECOVERY_PATH;
+      return;
+    }
+
+    const profile = await getCurrentProfile();
+    if (getBlockedRedirectPath(profile)) {
       return;
     }
 
@@ -121,6 +134,14 @@ export async function requireAuth(path = "/login.html") {
 
   if (isPasswordRecoveryPending() && !isUpdatePasswordPath()) {
     window.location.href = PASSWORD_RECOVERY_PATH;
+    return null;
+  }
+
+  const profile = await getCurrentProfile();
+  const blockedRedirectPath = getBlockedRedirectPath(profile);
+  if (blockedRedirectPath) {
+    await signOut();
+    window.location.href = blockedRedirectPath;
     return null;
   }
 

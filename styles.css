@@ -328,6 +328,9 @@ select:focus-visible {
 
 .home-intro-actions {
   display: inline-flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
   margin: 0.35rem 0 0.55rem;
 }
 
@@ -513,6 +516,29 @@ button:hover {
 .signup-form {
   max-width: none;
   width: 100%;
+}
+
+.signup-rules-card {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #d9e3ef;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, #fff8f8 0%, #fffdfd 100%);
+}
+
+.signup-rules-checkbox {
+  display: block;
+}
+
+.signup-rules-checkbox a {
+  font-weight: 700;
+}
+
+.signup-rules-summary {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 .login-form {
@@ -1069,6 +1095,77 @@ label {
 
 .checkbox-inline input {
   width: auto;
+}
+
+.rules-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.rules-section {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.rules-section + .rules-section {
+  padding-top: 0.95rem;
+  border-top: 1px solid #dde6f0;
+}
+
+.rules-summary-lead {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+.rules-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--text);
+}
+
+.rules-list li + li {
+  margin-top: 0.35rem;
+}
+
+.rules-section-highlight {
+  padding: 1rem;
+  border: 1px solid #f0c8c8;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, #fff6f6 0%, #fffdfd 100%);
+}
+
+.admin-user-actions {
+  flex-wrap: wrap;
+}
+
+.admin-user-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 92px;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.admin-user-status-badge.status-active {
+  background: #e8f7ea;
+  border-color: #b7e0bc;
+  color: #216c2f;
+}
+
+.admin-user-status-badge.status-suspended {
+  background: #fff5e6;
+  border-color: #efcf9c;
+  color: #8c5b00;
+}
+
+.admin-user-status-badge.status-banned {
+  background: #ffe8e8;
+  border-color: #f0b3b3;
+  color: #a12626;
 }
 
 input,

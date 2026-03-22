@@ -454,9 +454,23 @@ function renderAdminUsers(rows) {
   if (!body) return;
 
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="3">Aucun utilisateur.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="5">Aucun utilisateur.</td></tr>`;
     return;
   }
+
+  const formatAcceptedRules = (value) => {
+    if (!value) return "Non";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Oui";
+    return `Oui (${date.toLocaleDateString("fr-FR")})`;
+  };
+
+  const formatStatusLabel = (value) => {
+    const status = String(value || "active").toLowerCase();
+    if (status === "suspended") return "Suspendu";
+    if (status === "banned") return "Banni";
+    return "Actif";
+  };
 
   body.innerHTML = rows
     .map(
@@ -464,14 +478,45 @@ function renderAdminUsers(rows) {
         <tr>
           <td>${escapeHTML(row.email || "-")}</td>
           <td>${escapeHTML(row.username || "-")}</td>
+          <td><span class="admin-user-status-badge status-${escapeHTML(row.moderation_status || "active")}">${formatStatusLabel(row.moderation_status)}</span></td>
+          <td>${escapeHTML(formatAcceptedRules(row.accepted_rules_at))}</td>
           <td>
-            <button
-              type="button"
-              class="ghost-button"
-              data-admin-reset-email="${escapeHTML(row.email || "")}"
-            >
-              Envoyer reset
-            </button>
+            <div class="inline-actions admin-user-actions">
+              <button
+                type="button"
+                class="ghost-button"
+                data-admin-reset-email="${escapeHTML(row.email || "")}"
+              >
+                Envoyer reset
+              </button>
+              <button
+                type="button"
+                class="ghost-button"
+                data-admin-moderation-user-id="${escapeHTML(row.user_id || "")}"
+                data-admin-moderation-status="active"
+                ${row.user_id === accessState.userId ? "disabled" : ""}
+              >
+                Réactiver
+              </button>
+              <button
+                type="button"
+                class="ghost-button"
+                data-admin-moderation-user-id="${escapeHTML(row.user_id || "")}"
+                data-admin-moderation-status="suspended"
+                ${row.user_id === accessState.userId ? "disabled" : ""}
+              >
+                Suspendre
+              </button>
+              <button
+                type="button"
+                class="ghost-button"
+                data-admin-moderation-user-id="${escapeHTML(row.user_id || "")}"
+                data-admin-moderation-status="banned"
+                ${row.user_id === accessState.userId ? "disabled" : ""}
+              >
+                Bannir
+              </button>
+            </div>
           </td>
         </tr>
       `
@@ -487,6 +532,37 @@ async function loadAdminUsers() {
 
 function bindAdminResetActions() {
   document.querySelector("#admin-users-table-body")?.addEventListener("click", async (event) => {
+    const moderationButton = event.target.closest("button[data-admin-moderation-user-id]");
+    if (moderationButton) {
+      const userId = moderationButton.dataset.adminModerationUserId?.trim();
+      const nextStatus = moderationButton.dataset.adminModerationStatus?.trim();
+      if (!userId || !nextStatus) return;
+
+      if (userId === accessState.userId) {
+        setMessage("#admin-users-message", "Tu ne peux pas modifier le statut de ton propre compte ici.", true);
+        return;
+      }
+
+      try {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ moderation_status: nextStatus, moderation_note: null })
+          .eq("id", userId);
+        if (error) throw error;
+
+        const statusLabel = nextStatus === "banned"
+          ? "banni"
+          : nextStatus === "suspended"
+            ? "suspendu"
+            : "réactivé";
+        setMessage("#admin-users-message", `Compte ${statusLabel}.`);
+        await Promise.all([loadAdminUsers(), loadProfilesForMediaAdmin()]);
+      } catch (error) {
+        setMessage("#admin-users-message", error.message || "Mise à jour du statut impossible.", true);
+      }
+      return;
+    }
+
     const button = event.target.closest("button[data-admin-reset-email]");
     if (!button) return;
 
