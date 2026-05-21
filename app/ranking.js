@@ -2,7 +2,6 @@ import { supabase } from "../supabaseClient.js";
 import {
   escapeHTML,
   buildDenseRankLabels,
-  formatDate,
   formatScore,
   getScoreClass,
   isReleasedOnOrBeforeToday,
@@ -16,8 +15,7 @@ const state = {
   filters: {
     films: true,
     series: true,
-    franchise: "",
-    phase: ""
+    franchise: ""
   }
 };
 const SUPABASE_PAGE_SIZE = 1000;
@@ -25,8 +23,6 @@ const SUPABASE_PAGE_SIZE = 1000;
 const filmsFilterEl = document.querySelector("#filter-films");
 const seriesFilterEl = document.querySelector("#filter-series");
 const franchiseFilterEl = document.querySelector("#ranking-franchise-filter");
-const phaseFilterEl = document.querySelector("#ranking-phase-filter");
-const phaseFilterWrapEl = document.querySelector("#ranking-phase-filter-wrap");
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -60,18 +56,6 @@ function fillSelect(selectEl, values, allLabel) {
     `<option value="">${allLabel}</option>`,
     ...values.map((value) => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`)
   ].join("");
-}
-
-function updatePhaseVisibility() {
-  const showPhase = state.filters.franchise === "MCU";
-  if (phaseFilterWrapEl) {
-    phaseFilterWrapEl.style.display = showPhase ? "grid" : "none";
-  }
-
-  if (!showPhase) {
-    state.filters.phase = "";
-    if (phaseFilterEl) phaseFilterEl.value = "";
-  }
 }
 
 function buildSeasonScoresByUser(season, episodesBySeasonId, episodeRatingsByEpisodeId, seasonRowsBySeasonId) {
@@ -130,9 +114,7 @@ function buildSeasonScoresByUser(season, episodesBySeasonId, episodeRatingsByEpi
   };
 }
 
-function computeSeriesAndSeasonRows(seriesList, seasons, episodes, episodeRatings, seasonUserRatings, currentUserId) {
-  const seriesById = new Map((seriesList || []).map((serie) => [serie.id, serie]));
-
+function computeSeriesRows(seriesList, seasons, episodes, episodeRatings, seasonUserRatings, currentUserId) {
   const seasonsBySeriesId = new Map();
   for (const season of seasons || []) {
     const rows = seasonsBySeriesId.get(season.series_id) || [];
@@ -169,28 +151,8 @@ function computeSeriesAndSeasonRows(seriesList, seasons, episodes, episodeRating
     );
   }
 
-  const seasonRows = (seasons || [])
-    .map((season) => {
-      const serie = seriesById.get(season.series_id);
-      if (!serie) return null;
-
-      const seasonStats = seasonScoreBySeasonId.get(season.id) || { average: null, count: 0, scoresByUser: new Map() };
-      return {
-        id: `season-${season.id}`,
-        title: `${serie.title} - ${season.name || `Saison ${season.season_number || ""}`}`.trim(),
-        type: "season",
-        dateLabel: `${formatDate(season.start_date)} - ${formatDate(season.end_date)}`,
-        average: seasonStats.average,
-        count: seasonStats.count,
-        myScore: currentUserId ? (seasonStats.scoresByUser.get(currentUserId) ?? null) : null,
-        href: `/season.html?id=${season.id}`,
-        franchise: String(serie.franchise || "").trim(),
-        phase: String(season.phase || "").trim()
-      };
-    })
-    .filter(Boolean);
-
   const seriesRows = (seriesList || []).map((serie) => {
+    if (!isReleasedOnOrBeforeToday(serie.start_date)) return null;
     const serieSeasons = seasonsBySeriesId.get(serie.id) || [];
     const totalSeasons = serieSeasons.length;
 
@@ -199,13 +161,12 @@ function computeSeriesAndSeasonRows(seriesList, seasons, episodes, episodeRating
         id: `series-${serie.id}`,
         title: serie.title,
         type: "series",
-        dateLabel: `${formatDate(serie.start_date)} - ${formatDate(serie.end_date)}`,
+        typeLabel: String(serie.type || "Série").trim(),
         average: null,
         count: 0,
         myScore: null,
         href: `/series.html?id=${serie.id}`,
-        franchise: String(serie.franchise || "").trim(),
-        phase: ""
+        franchise: String(serie.franchise || "").trim()
       };
     }
 
@@ -246,17 +207,16 @@ function computeSeriesAndSeasonRows(seriesList, seasons, episodes, episodeRating
       id: `series-${serie.id}`,
       title: serie.title,
       type: "series",
-      dateLabel: `${formatDate(serie.start_date)} - ${formatDate(serie.end_date)}`,
+      typeLabel: String(serie.type || "Série").trim(),
       average,
       count: contributorCount,
       myScore,
       href: `/series.html?id=${serie.id}`,
-      franchise: String(serie.franchise || "").trim(),
-      phase: ""
+      franchise: String(serie.franchise || "").trim()
     };
-  });
+  }).filter(Boolean);
 
-  return { seriesRows, seasonRows };
+  return seriesRows;
 }
 
 function computeFilmRows(films, ratings, currentUserId) {
@@ -281,33 +241,22 @@ function computeFilmRows(films, ratings, currentUserId) {
     id: `film-${film.id}`,
     title: film.title,
     type: "film",
-    dateLabel: formatDate(film.release_date),
+    typeLabel: String(film.type || "Film").trim(),
     average: film.count ? film.average / film.count : null,
     count: film.count,
     myScore: film.myScore,
     href: `/film.html?id=${film.id}`,
-    franchise: String(film.franchise || "").trim(),
-    phase: String(film.phase || "").trim()
+    franchise: String(film.franchise || "").trim()
   }));
 }
 
 function getFilteredRows() {
-  const phaseSelected = Boolean(state.filters.phase);
-
   return state.allRows.filter((row) => {
     if (row.type === "film" && !state.filters.films) return false;
-    if ((row.type === "series" || row.type === "season") && !state.filters.series) return false;
+    if (row.type === "series" && !state.filters.series) return false;
 
     if (state.filters.franchise && row.franchise !== state.filters.franchise) return false;
-
-    if (!phaseSelected) {
-      return row.type !== "season";
-    }
-
-    if (row.type === "series") return false;
-    if (row.type === "season") return row.phase === state.filters.phase;
-    if (row.type === "film") return row.phase === state.filters.phase;
-    return false;
+    return true;
   });
 }
 
@@ -352,17 +301,21 @@ function renderRanking() {
         ? `<span class="score-badge stade-neutre">-</span>`
         : `<span class="score-badge ta-note-badge ${getScoreClass(item.myScore)}">${formatScore(item.myScore, 2, 2)} / 10</span>`;
 
-      const typeLabel = item.type === "film"
-        ? "Film"
-        : (item.type === "season" ? "Saison" : "Serie");
-      const phasePart = item.phase ? ` - ${escapeHTML(item.phase)}` : "";
+      const detailParts = [];
+      if (!state.filters.franchise && item.franchise) {
+        detailParts.push(escapeHTML(item.franchise));
+      }
+      if (item.typeLabel) {
+        detailParts.push(escapeHTML(item.typeLabel));
+      }
+      const detailLabel = detailParts.join(" - ");
 
       return `
         <tr>
           <td>${rankLabels[index]}</td>
           <td>
             <a href="${item.href}" class="film-link">${escapeHTML(item.title)}</a>
-            <small>(${typeLabel} - ${escapeHTML(item.dateLabel)}${phasePart})</small>
+            ${detailLabel ? `<small>(${detailLabel})</small>` : ""}
           </td>
           <td>${averageCell}</td>
           ${showMyScore ? `<td>${myScoreCell}</td>` : ""}
@@ -382,21 +335,8 @@ function setupFilterOptions() {
     )
   ).sort((a, b) => a.localeCompare(b, "fr"));
 
-  const mcuPhases = Array.from(
-    new Set(
-      state.allRows
-        .filter((row) => row.franchise === "MCU")
-        .map((row) => row.phase)
-        .filter(Boolean)
-    )
-  ).sort((a, b) => a.localeCompare(b, "fr"));
-
   fillSelect(franchiseFilterEl, franchises, "Toutes les franchises");
-  fillSelect(phaseFilterEl, mcuPhases, "Toutes les phases");
-
   if (franchiseFilterEl) franchiseFilterEl.value = state.filters.franchise;
-  if (phaseFilterEl) phaseFilterEl.value = state.filters.phase;
-  updatePhaseVisibility();
 }
 
 function bindFilters() {
@@ -412,12 +352,6 @@ function bindFilters() {
 
   franchiseFilterEl?.addEventListener("change", () => {
     state.filters.franchise = franchiseFilterEl.value || "";
-    updatePhaseVisibility();
-    renderRanking();
-  });
-
-  phaseFilterEl?.addEventListener("change", () => {
-    state.filters.phase = phaseFilterEl.value || "";
     renderRanking();
   });
 }
@@ -436,17 +370,17 @@ async function loadRanking() {
       episodeRatings,
       seasonUserRatings
     ] = await Promise.all([
-      fetchAllRows("films", "id, title, release_date, franchise, phase"),
+      fetchAllRows("films", "id, title, release_date, franchise, type"),
       fetchAllRows("ratings", "film_id, user_id, score"),
-      fetchAllRows("series", "id, title, start_date, end_date, franchise"),
-      fetchAllRows("series_seasons", "id, series_id, name, season_number, start_date, end_date, phase"),
+      fetchAllRows("series", "id, title, start_date, franchise, type"),
+      fetchAllRows("series_seasons", "id, series_id"),
       fetchAllRows("series_episodes", "id, season_id"),
       fetchAllRows("episode_ratings", "episode_id, user_id, score"),
       fetchAllRows("season_user_ratings", "season_id, user_id, manual_score, adjustment")
     ]);
 
     const filmRows = computeFilmRows(films || [], ratings || [], state.currentUserId);
-    const { seriesRows, seasonRows } = computeSeriesAndSeasonRows(
+    const seriesRows = computeSeriesRows(
       seriesList || [],
       seasons || [],
       episodes || [],
@@ -455,7 +389,7 @@ async function loadRanking() {
       state.currentUserId
     );
 
-    state.allRows = [...filmRows, ...seriesRows, ...seasonRows];
+    state.allRows = [...filmRows, ...seriesRows];
     setupFilterOptions();
     renderRanking();
   } catch (error) {

@@ -684,9 +684,10 @@ async function loadHomePage() {
         const latestSeason = getSeriesLatestReleasedSeason(row, seasonsBySeriesId);
         const highlightDate = latestSeason?.start_date || row.start_date || null;
         if (!isReleasedOnOrBeforeToday(highlightDate)) return null;
-        const averageData = latestSeason
+        const latestSeasonAverageData = latestSeason
           ? (seasonAverageById.get(latestSeason.id) || { average: null, count: 0 })
-          : (seriesAverageById.get(row.id) || { average: null, count: 0 });
+          : { average: null, count: 0 };
+        const seriesAverageData = seriesAverageById.get(row.id) || { average: null, count: 0 };
         return {
           kind: "series",
           id: row.id,
@@ -696,8 +697,10 @@ async function loadHomePage() {
           type: row.type,
           date: highlightDate,
           season_name: latestSeason?.name || "",
-          rating_count: averageData.count,
-          average: averageData.average
+          rating_count: latestSeasonAverageData.count,
+          average: latestSeasonAverageData.average,
+          series_rating_count: seriesAverageData.count,
+          series_average: seriesAverageData.average
         };
       })
       .filter(Boolean);
@@ -730,7 +733,14 @@ async function loadHomePage() {
     registerRecentUser(episodeRatings);
     registerRecentUser(seasonUserRatings);
 
-    const topRankedContent = [...releasedFilms, ...releasedSeries]
+    const topRankedContent = [
+      ...releasedFilms,
+      ...releasedSeries.map((item) => ({
+        ...item,
+        rating_count: item.series_rating_count,
+        average: item.series_average
+      }))
+    ]
       .filter((item) => Number.isFinite(item.average) && Number(item.rating_count || 0) > 0)
       .sort((a, b) => {
         if (b.average !== a.average) return b.average - a.average;
