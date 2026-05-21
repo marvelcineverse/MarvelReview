@@ -40,8 +40,8 @@ function renderHomeCommunityStats(activeUsersCount, activeUsers30DaysCount, medi
   const statsEl = document.querySelector("#home-community-stats");
   if (!statsEl) return;
 
-  statsEl.textContent =
-    `${activeUsersCount} utilisateurs actifs (${activeUsers30DaysCount} actifs sous 30 jours) - ${mediaCount} medias presents`;
+  statsEl.innerHTML =
+    `<strong>${activeUsersCount} utilisateurs</strong> actifs (<strong>${activeUsers30DaysCount} actifs</strong> sous 30 jours) - <strong>${mediaCount} m\u00E9dias</strong> pr\u00E9sents`;
 }
 
 function includeItemsThroughDenseRank(items, limit, scoreAccessor, precision = 2) {
@@ -92,18 +92,13 @@ function getReviewPreview(rawReview, maxLength = ACTIVITY_REVIEW_PREVIEW_LENGTH)
   };
 }
 
-function getSeriesHighlightDate(seriesRow, seasonsBySeriesId) {
+function getSeriesLatestReleasedSeason(seriesRow, seasonsBySeriesId) {
   const seasons = seasonsBySeriesId.get(seriesRow.id) || [];
-  const releasedSeasonDates = seasons
-    .map((season) => season.start_date || null)
-    .filter((date) => isReleasedOnOrBeforeToday(date));
+  const releasedSeasons = seasons
+    .filter((season) => isReleasedOnOrBeforeToday(season.start_date))
+    .sort((a, b) => getTimeValue(b.start_date) - getTimeValue(a.start_date));
 
-  if (releasedSeasonDates.length) {
-    releasedSeasonDates.sort((a, b) => getTimeValue(b) - getTimeValue(a));
-    return releasedSeasonDates[0];
-  }
-
-  return seriesRow.start_date || null;
+  return releasedSeasons[0] || null;
 }
 
 async function fetchAllRows(table, columns) {
@@ -229,6 +224,75 @@ function computeSeriesListAverages(seriesList, seasons, episodes, episodeRatings
   return averageBySeriesId;
 }
 
+function computeSeasonAverages(seasons, episodes, episodeRatings, seasonUserRatings) {
+  const episodesBySeasonId = new Map();
+  for (const episode of episodes || []) {
+    const rows = episodesBySeasonId.get(episode.season_id) || [];
+    rows.push(episode);
+    episodesBySeasonId.set(episode.season_id, rows);
+  }
+
+  const episodeRatingsByEpisodeId = new Map();
+  for (const rating of episodeRatings || []) {
+    const rows = episodeRatingsByEpisodeId.get(rating.episode_id) || [];
+    rows.push(rating);
+    episodeRatingsByEpisodeId.set(rating.episode_id, rows);
+  }
+
+  const seasonRowsBySeasonId = new Map();
+  for (const row of seasonUserRatings || []) {
+    const rows = seasonRowsBySeasonId.get(row.season_id) || [];
+    rows.push(row);
+    seasonRowsBySeasonId.set(row.season_id, rows);
+  }
+
+  const averageBySeasonId = new Map();
+  for (const season of seasons || []) {
+    const seasonEpisodes = episodesBySeasonId.get(season.id) || [];
+    const seasonEpisodeCount = seasonEpisodes.length;
+    const episodeByUser = new Map();
+
+    for (const episode of seasonEpisodes) {
+      const ratings = episodeRatingsByEpisodeId.get(episode.id) || [];
+      for (const rating of ratings) {
+        const current = episodeByUser.get(rating.user_id) || { total: 0, count: 0 };
+        current.total += Number(rating.score || 0);
+        current.count += 1;
+        episodeByUser.set(rating.user_id, current);
+      }
+    }
+
+    const seasonRows = seasonRowsBySeasonId.get(season.id) || [];
+    const allUserIds = new Set([...episodeByUser.keys(), ...seasonRows.map((row) => row.user_id)]);
+    const effectiveScores = [];
+
+    for (const userId of allUserIds) {
+      const manualRow = seasonRows.find((row) => row.user_id === userId);
+      const episodeValues = episodeByUser.get(userId);
+      const episodeAverage = episodeValues ? episodeValues.total / episodeValues.count : null;
+      const hasAllEpisodeRatings = seasonEpisodeCount > 0 && Number(episodeValues?.count || 0) === seasonEpisodeCount;
+      const manual = manualRow?.manual_score === null || manualRow?.manual_score === undefined
+        ? null
+        : Number(manualRow.manual_score);
+      const adjustment = Number(manualRow?.adjustment || 0);
+      const effective = manual !== null
+        ? clamp(manual, 0, 10)
+        : (hasAllEpisodeRatings && Number.isFinite(episodeAverage) ? clamp(episodeAverage + adjustment, 0, 10) : null);
+      if (Number.isFinite(effective)) {
+        effectiveScores.push(effective);
+      }
+    }
+
+    const average = effectiveScores.length
+      ? effectiveScores.reduce((sum, value) => sum + value, 0) / effectiveScores.length
+      : null;
+
+    averageBySeasonId.set(season.id, { average, count: effectiveScores.length });
+  }
+
+  return averageBySeasonId;
+}
+
 async function loadMembershipMapForUsers(userIds) {
   if (!userIds.length) return new Map();
 
@@ -265,19 +329,21 @@ function renderLatestContent(items) {
       const averageLabel = item.rating_count > 0
         ? `<span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span>`
         : `<span class="score-badge film-average-badge stade-neutre">pas de note</span>`;
-      const dateLabel = item.kind === "film" ? "Sortie" : "Derni\u00E8re sortie";
-      const secondDate = item.kind === "series" ? `<p>Fin: ${formatDate(item.end_date)}</p>` : "";
+      const dateLabel = "Sortie";
       const linkLabel = item.kind === "film" ? "Voir la page film" : "Voir la page s\u00E9rie";
       const linkHref = item.kind === "film" ? `/film.html?id=${item.id}` : `/series.html?id=${item.id}`;
+      const subtitle = item.kind === "series" && item.season_name
+        ? `<p class="film-meta">${escapeHTML(item.season_name)}</p>`
+        : "";
 
       return `
         <article class="card film-card home-latest-card">
           <img src="${escapeHTML(item.poster_url || "https://via.placeholder.com/240x360?text=Marvel")}" alt="Affiche de ${escapeHTML(item.title)}" />
           <div>
             <h3>${escapeHTML(item.title)}</h3>
+            ${subtitle}
             <p class="film-average">Moyenne: ${averageLabel}</p>
             <p>${dateLabel}: ${formatDate(item.date)}</p>
-            ${secondDate}
             <p class="film-meta">${escapeHTML(item.franchise || "-")} - ${escapeHTML(item.type || "-")}</p>
             <div class="home-latest-card-action">
               <a class="button" href="${linkHref}">${linkLabel}</a>
@@ -558,7 +624,7 @@ async function loadHomePage() {
       fetchAllRows("series", "id, title, start_date, end_date, poster_url, franchise, type"),
       fetchAllRows("profiles", "id, moderation_status"),
       fetchAllRows("media_outlets", "id"),
-      fetchAllRows("series_seasons", "id, series_id, name, season_number, start_date"),
+      fetchAllRows("series_seasons", "id, series_id, name, season_number, start_date, poster_url"),
       fetchAllRows("series_episodes", "id, season_id, title, episode_number"),
       fetchAllRows("episode_ratings", "id, user_id, episode_id, score, review, created_at, updated_at, profiles(username)"),
       fetchAllRows("season_user_ratings", "id, user_id, season_id, manual_score, adjustment, review, created_at, updated_at, profiles(username)"),
@@ -576,6 +642,12 @@ async function loadHomePage() {
 
     const seriesAverageById = computeSeriesListAverages(
       series || [],
+      seasons || [],
+      episodes || [],
+      episodeRatings || [],
+      seasonUserRatings || []
+    );
+    const seasonAverageById = computeSeasonAverages(
       seasons || [],
       episodes || [],
       episodeRatings || [],
@@ -609,18 +681,21 @@ async function loadHomePage() {
 
     const releasedSeries = (series || [])
       .map((row) => {
-        const highlightDate = getSeriesHighlightDate(row, seasonsBySeriesId);
+        const latestSeason = getSeriesLatestReleasedSeason(row, seasonsBySeriesId);
+        const highlightDate = latestSeason?.start_date || row.start_date || null;
         if (!isReleasedOnOrBeforeToday(highlightDate)) return null;
-        const averageData = seriesAverageById.get(row.id) || { average: null, count: 0 };
+        const averageData = latestSeason
+          ? (seasonAverageById.get(latestSeason.id) || { average: null, count: 0 })
+          : (seriesAverageById.get(row.id) || { average: null, count: 0 });
         return {
           kind: "series",
           id: row.id,
           title: row.title,
-          poster_url: row.poster_url,
+          poster_url: latestSeason?.poster_url || row.poster_url,
           franchise: row.franchise,
           type: row.type,
           date: highlightDate,
-          end_date: row.end_date,
+          season_name: latestSeason?.name || "",
           rating_count: averageData.count,
           average: averageData.average
         };
