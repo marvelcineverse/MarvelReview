@@ -20,6 +20,20 @@ const accessState = {
 };
 const SUPABASE_PAGE_SIZE = 1000;
 let adminResetCaptchaControllerPromise = null;
+const searchableSelectState = new Map();
+const SEARCHABLE_ADMIN_SELECT_IDS = [
+  "media-id",
+  "media-admin-profile-id",
+  "membership-media-id",
+  "membership-profile-id",
+  "film-id",
+  "series-id",
+  "season-series-id",
+  "season-id",
+  "episode-season-id",
+  "episode-id",
+  "episode-bulk-season-id"
+];
 
 function getAdminResetCaptchaController() {
   if (!adminResetCaptchaControllerPromise) {
@@ -58,6 +72,142 @@ async function fetchAllRows(table, columns, orderBy = "id", ascending = true) {
       .order(orderBy, { ascending })
       .range(from, to)
   );
+}
+
+function getSelectOptionRecords(selectEl) {
+  return Array.from(selectEl.options).map((option) => ({
+    value: option.value,
+    label: option.textContent || "",
+    disabled: option.disabled
+  }));
+}
+
+function normalizeSearchText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function renderSearchableSelectOptions(selectId) {
+  const selectEl = document.querySelector(`#${selectId}`);
+  const controller = searchableSelectState.get(selectId);
+  if (!selectEl || !controller) return;
+
+  const query = normalizeSearchText(controller.input?.value || "");
+  const allOptions = controller.allOptions || [];
+  const currentValue = controller.pendingValue ?? selectEl.value ?? "";
+
+  let visibleOptions = !query
+    ? allOptions
+    : allOptions.filter((option) => normalizeSearchText(option.label).includes(query));
+
+  if (!visibleOptions.length && allOptions.length) {
+    visibleOptions = allOptions.filter((option) => option.value === "");
+  }
+
+  selectEl.innerHTML = visibleOptions
+    .map((option) => {
+      const selectedAttr = option.value === currentValue ? ` selected="selected"` : "";
+      const disabledAttr = option.disabled ? ` disabled="disabled"` : "";
+      return `<option value="${escapeHTML(option.value)}"${selectedAttr}${disabledAttr}>${escapeHTML(option.label)}</option>`;
+    })
+    .join("");
+
+  if (visibleOptions.some((option) => option.value === currentValue)) {
+    selectEl.value = currentValue;
+  } else if (visibleOptions.length) {
+    selectEl.value = visibleOptions[0].value;
+  } else {
+    selectEl.value = "";
+  }
+
+  const hasNonEmptyChoice = allOptions.some((option) => option.value !== "");
+  if (controller.input) {
+    controller.input.disabled = !hasNonEmptyChoice;
+    controller.input.placeholder = hasNonEmptyChoice ? "Tape pour filtrer..." : "Aucune option disponible";
+  }
+
+  if (controller.emptyState) {
+    controller.emptyState.hidden = visibleOptions.length > 0 || !query;
+  }
+}
+
+function syncSearchableSelect(selectId) {
+  const selectEl = document.querySelector(`#${selectId}`);
+  const controller = searchableSelectState.get(selectId);
+  if (!selectEl || !controller) return;
+
+  controller.pendingValue = selectEl.value || "";
+  controller.allOptions = getSelectOptionRecords(selectEl);
+  renderSearchableSelectOptions(selectId);
+}
+
+function initSearchableSelect(selectId) {
+  const selectEl = document.querySelector(`#${selectId}`);
+  if (!selectEl || searchableSelectState.has(selectId)) return;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "admin-searchable-select";
+
+  const input = document.createElement("input");
+  input.type = "search";
+  input.className = "admin-searchable-select-input";
+  input.placeholder = "Tape pour filtrer...";
+  input.setAttribute("autocomplete", "off");
+  input.setAttribute("spellcheck", "false");
+  input.setAttribute("aria-label", "Rechercher dans la liste");
+
+  const emptyState = document.createElement("small");
+  emptyState.className = "admin-searchable-select-empty film-meta";
+  emptyState.textContent = "Aucun resultat pour cette recherche.";
+  emptyState.hidden = true;
+
+  selectEl.parentNode.insertBefore(wrapper, selectEl);
+  wrapper.appendChild(input);
+  wrapper.appendChild(selectEl);
+  wrapper.appendChild(emptyState);
+
+  searchableSelectState.set(selectId, {
+    input,
+    emptyState,
+    allOptions: [],
+    pendingValue: selectEl.value || ""
+  });
+
+  input.addEventListener("input", () => {
+    const controller = searchableSelectState.get(selectId);
+    if (!controller) return;
+    controller.pendingValue = selectEl.value || "";
+    renderSearchableSelectOptions(selectId);
+  });
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    input.value = "";
+    const controller = searchableSelectState.get(selectId);
+    if (!controller) return;
+    controller.pendingValue = selectEl.value || "";
+    renderSearchableSelectOptions(selectId);
+  });
+
+  selectEl.addEventListener("change", () => {
+    const controller = searchableSelectState.get(selectId);
+    if (!controller) return;
+    controller.pendingValue = selectEl.value || "";
+    input.value = "";
+    renderSearchableSelectOptions(selectId);
+  });
+
+  syncSearchableSelect(selectId);
+}
+
+function initSearchableAdminSelects() {
+  SEARCHABLE_ADMIN_SELECT_IDS.forEach((selectId) => {
+    initSearchableSelect(selectId);
+    syncSearchableSelect(selectId);
+  });
 }
 
 function bindCreationTabs() {
@@ -162,6 +312,7 @@ function fillMediaForm(mediaId) {
     document.querySelector("#media-avatar-file").value = "";
     if (accessState.isAdmin) {
       document.querySelector("#media-admin-profile-id").value = "";
+      syncSearchableSelect("media-admin-profile-id");
     }
     renderMediaAvatarPreview("");
     updateMediaSubmitButton("");
@@ -179,6 +330,7 @@ function fillMediaForm(mediaId) {
   document.querySelector("#media-avatar-file").value = "";
   if (accessState.isAdmin) {
     document.querySelector("#media-admin-profile-id").value = media.admin_profile_id || "";
+    syncSearchableSelect("media-admin-profile-id");
   }
   renderMediaAvatarPreview(media.avatar_url || "");
   updateMediaSubmitButton(media.id);
@@ -190,6 +342,7 @@ function renderMediaEditorOptions(preferredMediaId = "") {
 
   if (!editableRows.length && !accessState.isAdmin) {
     mediaSelectEl.innerHTML = `<option value="">Aucun media gere</option>`;
+    syncSearchableSelect("media-id");
     fillMediaForm("");
     return;
   }
@@ -212,6 +365,7 @@ function renderMediaEditorOptions(preferredMediaId = "") {
       ? ""
       : (editableRows[0]?.id || "");
   mediaSelectEl.value = selectedId;
+  syncSearchableSelect("media-id");
   fillMediaForm(selectedId);
 }
 
@@ -223,6 +377,7 @@ function renderMembershipMediaOptions() {
   const scopedMediaRows = accessState.isAdmin ? state.mediaOutlets : getEditableMediaRows();
   if (!scopedMediaRows.length) {
     mediaSelectEl.innerHTML = `<option value="">Aucun media</option>`;
+    syncSearchableSelect("membership-media-id");
     return;
   }
 
@@ -234,6 +389,7 @@ function renderMembershipMediaOptions() {
     ? previousValue
     : scopedMediaRows[0].id;
   mediaSelectEl.value = nextValue;
+  syncSearchableSelect("membership-media-id");
 }
 
 function renderProfileOptions() {
@@ -243,6 +399,7 @@ function renderProfileOptions() {
       `<option value="">Aucun gestionnaire pour le moment</option>`,
       ...state.profiles.map((user) => `<option value="${user.id}">${escapeHTML(user.username)}</option>`)
     ].join("");
+    syncSearchableSelect("media-admin-profile-id");
   }
 
   const membershipProfileEl = document.querySelector("#membership-profile-id");
@@ -250,6 +407,7 @@ function renderProfileOptions() {
     membershipProfileEl.innerHTML = state.profiles
       .map((user) => `<option value="${user.id}">${escapeHTML(user.username)}</option>`)
       .join("");
+    syncSearchableSelect("membership-profile-id");
   }
 }
 
@@ -843,6 +1001,7 @@ function renderFilmOptions() {
     `<option value="">Nouveau film</option>`,
     ...state.films.map((film) => `<option value="${film.id}">${escapeHTML(film.title)}</option>`)
   ].join("");
+  syncSearchableSelect("film-id");
 }
 
 function fillFilmForm(filmId) {
@@ -871,6 +1030,8 @@ function renderSeriesOptions() {
 
   document.querySelector("#series-id").innerHTML = seriesOptions;
   document.querySelector("#season-series-id").innerHTML = seasonSeriesOptions;
+  syncSearchableSelect("series-id");
+  syncSearchableSelect("season-series-id");
 }
 
 function renderSeasonOptions(seriesId = "") {
@@ -880,6 +1041,7 @@ function renderSeasonOptions(seriesId = "") {
     `<option value="">Nouvelle saison</option>`,
     ...filtered.map((season) => `<option value="${season.id}">S${season.season_number} - ${escapeHTML(season.name)}</option>`)
   ].join("");
+  syncSearchableSelect("season-id");
 
   const episodeSeasonOptions = [
     `<option value="">Selectionne une saison</option>`,
@@ -891,10 +1053,16 @@ function renderSeasonOptions(seriesId = "") {
   ].join("");
 
   const episodeSeasonEl = document.querySelector("#episode-season-id");
-  if (episodeSeasonEl) episodeSeasonEl.innerHTML = episodeSeasonOptions;
+  if (episodeSeasonEl) {
+    episodeSeasonEl.innerHTML = episodeSeasonOptions;
+    syncSearchableSelect("episode-season-id");
+  }
 
   const bulkSeasonEl = document.querySelector("#episode-bulk-season-id");
-  if (bulkSeasonEl) bulkSeasonEl.innerHTML = episodeSeasonOptions;
+  if (bulkSeasonEl) {
+    bulkSeasonEl.innerHTML = episodeSeasonOptions;
+    syncSearchableSelect("episode-bulk-season-id");
+  }
 }
 
 function renderEpisodeOptions(seasonId = "") {
@@ -913,6 +1081,7 @@ function renderEpisodeOptions(seasonId = "") {
       })
   ].join("");
 
+  syncSearchableSelect("episode-id");
   updateEpisodeDeleteButtonState();
 }
 
@@ -954,6 +1123,8 @@ function fillSeasonForm(seasonId) {
 
   renderSeasonOptions(document.querySelector("#season-series-id").value || "");
   document.querySelector("#season-id").value = seasonId || "";
+  syncSearchableSelect("season-series-id");
+  syncSearchableSelect("season-id");
 }
 
 function fillEpisodeForm(episodeId) {
@@ -970,6 +1141,8 @@ function fillEpisodeForm(episodeId) {
 
   renderEpisodeOptions(document.querySelector("#episode-season-id").value || "");
   document.querySelector("#episode-id").value = episodeId || "";
+  syncSearchableSelect("episode-season-id");
+  syncSearchableSelect("episode-id");
   updateEpisodeDeleteButtonState();
 }
 
@@ -996,27 +1169,34 @@ async function refreshSeriesData() {
 
   renderFilmOptions();
   document.querySelector("#film-id").value = state.films.some((f) => f.id === selectedFilmId) ? selectedFilmId : "";
+  syncSearchableSelect("film-id");
   fillFilmForm(document.querySelector("#film-id").value || "");
 
   renderSeriesOptions();
   document.querySelector("#series-id").value = state.series.some((s) => s.id === selectedSeriesId) ? selectedSeriesId : "";
+  syncSearchableSelect("series-id");
   fillSeriesForm(document.querySelector("#series-id").value || "");
 
   renderSeasonOptions(selectedSeasonSeriesId);
   document.querySelector("#season-series-id").value = state.series.some((s) => s.id === selectedSeasonSeriesId) ? selectedSeasonSeriesId : "";
+  syncSearchableSelect("season-series-id");
   renderSeasonOptions(document.querySelector("#season-series-id").value || "");
   document.querySelector("#season-id").value = state.seasons.some((s) => s.id === selectedSeasonId) ? selectedSeasonId : "";
+  syncSearchableSelect("season-id");
   if (document.querySelector("#season-id").value) fillSeasonForm(document.querySelector("#season-id").value);
 
   document.querySelector("#episode-season-id").value = state.seasons.some((s) => s.id === selectedEpisodeSeasonId) ? selectedEpisodeSeasonId : "";
+  syncSearchableSelect("episode-season-id");
   renderEpisodeOptions(document.querySelector("#episode-season-id").value || "");
   document.querySelector("#episode-id").value = state.episodes.some((e) => e.id === selectedEpisodeId) ? selectedEpisodeId : "";
+  syncSearchableSelect("episode-id");
   if (document.querySelector("#episode-id").value) fillEpisodeForm(document.querySelector("#episode-id").value);
   updateEpisodeDeleteButtonState();
 
   const bulkSeasonEl = document.querySelector("#episode-bulk-season-id");
   if (bulkSeasonEl) {
     bulkSeasonEl.value = state.seasons.some((s) => s.id === selectedBulkEpisodeSeasonId) ? selectedBulkEpisodeSeasonId : "";
+    syncSearchableSelect("episode-bulk-season-id");
   }
 }
 
@@ -1424,6 +1604,7 @@ async function initAdminPage() {
   const session = await ensureAdminOrManager();
   if (!session) return;
 
+  initSearchableAdminSelects();
   await loadProfilesForMediaAdmin();
   await loadMediaOutlets();
   bindCreateMedia();

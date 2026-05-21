@@ -1311,6 +1311,20 @@ select:focus-visible {
   outline: none;
 }
 
+.admin-searchable-select {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.admin-searchable-select-input {
+  padding-block: 0.52rem;
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f8fc 100%);
+}
+
+.admin-searchable-select-empty {
+  margin-top: -0.1rem;
+}
+
 textarea {
   width: 100%;
   min-height: 170px;
