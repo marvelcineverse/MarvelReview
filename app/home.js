@@ -36,6 +36,39 @@ function toNumericOrNull(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function renderHomeCommunityStats(activeUsersCount, activeUsers30DaysCount, mediaCount) {
+  const statsEl = document.querySelector("#home-community-stats");
+  if (!statsEl) return;
+
+  statsEl.textContent =
+    `${activeUsersCount} utilisateurs actifs (${activeUsers30DaysCount} actifs sous 30 jours) - ${mediaCount} medias presents`;
+}
+
+function includeTiedItemsAtLimit(items, limit, scoreAccessor, precision = 2) {
+  if (!Array.isArray(items) || items.length <= limit) return items;
+  if (!Number.isInteger(limit) || limit < 1) return [];
+
+  const baseItems = items.slice(0, limit);
+  const cutoffItem = baseItems[limit - 1];
+  if (!cutoffItem) return baseItems;
+
+  const rawScore = Number(scoreAccessor(cutoffItem));
+  if (!Number.isFinite(rawScore)) return baseItems;
+  const cutoffScore = Number(rawScore.toFixed(precision));
+
+  let endIndex = limit;
+  while (endIndex < items.length) {
+    const candidateScore = Number(scoreAccessor(items[endIndex]));
+    const normalizedCandidateScore = Number.isFinite(candidateScore)
+      ? Number(candidateScore.toFixed(precision))
+      : null;
+    if (normalizedCandidateScore !== cutoffScore) break;
+    endIndex += 1;
+  }
+
+  return items.slice(0, endIndex);
+}
+
 function getReviewPreview(rawReview, maxLength = ACTIVITY_REVIEW_PREVIEW_LENGTH) {
   const full = String(rawReview || "").trim();
   if (!full) return { full: "", preview: "", isTruncated: false };
@@ -507,6 +540,8 @@ async function loadHomePage() {
     const [
       films,
       series,
+      profiles,
+      mediaOutlets,
       seasons,
       episodes,
       episodeRatings,
@@ -516,6 +551,8 @@ async function loadHomePage() {
     ] = await Promise.all([
       fetchAllRows("films", "id, title, release_date, poster_url, franchise, type"),
       fetchAllRows("series", "id, title, start_date, end_date, poster_url, franchise, type"),
+      fetchAllRows("profiles", "id, moderation_status"),
+      fetchAllRows("media_outlets", "id"),
       fetchAllRows("series_seasons", "id, series_id, name, season_number, start_date"),
       fetchAllRows("series_episodes", "id, season_id, title, episode_number"),
       fetchAllRows("episode_ratings", "id, user_id, episode_id, score, review, created_at, updated_at, profiles(username)"),
@@ -589,17 +626,48 @@ async function loadHomePage() {
       .sort((a, b) => getTimeValue(b.date) - getTimeValue(a.date))
       .slice(0, LATEST_CONTENT_LIMIT);
 
+    const activeProfileIds = new Set(
+      (profiles || [])
+        .filter((profile) => String(profile?.moderation_status || "active").toLowerCase() === "active")
+        .map((profile) => profile.id)
+        .filter(Boolean)
+    );
+    const recentActivityThreshold = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    const activeUsers30Days = new Set();
+    const registerRecentUser = (rows) => {
+      for (const row of rows || []) {
+        const userId = row?.user_id;
+        if (!userId || !activeProfileIds.has(userId)) continue;
+        const activityAt = getTimeValue(row.updated_at || row.created_at || null);
+        if (activityAt >= recentActivityThreshold) {
+          activeUsers30Days.add(userId);
+        }
+      }
+    };
+
+    registerRecentUser(ratings);
+    registerRecentUser(seriesReviews);
+    registerRecentUser(episodeRatings);
+    registerRecentUser(seasonUserRatings);
+
     const topRankedContent = [...releasedFilms, ...releasedSeries]
       .filter((item) => Number.isFinite(item.average) && Number(item.rating_count || 0) > 0)
       .sort((a, b) => {
         if (b.average !== a.average) return b.average - a.average;
         if (b.rating_count !== a.rating_count) return b.rating_count - a.rating_count;
         return getTimeValue(b.date) - getTimeValue(a.date);
-      })
-      .slice(0, TOP_RANKED_LIMIT);
+      });
 
-    renderTopRankedContent(topRankedContent);
+    const topRankedWithTies = includeTiedItemsAtLimit(
+      topRankedContent,
+      TOP_RANKED_LIMIT,
+      (item) => item.average,
+      2
+    );
+
+    renderTopRankedContent(topRankedWithTies);
     renderLatestContent(latestContent);
+    renderHomeCommunityStats(activeProfileIds.size, activeUsers30Days.size, (mediaOutlets || []).length);
 
     let latestActivity = [];
     try {
