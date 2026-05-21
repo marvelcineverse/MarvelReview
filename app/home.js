@@ -44,29 +44,34 @@ function renderHomeCommunityStats(activeUsersCount, activeUsers30DaysCount, medi
     `${activeUsersCount} utilisateurs actifs (${activeUsers30DaysCount} actifs sous 30 jours) - ${mediaCount} medias presents`;
 }
 
-function includeTiedItemsAtLimit(items, limit, scoreAccessor, precision = 2) {
-  if (!Array.isArray(items) || items.length <= limit) return items;
+function includeItemsThroughDenseRank(items, limit, scoreAccessor, precision = 2) {
+  if (!Array.isArray(items) || !items.length) return [];
   if (!Number.isInteger(limit) || limit < 1) return [];
 
-  const baseItems = items.slice(0, limit);
-  const cutoffItem = baseItems[limit - 1];
-  if (!cutoffItem) return baseItems;
+  let previousScore = null;
+  let currentRank = 0;
+  let hasRank = false;
 
-  const rawScore = Number(scoreAccessor(cutoffItem));
-  if (!Number.isFinite(rawScore)) return baseItems;
-  const cutoffScore = Number(rawScore.toFixed(precision));
+  for (let index = 0; index < items.length; index += 1) {
+    const rawScore = Number(scoreAccessor(items[index]));
+    if (!Number.isFinite(rawScore)) break;
 
-  let endIndex = limit;
-  while (endIndex < items.length) {
-    const candidateScore = Number(scoreAccessor(items[endIndex]));
-    const normalizedCandidateScore = Number.isFinite(candidateScore)
-      ? Number(candidateScore.toFixed(precision))
-      : null;
-    if (normalizedCandidateScore !== cutoffScore) break;
-    endIndex += 1;
+    const normalizedScore = Number(rawScore.toFixed(precision));
+    if (!hasRank) {
+      currentRank = 1;
+      previousScore = normalizedScore;
+      hasRank = true;
+    } else if (normalizedScore !== previousScore) {
+      currentRank += 1;
+      previousScore = normalizedScore;
+    }
+
+    if (currentRank > limit) {
+      return items.slice(0, index);
+    }
   }
 
-  return items.slice(0, endIndex);
+  return items;
 }
 
 function getReviewPreview(rawReview, maxLength = ACTIVITY_REVIEW_PREVIEW_LENGTH) {
@@ -658,7 +663,7 @@ async function loadHomePage() {
         return getTimeValue(b.date) - getTimeValue(a.date);
       });
 
-    const topRankedWithTies = includeTiedItemsAtLimit(
+    const topRankedWithTies = includeItemsThroughDenseRank(
       topRankedContent,
       TOP_RANKED_LIMIT,
       (item) => item.average,
