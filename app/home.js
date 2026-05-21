@@ -333,7 +333,7 @@ function renderLatestContent(items) {
       const linkLabel = item.kind === "film" ? "Voir la page film" : "Voir la page s\u00E9rie";
       const linkHref = item.kind === "film" ? `/film.html?id=${item.id}` : `/series.html?id=${item.id}`;
       const subtitle = item.kind === "series" && item.season_name
-        ? `<p class="film-meta">${escapeHTML(item.season_name)}</p>`
+        ? `<small class="home-latest-card-subtitle">${escapeHTML(item.season_name)}</small>`
         : "";
 
       return `
@@ -342,8 +342,8 @@ function renderLatestContent(items) {
           <div>
             <h3>${escapeHTML(item.title)}</h3>
             ${subtitle}
-            <p class="film-average">Moyenne: ${averageLabel}</p>
-            <p>${dateLabel}: ${formatDate(item.date)}</p>
+            <p class="film-average">${averageLabel}</p>
+            <p>${dateLabel} : ${formatDate(item.date)}</p>
             <p class="film-meta">${escapeHTML(item.franchise || "-")} - ${escapeHTML(item.type || "-")}</p>
             <div class="home-latest-card-action">
               <a class="button" href="${linkHref}">${linkLabel}</a>

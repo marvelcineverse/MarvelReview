@@ -806,13 +806,14 @@ function renderSeriesList(rows) {
         <img src="${escapeHTML(item.poster_url || "https://via.placeholder.com/240x360?text=Serie")}" alt="Affiche de ${escapeHTML(item.title)}" />
         <div>
           <h3>${escapeHTML(item.title)}</h3>
+          <p class="film-meta">${item.season_count || 0} ${item.season_count === 1 ? "saison" : "saisons"}</p>
           <p class="film-average">${
             item.rating_count > 0
-              ? `Moyenne: <span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span>`
-              : `Moyenne: <span class="score-badge film-average-badge stade-neutre">pas de note</span>`
+              ? `<span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span>`
+              : `<span class="score-badge film-average-badge stade-neutre">pas de note</span>`
           }</p>
-          <p>D\u00E9but: ${formatDate(item.start_date)}</p>
-          <p>Fin: ${formatDate(item.end_date)}</p>
+          <p>D\u00E9but : ${formatDate(item.start_date)}</p>
+          <p>Fin : ${formatDate(item.end_date)}</p>
           <p class="film-meta">${escapeHTML(item.franchise || "-")} - ${escapeHTML(item.type || "S\u00E9rie")}</p>
           <div class="home-latest-card-action">
             <a class="button" href="/series.html?id=${item.id}">Voir la page s\u00E9rie</a>
@@ -2011,6 +2012,7 @@ async function initPage() {
             ...serie,
             average: averageData.average,
             rating_count: averageData.count,
+            season_count: serieSeasons.length,
             mcuPhases
           };
         });

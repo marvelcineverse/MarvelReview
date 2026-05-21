@@ -298,10 +298,10 @@ function renderFilms() {
             <h3>${escapeHTML(film.title)}</h3>
             <p class="film-average">${
               film.rating_count > 0
-                ? `Moyenne: <span class="score-badge film-average-badge ${getScoreClass(film.average)}">${formatScore(film.average, 2, 2)} / 10</span>`
-                : `Moyenne: <span class="score-badge film-average-badge stade-neutre">pas de note</span>`
+                ? `<span class="score-badge film-average-badge ${getScoreClass(film.average)}">${formatScore(film.average, 2, 2)} / 10</span>`
+                : `<span class="score-badge film-average-badge stade-neutre">pas de note</span>`
             }</p>
-            <p>Sortie: ${formatDate(film.release_date)}</p>
+            <p>Sortie : ${formatDate(film.release_date)}</p>
             <p class="film-meta">${escapeHTML(film.franchise || "-")} - ${escapeHTML(film.type || "-")}</p>
             <div class="home-latest-card-action">
               <a class="button" href="/film.html?id=${film.id}">Voir la page film</a>
