@@ -44,6 +44,10 @@ body {
     linear-gradient(180deg, #fff4f4 0%, var(--bg) 220px, var(--bg) 100%);
 }
 
+body.season-note-info-open {
+  overflow: hidden;
+}
+
 a {
   color: inherit;
   text-decoration-color: #8ea0b3;
@@ -357,6 +361,119 @@ select:focus-visible {
 
 .message:empty {
   display: none;
+}
+
+.season-note-info-trigger {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 35;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(226, 54, 54, 0.9);
+  border-radius: 999px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--primary);
+  font-size: 1.05rem;
+  font-weight: 800;
+  box-shadow: 0 14px 30px rgba(140, 21, 21, 0.2);
+}
+
+.season-note-info-trigger:hover {
+  background: #fff3f3;
+}
+
+.season-note-info-modal[hidden] {
+  display: none;
+}
+
+.season-note-info-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.season-note-info-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 24, 35, 0.64);
+  backdrop-filter: blur(6px);
+}
+
+.season-note-info-dialog {
+  position: relative;
+  width: min(100%, 920px);
+  max-height: min(calc(100vh - 2rem), 860px);
+  overflow: auto;
+  display: grid;
+  gap: 1.15rem;
+  padding: 1.3rem;
+  border: 1px solid rgba(208, 224, 238, 0.95);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(226, 54, 54, 0.12), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 28px 60px rgba(15, 24, 35, 0.24);
+}
+
+.season-note-info-close {
+  position: sticky;
+  top: 0;
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--text);
+  font-size: 1.5rem;
+  line-height: 1;
+  box-shadow: 0 8px 20px rgba(19, 32, 49, 0.12);
+}
+
+.season-note-info-close:hover {
+  background: #eef4fb;
+  box-shadow: 0 10px 22px rgba(19, 32, 49, 0.14);
+}
+
+.season-note-info-kicker {
+  margin-bottom: 0.45rem;
+  color: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.season-note-info-text p:last-child {
+  margin-bottom: 0;
+}
+
+.season-note-info-media {
+  margin: 0;
+  border: 1px solid rgba(212, 222, 234, 0.92);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.season-note-info-media img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.season-note-info-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .grid {
@@ -1844,6 +1961,20 @@ textarea {
     width: min(100% - 1rem, 1140px);
   }
 
+  .season-note-info-dialog {
+    padding: 1rem;
+    border-radius: 20px;
+  }
+
+  .season-note-info-actions {
+    flex-direction: column-reverse;
+  }
+
+  .season-note-info-actions .button,
+  .season-note-info-actions .ghost-button {
+    width: 100%;
+  }
+
   .films-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
@@ -1959,6 +2090,15 @@ textarea {
 }
 
 @media (max-width: 560px) {
+  .season-note-info-modal {
+    padding: 0.7rem;
+  }
+
+  .season-note-info-trigger {
+    right: 0.8rem;
+    bottom: 0.8rem;
+  }
+
   .films-grid {
     grid-template-columns: 1fr;
   }

@@ -153,6 +153,199 @@ function initMobileNav() {
   });
 }
 
+const SEASON_INFO_VERSION = "v1";
+const SEASON_INFO_DISMISSED_KEY = `marvelreview:season-note-info:dismissed:${SEASON_INFO_VERSION}`;
+const SEASON_INFO_SESSION_KEY = `marvelreview:season-note-info:session-hidden:${SEASON_INFO_VERSION}`;
+const SEASON_INFO_SERIES_PATHS = new Set(["/series.html", "/season.html", "/episode.html"]);
+
+function normalizePath(path) {
+  const value = String(path || "/").toLowerCase();
+  if (value === "/") return "/index.html";
+  return value;
+}
+
+function isSeriesInfoPage(pathname = window.location.pathname) {
+  return SEASON_INFO_SERIES_PATHS.has(normalizePath(pathname));
+}
+
+function buildSeasonInfoStorageKey(baseKey, profileId) {
+  return `${baseKey}:${profileId || "guest"}`;
+}
+
+function readStorageValue(storage, key) {
+  try {
+    return storage.getItem(key);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeStorageValue(storage, key, value) {
+  try {
+    storage.setItem(key, value);
+  } catch (_error) {
+    // Ignore storage failures: the info popup can still function for the current page.
+  }
+}
+
+function ensureSeasonInfoExperienceRoot() {
+  let root = document.querySelector("#season-note-info-root");
+  if (root) return root;
+
+  root = document.createElement("div");
+  root.id = "season-note-info-root";
+  root.innerHTML = `
+    <button
+      id="season-note-info-trigger"
+      type="button"
+      class="season-note-info-trigger"
+      aria-label="Afficher l'explication des notes de saisons"
+      aria-controls="season-note-info-modal"
+      aria-expanded="false"
+      hidden
+    >
+      <span aria-hidden="true">i</span>
+    </button>
+    <div id="season-note-info-modal" class="season-note-info-modal" hidden>
+      <div class="season-note-info-backdrop" data-season-info-action="close"></div>
+      <section
+        class="season-note-info-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="season-note-info-title"
+        aria-describedby="season-note-info-description"
+      >
+        <button
+          type="button"
+          class="season-note-info-close"
+          data-season-info-action="close"
+          aria-label="Fermer la fenetre d'information"
+        >
+          &times;
+        </button>
+        <div class="season-note-info-copy">
+          <p class="season-note-info-kicker">Info notes de saisons</p>
+          <h2 id="season-note-info-title">Pas satisfaisant de la moyenne d'une saison ? Ajuste-la !</h2>
+          <div id="season-note-info-description" class="season-note-info-text">
+            <p>
+              La note de saison se base sur la moyenne de tes episodes quand toute la saison est notee.
+            </p>
+            <p>
+              Si le ressenti global de la saison te semble un peu au-dessus ou en dessous, utilise
+              l'ajusteur pour corriger par pas de 0,25.
+            </p>
+            <p>Si tu saisis une note manuelle de saison, l'ajusteur se desactive automatiquement.</p>
+          </div>
+        </div>
+        <figure class="season-note-info-media">
+          <img
+            src="https://www.marvel-cineverse.fr/medias/files/adobe-express-mr-note-saison.gif"
+            alt="Demonstration du calcul de note de saison et de l'ajusteur"
+            loading="lazy"
+          />
+        </figure>
+        <div class="season-note-info-actions">
+          <button type="button" class="ghost-button" data-season-info-action="close">Fermer</button>
+          <button type="button" class="button" data-season-info-action="dismiss">Ne plus afficher</button>
+        </div>
+      </section>
+    </div>
+  `;
+
+  document.body.appendChild(root);
+  return root;
+}
+
+function openSeasonInfoModal() {
+  const modal = document.querySelector("#season-note-info-modal");
+  if (!modal) return;
+
+  modal.hidden = false;
+  document.body.classList.add("season-note-info-open");
+  document.querySelector("#season-note-info-trigger")?.setAttribute("aria-expanded", "true");
+  document.querySelector(".season-note-info-close")?.focus();
+}
+
+function closeSeasonInfoModal(profileId, rememberForSession = false) {
+  const modal = document.querySelector("#season-note-info-modal");
+  if (!modal) return;
+
+  if (rememberForSession) {
+    writeStorageValue(
+      window.sessionStorage,
+      buildSeasonInfoStorageKey(SEASON_INFO_SESSION_KEY, profileId),
+      "1"
+    );
+  }
+
+  modal.hidden = true;
+  document.body.classList.remove("season-note-info-open");
+  document.querySelector("#season-note-info-trigger")?.setAttribute("aria-expanded", "false");
+}
+
+function initSeasonInfoExperience({ isLoggedIn, profileId }) {
+  const root = ensureSeasonInfoExperienceRoot();
+  const trigger = root.querySelector("#season-note-info-trigger");
+  const modal = root.querySelector("#season-note-info-modal");
+  if (!trigger || !modal) return;
+
+  const canOpenFromPage = isLoggedIn && isSeriesInfoPage();
+  trigger.hidden = !canOpenFromPage;
+
+  if (root.dataset.bound !== "1") {
+    root.addEventListener("click", (event) => {
+      const actionSource = event.target.closest("[data-season-info-action]");
+      if (!actionSource) return;
+
+      const { seasonInfoAction } = actionSource.dataset;
+      if (seasonInfoAction === "close") {
+        closeSeasonInfoModal(root.dataset.profileId || "", true);
+        return;
+      }
+
+      if (seasonInfoAction === "dismiss") {
+        const activeProfileId = root.dataset.profileId || "";
+        writeStorageValue(
+          window.localStorage,
+          buildSeasonInfoStorageKey(SEASON_INFO_DISMISSED_KEY, activeProfileId),
+          "1"
+        );
+        closeSeasonInfoModal(activeProfileId, true);
+      }
+    });
+
+    trigger.addEventListener("click", () => {
+      openSeasonInfoModal();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !modal.hidden) {
+        closeSeasonInfoModal(root.dataset.profileId || "", false);
+      }
+    });
+
+    root.dataset.bound = "1";
+  }
+
+  root.dataset.profileId = profileId || "";
+
+  if (!isLoggedIn) {
+    closeSeasonInfoModal("", false);
+    return;
+  }
+
+  const dismissedKey = buildSeasonInfoStorageKey(SEASON_INFO_DISMISSED_KEY, profileId);
+  const sessionKey = buildSeasonInfoStorageKey(SEASON_INFO_SESSION_KEY, profileId);
+  const isDismissedForever = readStorageValue(window.localStorage, dismissedKey) === "1";
+  const isHiddenForSession = readStorageValue(window.sessionStorage, sessionKey) === "1";
+
+  if (!isDismissedForever && !isHiddenForSession) {
+    openSeasonInfoModal();
+  } else {
+    closeSeasonInfoModal(profileId, false);
+  }
+}
+
 async function initCommonLayout() {
   ensureAppHeadMetadata();
   injectLayout();
@@ -193,10 +386,12 @@ async function initCommonLayout() {
       const canAccessAdminPage = Boolean(profile?.is_admin) || managedMediaCount > 0;
       setAdminOnlyVisibility(Boolean(profile?.is_admin));
       setAdminOrManagerVisibility(canAccessAdminPage);
+      initSeasonInfoExperience({ isLoggedIn: true, profileId: profile?.id || session.user.id });
     } else {
       if (navUserValueEl) navUserValueEl.textContent = "";
       setAdminOnlyVisibility(false);
       setAdminOrManagerVisibility(false);
+      initSeasonInfoExperience({ isLoggedIn: false, profileId: "" });
     }
 
     const logoutLink = document.querySelector("#logout-link");
