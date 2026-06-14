@@ -95,6 +95,13 @@ Option la plus simple (recommandee):
 3. Copie tout le contenu de `supabase/schema.sql`.
 4. Clique `Run`.
 
+Si la base existe deja et que tu veux juste ajouter les nouveaux champs JustWatch, execute aussi:
+
+```sql
+alter table public.films add column if not exists justwatch_name text;
+alter table public.series add column if not exists justwatch_name text;
+```
+
 ### D. RLS minimal (si tu preferes verifier dans l'UI)
 
 Apres execution du SQL, va dans `Database` > `Tables`:

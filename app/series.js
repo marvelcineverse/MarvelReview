@@ -50,6 +50,8 @@ const SOCIAL_MOBILE_VISIBLE_ITEMS = 4;
 const SOCIAL_PREVIEW_WORD_LIMIT = 34;
 const SUPABASE_PAGE_SIZE = 1000;
 const IN_FILTER_CHUNK_SIZE = 200;
+const JUSTWATCH_WIDGET_SCRIPT_SELECTOR = 'script[data-justwatch-widget-script="1"]';
+const JUSTWATCH_API_KEY = "6HiGeM3EkUKkYKNZqacryX0WWyLW5pFg";
 const listFranchiseFilterEl = document.querySelector("#series-franchise-filter");
 const listPhaseFilterEl = document.querySelector("#series-phase-filter");
 const listPhaseFilterWrapEl = document.querySelector("#series-phase-filter-wrap");
@@ -828,6 +830,11 @@ function renderSeriesHeader() {
   const detailsEl = document.querySelector("#series-details");
   const series = state.series;
   const slugLabel = series?.slug ? escapeHTML(series.slug) : "-";
+  const justWatchMarkup = buildJustWatchWidgetMarkup({
+    title: series?.justwatch_name || "",
+    objectType: "show",
+    year: getReleaseYear(series?.start_date)
+  });
   detailsEl.innerHTML = `
     <article class="film-hero">
       <div class="film-hero-content">
@@ -835,10 +842,57 @@ function renderSeriesHeader() {
         <p><u>D\u00E9but</u> : ${formatDate(series.start_date)} - <u>Fin</u> : ${formatDate(series.end_date)}</p>
         <p>${escapeHTML(series.synopsis || "Aucun synopsis.")}</p>
         <p class="film-meta">Slug: <code>${slugLabel}</code></p>
+        ${justWatchMarkup}
       </div>
       <img class="film-hero-poster" src="${escapeHTML(series.poster_url || "https://via.placeholder.com/260x390?text=Serie")}" alt="Affiche de ${escapeHTML(series.title)}" />
     </article>
   `;
+
+  if (justWatchMarkup) refreshJustWatchWidgetScript();
+}
+
+function getReleaseYear(value) {
+  const raw = String(value || "").trim();
+  const match = raw.match(/^(\d{4})/);
+  return match ? match[1] : "";
+}
+
+function buildJustWatchWidgetMarkup({ title, objectType, year }) {
+  if (!title) return "";
+
+  const yearAttribute = year ? ` data-year="${escapeHTML(year)}"` : "";
+  return `
+    <section class="justwatch-widget-block" aria-label="Disponibilite streaming">
+      <div
+        class="justwatch-widget-slot"
+        data-api-key="${escapeHTML(JUSTWATCH_API_KEY)}"
+        data-jw-widget=""
+        data-object-type="${escapeHTML(objectType)}"
+        data-theme="light"
+        data-title="${escapeHTML(title)}"${yearAttribute}
+      ></div>
+      <div class="justwatch-widget-credit">
+        <a
+          href="https://www.justwatch.com/fr/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Offres de streaming par JustWatch
+        </a>
+      </div>
+    </section>
+  `;
+}
+
+function refreshJustWatchWidgetScript() {
+  const existingScript = document.querySelector(JUSTWATCH_WIDGET_SCRIPT_SELECTOR);
+  if (existingScript) existingScript.remove();
+
+  const script = document.createElement("script");
+  script.src = "https://widget.justwatch.com/justwatch_widget.js";
+  script.async = true;
+  script.setAttribute("data-justwatch-widget-script", "1");
+  document.body.appendChild(script);
 }
 async function loadMembershipMapForUsers(userIds) {
   if (!userIds.length) return new Map();
@@ -1454,7 +1508,7 @@ async function loadSeriesStructure(seriesId) {
   const [{ data: series, error: seriesError }, { data: seasons, error: seasonsError }] = await Promise.all([
     supabase
       .from("series")
-      .select("id, title, slug, synopsis, poster_url, start_date, end_date, franchise, type")
+      .select("id, title, slug, synopsis, poster_url, justwatch_name, start_date, end_date, franchise, type")
       .eq("id", seriesId)
       .single(),
     supabase

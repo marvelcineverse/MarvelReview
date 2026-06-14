@@ -71,6 +71,7 @@ create table if not exists public.films (
   phase text,
   release_date date,
   poster_url text,
+  justwatch_name text,
   synopsis text,
   created_at timestamptz not null default timezone('utc', now())
 );
@@ -81,6 +82,7 @@ alter table public.films add column if not exists type text not null default 'Fi
 alter table public.films add column if not exists phase text;
 alter table public.films add column if not exists release_date date;
 alter table public.films add column if not exists poster_url text;
+alter table public.films add column if not exists justwatch_name text;
 alter table public.films add column if not exists synopsis text;
 
 create table if not exists public.ratings (
@@ -680,6 +682,7 @@ create table if not exists public.series (
   slug text unique,
   synopsis text,
   poster_url text,
+  justwatch_name text,
   start_date date,
   end_date date,
   franchise text not null default 'MCU',
@@ -690,6 +693,7 @@ create table if not exists public.series (
 alter table public.series add column if not exists slug text;
 alter table public.series add column if not exists synopsis text;
 alter table public.series add column if not exists poster_url text;
+alter table public.series add column if not exists justwatch_name text;
 alter table public.series add column if not exists start_date date;
 alter table public.series add column if not exists end_date date;
 alter table public.series add column if not exists franchise text not null default 'MCU';

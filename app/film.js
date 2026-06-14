@@ -15,6 +15,8 @@ let currentProfile = null;
 let currentFilm = null;
 const SUPABASE_PAGE_SIZE = 1000;
 const IN_FILTER_CHUNK_SIZE = 200;
+const JUSTWATCH_WIDGET_SCRIPT_SELECTOR = 'script[data-justwatch-widget-script="1"]';
+const JUSTWATCH_API_KEY = "6HiGeM3EkUKkYKNZqacryX0WWyLW5pFg";
 
 function chunkArray(values, size) {
   const chunks = [];
@@ -74,9 +76,58 @@ function applyRatingAvailability() {
   }
 }
 
+function getReleaseYear(value) {
+  const raw = String(value || "").trim();
+  const match = raw.match(/^(\d{4})/);
+  return match ? match[1] : "";
+}
+
+function buildJustWatchWidgetMarkup({ title, objectType, year }) {
+  if (!title) return "";
+
+  const yearAttribute = year ? ` data-year="${escapeHTML(year)}"` : "";
+  return `
+    <section class="justwatch-widget-block" aria-label="Disponibilite streaming">
+      <div
+        class="justwatch-widget-slot"
+        data-api-key="${escapeHTML(JUSTWATCH_API_KEY)}"
+        data-jw-widget=""
+        data-object-type="${escapeHTML(objectType)}"
+        data-theme="light"
+        data-title="${escapeHTML(title)}"${yearAttribute}
+      ></div>
+      <div class="justwatch-widget-credit">
+        <a
+          href="https://www.justwatch.com/fr/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Offres de streaming par JustWatch
+        </a>
+      </div>
+    </section>
+  `;
+}
+
+function refreshJustWatchWidgetScript() {
+  const existingScript = document.querySelector(JUSTWATCH_WIDGET_SCRIPT_SELECTOR);
+  if (existingScript) existingScript.remove();
+
+  const script = document.createElement("script");
+  script.src = "https://widget.justwatch.com/justwatch_widget.js";
+  script.async = true;
+  script.setAttribute("data-justwatch-widget-script", "1");
+  document.body.appendChild(script);
+}
+
 function renderFilmDetails(film) {
   const container = document.querySelector("#film-details");
   const slugLabel = film?.slug ? escapeHTML(film.slug) : "-";
+  const justWatchMarkup = buildJustWatchWidgetMarkup({
+    title: film?.justwatch_name || "",
+    objectType: "movie",
+    year: getReleaseYear(film?.release_date)
+  });
   container.innerHTML = `
     <article class="film-hero">
       <div class="film-hero-content">
@@ -84,10 +135,13 @@ function renderFilmDetails(film) {
         <p>Date de sortie: ${formatDate(film.release_date)}</p>
         <p>${escapeHTML(film.synopsis || "Aucun synopsis.")}</p>
         <p class="film-meta">Slug: <code>${slugLabel}</code></p>
+        ${justWatchMarkup}
       </div>
       <img class="film-hero-poster" src="${escapeHTML(film.poster_url || "https://via.placeholder.com/260x390?text=Marvel")}" alt="Affiche de ${escapeHTML(film.title)}" />
     </article>
   `;
+
+  if (justWatchMarkup) refreshJustWatchWidgetScript();
 }
 
 function renderAverage(ratings) {
@@ -222,7 +276,7 @@ async function loadFilmPage() {
   try {
     const { data: film, error: filmError } = await supabase
       .from("films")
-      .select("id, title, slug, release_date, franchise, phase, type, poster_url, synopsis")
+      .select("id, title, slug, release_date, franchise, phase, type, poster_url, justwatch_name, synopsis")
       .eq("id", filmId)
       .single();
     if (filmError) throw filmError;
@@ -279,6 +333,7 @@ function renderAdminFilmEditor() {
   document.querySelector("#film-phase").value = currentFilm.phase || "";
   document.querySelector("#film-type").value = currentFilm.type || "";
   document.querySelector("#film-poster-url").value = currentFilm.poster_url || "";
+  document.querySelector("#film-justwatch-name").value = currentFilm.justwatch_name || "";
   document.querySelector("#film-synopsis").value = currentFilm.synopsis || "";
 }
 
@@ -382,6 +437,7 @@ async function handleAdminFilmSave(event) {
     phase: document.querySelector("#film-phase").value.trim() || null,
     type: document.querySelector("#film-type").value.trim() || "Film",
     poster_url: document.querySelector("#film-poster-url").value.trim() || null,
+    justwatch_name: document.querySelector("#film-justwatch-name").value.trim() || null,
     synopsis: document.querySelector("#film-synopsis").value.trim() || null
   };
 

@@ -1014,6 +1014,7 @@ function fillFilmForm(filmId) {
   document.querySelector("#film-phase").value = row?.phase || "";
   document.querySelector("#film-type").value = row?.type || "Film";
   document.querySelector("#film-poster-url").value = row?.poster_url || "";
+  document.querySelector("#film-justwatch-name").value = row?.justwatch_name || "";
   document.querySelector("#film-synopsis").value = row?.synopsis || "";
 }
 
@@ -1100,6 +1101,7 @@ function fillSeriesForm(seriesId) {
   document.querySelector("#series-slug").value = row?.slug || "";
   document.querySelector("#series-synopsis").value = row?.synopsis || "";
   document.querySelector("#series-poster-url").value = row?.poster_url || "";
+  document.querySelector("#series-justwatch-name").value = row?.justwatch_name || "";
   document.querySelector("#series-start-date").value = row?.start_date || "";
   document.querySelector("#series-end-date").value = row?.end_date || "";
   document.querySelector("#series-franchise").value = row?.franchise || "MCU";
@@ -1148,8 +1150,8 @@ function fillEpisodeForm(episodeId) {
 
 async function refreshSeriesData() {
   const [films, series, seasons, episodes] = await Promise.all([
-    fetchAllRows("films", "id, title, slug, release_date, franchise, phase, type, poster_url, synopsis", "release_date", true),
-    fetchAllRows("series", "id, title, slug, synopsis, poster_url, start_date, end_date, franchise, type", "title", true),
+    fetchAllRows("films", "id, title, slug, release_date, franchise, phase, type, poster_url, justwatch_name, synopsis", "release_date", true),
+    fetchAllRows("series", "id, title, slug, synopsis, poster_url, justwatch_name, start_date, end_date, franchise, type", "title", true),
     fetchAllRows("series_seasons", "id, series_id, name, season_number, slug, poster_url, start_date, end_date, phase", "season_number", true),
     fetchAllRows("series_episodes", "id, season_id, episode_number, title, slug, air_date", "episode_number", true)
   ]);
@@ -1363,6 +1365,7 @@ function bindSeriesForms() {
       phase: document.querySelector("#film-phase").value.trim() || null,
       type: document.querySelector("#film-type").value.trim() || "Film",
       poster_url: document.querySelector("#film-poster-url").value.trim() || null,
+      justwatch_name: document.querySelector("#film-justwatch-name").value.trim() || null,
       synopsis: document.querySelector("#film-synopsis").value.trim() || null
     };
 
@@ -1397,6 +1400,7 @@ function bindSeriesForms() {
       slug: document.querySelector("#series-slug").value.trim() || null,
       synopsis: document.querySelector("#series-synopsis").value.trim() || null,
       poster_url: document.querySelector("#series-poster-url").value.trim() || null,
+      justwatch_name: document.querySelector("#series-justwatch-name").value.trim() || null,
       start_date: document.querySelector("#series-start-date").value || null,
       end_date: document.querySelector("#series-end-date").value || null,
       franchise: document.querySelector("#series-franchise").value.trim() || "MCU",

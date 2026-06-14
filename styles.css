@@ -608,6 +608,33 @@ select:focus-visible {
   font-size: 0.91rem;
 }
 
+.justwatch-widget-block {
+  margin-top: 1.1rem;
+}
+
+.justwatch-widget-slot {
+  width: 100%;
+  max-width: 720px;
+  min-height: 120px;
+}
+
+.justwatch-widget-credit {
+  margin-top: 0.45rem;
+}
+
+.justwatch-widget-credit a {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-family: "Inter", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  text-decoration: none;
+}
+
+.justwatch-widget-credit a:hover {
+  text-decoration: underline;
+}
+
 .film-average {
   margin: 0.1rem 0 0.3rem;
   font-weight: 600;
