@@ -99,7 +99,9 @@ Si la base existe deja et que tu veux juste ajouter les nouveaux champs JustWatc
 
 ```sql
 alter table public.films add column if not exists justwatch_name text;
+alter table public.films add column if not exists just_watch_year integer;
 alter table public.series add column if not exists justwatch_name text;
+alter table public.series add column if not exists just_watch_year integer;
 ```
 
 ### D. RLS minimal (si tu preferes verifier dans l'UI)

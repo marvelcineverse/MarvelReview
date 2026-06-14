@@ -82,6 +82,12 @@ function getReleaseYear(value) {
   return match ? match[1] : "";
 }
 
+function resolveJustWatchYear(preferredYear, fallbackDate) {
+  const preferred = String(preferredYear ?? "").trim();
+  if (/^\d{4}$/.test(preferred)) return preferred;
+  return getReleaseYear(fallbackDate);
+}
+
 function buildJustWatchWidgetMarkup({ title, objectType, year }) {
   if (!title) return "";
 
@@ -126,7 +132,7 @@ function renderFilmDetails(film) {
   const justWatchMarkup = buildJustWatchWidgetMarkup({
     title: film?.justwatch_name || "",
     objectType: "movie",
-    year: getReleaseYear(film?.release_date)
+    year: resolveJustWatchYear(film?.just_watch_year, film?.release_date)
   });
   container.innerHTML = `
     <article class="film-hero">
@@ -276,7 +282,7 @@ async function loadFilmPage() {
   try {
     const { data: film, error: filmError } = await supabase
       .from("films")
-      .select("id, title, slug, release_date, franchise, phase, type, poster_url, justwatch_name, synopsis")
+      .select("id, title, slug, release_date, franchise, phase, type, poster_url, justwatch_name, just_watch_year, synopsis")
       .eq("id", filmId)
       .single();
     if (filmError) throw filmError;
@@ -334,6 +340,7 @@ function renderAdminFilmEditor() {
   document.querySelector("#film-type").value = currentFilm.type || "";
   document.querySelector("#film-poster-url").value = currentFilm.poster_url || "";
   document.querySelector("#film-justwatch-name").value = currentFilm.justwatch_name || "";
+  document.querySelector("#film-justwatch-year").value = currentFilm.just_watch_year || "";
   document.querySelector("#film-synopsis").value = currentFilm.synopsis || "";
 }
 
@@ -438,6 +445,7 @@ async function handleAdminFilmSave(event) {
     type: document.querySelector("#film-type").value.trim() || "Film",
     poster_url: document.querySelector("#film-poster-url").value.trim() || null,
     justwatch_name: document.querySelector("#film-justwatch-name").value.trim() || null,
+    just_watch_year: Number(document.querySelector("#film-justwatch-year").value) || null,
     synopsis: document.querySelector("#film-synopsis").value.trim() || null
   };
 

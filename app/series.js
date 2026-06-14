@@ -833,7 +833,7 @@ function renderSeriesHeader() {
   const justWatchMarkup = buildJustWatchWidgetMarkup({
     title: series?.justwatch_name || "",
     objectType: "show",
-    year: getReleaseYear(series?.start_date)
+    year: resolveJustWatchYear(series?.just_watch_year, series?.start_date)
   });
   detailsEl.innerHTML = `
     <article class="film-hero">
@@ -855,6 +855,12 @@ function getReleaseYear(value) {
   const raw = String(value || "").trim();
   const match = raw.match(/^(\d{4})/);
   return match ? match[1] : "";
+}
+
+function resolveJustWatchYear(preferredYear, fallbackDate) {
+  const preferred = String(preferredYear ?? "").trim();
+  if (/^\d{4}$/.test(preferred)) return preferred;
+  return getReleaseYear(fallbackDate);
 }
 
 function buildJustWatchWidgetMarkup({ title, objectType, year }) {
@@ -1508,7 +1514,7 @@ async function loadSeriesStructure(seriesId) {
   const [{ data: series, error: seriesError }, { data: seasons, error: seasonsError }] = await Promise.all([
     supabase
       .from("series")
-      .select("id, title, slug, synopsis, poster_url, justwatch_name, start_date, end_date, franchise, type")
+      .select("id, title, slug, synopsis, poster_url, justwatch_name, just_watch_year, start_date, end_date, franchise, type")
       .eq("id", seriesId)
       .single(),
     supabase
