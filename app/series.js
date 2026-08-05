@@ -4,6 +4,7 @@ import {
   escapeHTML,
   formatDate,
   formatScore,
+  getLastEpisodeAirDate,
   getScoreClass,
   getSeriesIdFromURL,
   isQuarterStep,
@@ -409,7 +410,13 @@ function applySeriesReviewAvailability() {
 }
 
 function isSeasonRateable(season) {
-  return isReleasedOnOrBeforeToday(season?.start_date || null);
+  if (!isReleasedOnOrBeforeToday(season?.start_date || null)) return false;
+
+  const seasonEpisodes = state.episodes.filter((episode) => episode.season_id === season?.id);
+  const lastEpisodeAirDate = getLastEpisodeAirDate(seasonEpisodes);
+  if (lastEpisodeAirDate === null && !seasonEpisodes.length) return true;
+
+  return isReleasedOnOrBeforeToday(lastEpisodeAirDate);
 }
 
 function buildSeasonComputationContext(seasonId) {
@@ -1754,7 +1761,7 @@ async function saveSeasonManualScore(seasonId) {
 
   const season = state.seasons.find((item) => item.id === seasonId);
   if (!isSeasonRateable(season)) {
-    setMessage("#page-message", "Impossible de noter une saison non sortie ou sans date de debut.", true);
+    setMessage("#page-message", "Impossible de noter une saison non sortie ou dont le dernier episode n'a pas ete diffuse.", true);
     return;
   }
 
@@ -1826,7 +1833,7 @@ async function adjustSeason(seasonId, delta) {
 
   const season = state.seasons.find((item) => item.id === seasonId);
   if (!isSeasonRateable(season)) {
-    setMessage("#page-message", "Impossible d'ajuster une saison non sortie ou sans date de debut.", true);
+    setMessage("#page-message", "Impossible d'ajuster une saison non sortie ou dont le dernier episode n'a pas ete diffuse.", true);
     return;
   }
 

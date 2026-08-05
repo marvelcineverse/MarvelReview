@@ -101,6 +101,14 @@ export function isReleasedOnOrBeforeToday(releaseDate) {
   return releaseDate <= toLocalISODate();
 }
 
+export function getLastEpisodeAirDate(episodes) {
+  if (!Array.isArray(episodes) || !episodes.length) return null;
+  const lastEpisode = episodes.reduce((latest, episode) =>
+    Number(episode?.episode_number || 0) > Number(latest?.episode_number || 0) ? episode : latest
+  );
+  return lastEpisode?.air_date || null;
+}
+
 export function buildDenseRankLabels(items, scoreAccessor, precision = null) {
   const labels = [];
   let previousScore = null;
