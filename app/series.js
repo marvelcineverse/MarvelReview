@@ -44,7 +44,9 @@ const state = {
   },
   socialExpandedEntries: new Set(),
   episodeReviewEditorEpisodeIds: new Set(),
-  episodeReviewPromptEpisodeId: null
+  episodeReviewPromptEpisodeId: null,
+  pendingSeasonAdjustPromptCheck: null,
+  seasonAdjustPromptSeasonId: null
 };
 
 const SOCIAL_MOBILE_QUERY = "(max-width: 700px)";
@@ -1375,6 +1377,40 @@ function renderSeasons(openSeasonIds = null) {
 
       const manualValue = metrics.userManualScore === null ? "" : String(metrics.userManualScore);
       const adjustmentValue = formatScore(metrics.userAdjustment, 2, 2);
+
+      const adjustPromptModal = state.seasonAdjustPromptSeasonId === season.id ? `
+        <div class="season-adjust-modal">
+          <div class="season-adjust-backdrop"></div>
+          <div class="season-adjust-dialog" role="dialog" aria-modal="true" aria-labelledby="season-adjust-prompt-title-${season.id}">
+            <p id="season-adjust-prompt-title-${season.id}" class="season-adjust-prompt-average">
+              Votre moyenne des épisodes de cette saison donne
+              <span class="score-badge ${getScoreClass(metrics.userEpisodeAverage)}">${formatScore(metrics.userEpisodeAverage, 2, 2)} / 10</span>
+            </p>
+            <p>Cette moyenne vous convient-elle ? Vous pouvez l'ajuster</p>
+            <section class="season-rating-panel">
+              <div class="inline-actions season-adjuster">
+                <span>Ajusteur de moyenne</span>
+                <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-down" data-season-id="${season.id}" aria-label="Diminuer l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
+                  <i class="fa-solid fa-minus" aria-hidden="true"></i>
+                </button>
+                <strong>${adjustmentValue}</strong>
+                <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" data-season-id="${season.id}" aria-label="Augmenter l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
+                  <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" data-season-id="${season.id}" aria-label="Réinitialiser l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
+                  <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+              </div>
+            </section>
+            <p class="film-meta season-adjust-prompt-hint">(Ce système est utilisable sur chaque série &#x1F609;)</p>
+            <div class="season-adjust-prompt-actions">
+              <button type="button" class="button" data-action="confirm-season-adjust-prompt" data-season-id="${season.id}">Valider</button>
+              <button type="button" class="ghost-button" data-action="dismiss-season-adjust-prompt" data-season-id="${season.id}">Non, ça me convient !</button>
+            </div>
+          </div>
+        </div>
+      ` : "";
+
       const isOpen = initialOpenAll || openSeasonIds.has(season.id);
       const phaseLabel = String(season.phase || "").trim();
       const seasonMetaParts = [];
@@ -1543,9 +1579,12 @@ function renderSeasons(openSeasonIds = null) {
             </div>
           </details>
         </article>
+        ${adjustPromptModal}
       `;
     })
     .join("");
+
+  document.body.classList.toggle("season-adjust-open", Boolean(state.seasonAdjustPromptSeasonId));
 }
 
 async function loadSeriesStructure(seriesId) {
@@ -1646,6 +1685,16 @@ async function reloadSeriesDetails(seriesId) {
 async function refreshRatingsOnly() {
   const openSeasonIds = getOpenSeasonIdsFromDOM();
   await loadRatingsData();
+
+  if (state.pendingSeasonAdjustPromptCheck) {
+    const seasonId = state.pendingSeasonAdjustPromptCheck;
+    state.pendingSeasonAdjustPromptCheck = null;
+    const season = state.seasons.find((item) => item.id === seasonId);
+    if (season && computeSeasonMetrics(seasonId, getActiveRatingUserId()).userHasAllEpisodeRatings) {
+      state.seasonAdjustPromptSeasonId = seasonId;
+    }
+  }
+
   applySeriesAuthVisibility();
   updateAdminContextMessage();
   applySeriesReviewAvailability();
@@ -2006,8 +2055,19 @@ function bindDetailEvents() {
         const saveResult = await saveEpisodeRating(episodeId);
         if (!saveResult?.saved) return;
         state.episodeReviewPromptEpisodeId = saveResult?.shouldOfferMiniReview ? episodeId : null;
+        const savedEpisode = state.episodes.find((item) => item.id === episodeId);
+        const seasonEpisodes = state.episodes.filter((item) => item.season_id === savedEpisode?.season_id);
+        const lastEpisodeNumber = Math.max(...seasonEpisodes.map((item) => item.episode_number));
+        state.pendingSeasonAdjustPromptCheck = savedEpisode?.episode_number === lastEpisodeNumber
+          ? savedEpisode.season_id
+          : null;
         shouldRefresh = true;
         shouldShowSuccess = true;
+      } else if (action === "confirm-season-adjust-prompt" || action === "dismiss-season-adjust-prompt") {
+        state.seasonAdjustPromptSeasonId = null;
+        const openSeasonIds = getOpenSeasonIdsFromDOM();
+        renderSeasons(openSeasonIds);
+        return;
       } else if (action === "delete-episode-rating" && episodeId) {
         await deleteEpisodeRating(episodeId);
         state.episodeReviewEditorEpisodeIds.delete(episodeId);

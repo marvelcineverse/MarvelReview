@@ -44,7 +44,8 @@ body {
     linear-gradient(180deg, #fff4f4 0%, var(--bg) 220px, var(--bg) 100%);
 }
 
-body.season-note-info-open {
+body.season-note-info-open,
+body.season-adjust-open {
   overflow: hidden;
 }
 
@@ -474,6 +475,69 @@ select:focus-visible {
   justify-content: flex-end;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.season-adjust-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.season-adjust-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 24, 35, 0.64);
+  backdrop-filter: blur(6px);
+}
+
+.season-adjust-dialog {
+  position: relative;
+  width: min(100%, 480px);
+  max-height: min(calc(100vh - 2rem), 720px);
+  overflow: auto;
+  display: grid;
+  gap: 1rem;
+  padding: 1.4rem;
+  border: 1px solid rgba(208, 224, 238, 0.95);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(226, 54, 54, 0.12), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 28px 60px rgba(15, 24, 35, 0.24);
+  text-align: center;
+}
+
+.season-adjust-prompt-average {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.season-adjust-dialog .season-adjuster {
+  justify-content: center;
+}
+
+.season-adjust-prompt-hint {
+  margin: 0;
+  font-style: italic;
+}
+
+.season-adjust-prompt-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.season-adjust-prompt-actions .button,
+.season-adjust-prompt-actions .ghost-button {
+  min-width: 160px;
 }
 
 .grid {
@@ -991,6 +1055,7 @@ button:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 2.5rem;
+  margin-bottom: 1.15rem;
 }
 
 .series-average-block {
@@ -2081,6 +2146,20 @@ textarea {
 
   .season-note-info-actions .button,
   .season-note-info-actions .ghost-button {
+    width: 100%;
+  }
+
+  .season-adjust-dialog {
+    padding: 1rem;
+    border-radius: 20px;
+  }
+
+  .season-adjust-prompt-actions {
+    flex-direction: column-reverse;
+  }
+
+  .season-adjust-prompt-actions .button,
+  .season-adjust-prompt-actions .ghost-button {
     width: 100%;
   }
 
