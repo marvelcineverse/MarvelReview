@@ -373,7 +373,7 @@ function applySeriesAuthVisibility() {
   }
 
   if (reviewSection) {
-    reviewSection.style.display = isLoggedIn ? "" : "none";
+    reviewSection.style.display = isLoggedIn && isSeriesFinished() ? "" : "none";
   }
 
   if (!isLoggedIn) {
@@ -417,6 +417,16 @@ function isSeasonRateable(season) {
   if (lastEpisodeAirDate === null && !seasonEpisodes.length) return true;
 
   return isReleasedOnOrBeforeToday(lastEpisodeAirDate);
+}
+
+function isSeriesFinished() {
+  if (!state.seasons.length) return false;
+
+  const lastSeason = [...state.seasons].sort(
+    (a, b) => Number(b.season_number || 0) - Number(a.season_number || 0)
+  )[0];
+
+  return isSeasonRateable(lastSeason);
 }
 
 function buildSeasonComputationContext(seasonId) {

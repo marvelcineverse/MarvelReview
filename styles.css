@@ -992,6 +992,21 @@ button:hover {
   min-width: 0;
 }
 
+.series-average-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1.75rem;
+}
+
+.series-average-block {
+  min-width: 200px;
+}
+
+.series-average-block h2 {
+  margin-bottom: 0.4rem;
+}
+
 .season-card-header h3 {
   margin: 0;
   min-width: 0;
@@ -2119,6 +2134,11 @@ textarea {
   .season-card-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .series-average-row {
+    flex-direction: column;
+    gap: 0.6rem;
   }
 
   .season-open-button {

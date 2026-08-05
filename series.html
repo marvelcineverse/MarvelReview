@@ -79,8 +79,16 @@
         </div>
 
         <section class="home-stack-chunk">
-          <h2>Moyenne g&eacute;n&eacute;rale</h2>
-          <p id="series-global-average" class="score-row"></p>
+          <div class="series-average-row">
+            <div class="series-average-block">
+              <h2>Moyenne g&eacute;n&eacute;rale</h2>
+              <p id="series-global-average" class="score-row"></p>
+            </div>
+            <div id="series-my-average-block" class="series-average-block" style="display: none;">
+              <h2>Ma moyenne</h2>
+              <p id="series-my-average" class="score-row"></p>
+            </div>
+          </div>
           <details id="series-compact-rankings" class="series-compact-rankings">
             <summary>Classements d&eacute;taill&eacute;s</summary>
             <div class="series-compact-rankings-grid">
@@ -94,14 +102,11 @@
               </section>
             </div>
           </details>
-          <div id="series-my-average-block" style="display: none;">
-            <h2>Ma moyenne</h2>
-            <p id="series-my-average" class="score-row"></p>
-          </div>
         </section>
 
         <section id="series-review-section" class="home-stack-chunk" style="display: none;">
           <h2>Ta critique s&eacute;rie</h2>
+          <p class="film-meta">Donne ton avis concret sur ce que tu as pens&eacute; de la s&eacute;rie (points forts, points faibles&hellip;) &ndash; Attention, cet avis concerne l'ensemble de la s&eacute;rie &#x1F609;</p>
           <p id="series-rating-unavailable-message" class="message" style="display: none;" aria-live="polite"></p>
           <form id="series-review-form" class="form">
             <label>

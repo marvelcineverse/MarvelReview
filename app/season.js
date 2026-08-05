@@ -119,7 +119,7 @@ function applySeasonAvailability() {
 function applyAuthVisibility() {
   const reviewSection = document.querySelector("#season-review-section");
   if (reviewSection) {
-    reviewSection.style.display = state.currentUserId ? "" : "none";
+    reviewSection.style.display = state.currentUserId && isSeasonRateable() ? "" : "none";
   }
 
   if (!state.currentUserId) {
@@ -254,6 +254,11 @@ function renderSeasonCard() {
   const container = document.querySelector("#season-card-root");
   if (!container) return;
 
+  const reviewSection = document.querySelector("#season-review-section");
+  if (reviewSection) {
+    reviewSection.remove();
+  }
+
   const metrics = computeSeasonMetrics();
   const showUserEpisodeActions = Boolean(state.currentUserId);
   const canRateSeason = isSeasonRateable();
@@ -311,6 +316,8 @@ function renderSeasonCard() {
         <p>Ta note effective de la saison: ${userAverage}</p>
         <p class="film-meta">Base utilis&eacute;e pour ta note : ${metrics.userManualScore === null ? "Moyenne de tes &eacute;pisodes" : "Note manuelle de saison"} | &Eacute;pisodes: ${metrics.episodeCount}</p>
 
+        <div id="season-review-anchor"></div>
+
         <div class="season-rating-layout">
           <section class="season-rating-panel">
             <p class="film-meta season-manual-help">Renseigne une note g&eacute;n&eacute;rale pour toute la saison (optionnel).</p>
@@ -344,7 +351,7 @@ function renderSeasonCard() {
             </div>
           </section>
         </div>
-      ` : ""}
+      ` : `<div id="season-review-anchor"></div>`}
 
       <details class="season-episodes" open>
         <summary class="season-episodes-summary">
@@ -447,6 +454,11 @@ function renderSeasonCard() {
       </details>
     </article>
   `;
+
+  const reviewAnchor = container.querySelector("#season-review-anchor");
+  if (reviewAnchor && reviewSection) {
+    reviewAnchor.replaceWith(reviewSection);
+  }
 }
 
 async function loadMembershipMapForUsers(userIds) {
