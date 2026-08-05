@@ -1353,7 +1353,7 @@ function renderSeasons(openSeasonIds = null) {
       const siteAverageBadge = metrics.siteAverage !== null
         ? `<span class="score-badge ${getScoreClass(metrics.siteAverage)}">${formatScore(metrics.siteAverage, 2, 2)} / 10</span>`
         : metrics.siteTemporaryAverage !== null
-          ? `<span class="score-badge ${getScoreClass(metrics.siteTemporaryAverage)}">${formatScore(metrics.siteTemporaryAverage, 2, 2)} / 10</span><small class="score-temporary-tag">(Temporaire)</small>`
+          ? `<span class="score-badge ${getScoreClass(metrics.siteTemporaryAverage)}">${formatScore(metrics.siteTemporaryAverage, 2, 2)} / 10</span><small class="score-temporary-tag">⚠️ Temporaire</small>`
           : `<span class="score-badge stade-neutre">Pas de note</span>`;
 
       const userAverage = metrics.userEffective === null

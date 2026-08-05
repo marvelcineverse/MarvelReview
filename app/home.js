@@ -337,7 +337,7 @@ function renderLatestContent(items) {
       const averageLabel = item.rating_count > 0
         ? `<span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span>`
         : item.temporary_average !== null && item.temporary_average !== undefined
-          ? `<span class="score-badge film-average-badge ${getScoreClass(item.temporary_average)}">${formatScore(item.temporary_average, 2, 2)} / 10</span><small class="score-temporary-tag">(Temporaire)</small>`
+          ? `<span class="score-badge film-average-badge ${getScoreClass(item.temporary_average)}">${formatScore(item.temporary_average, 2, 2)} / 10</span><small class="score-temporary-tag">⚠️ Temporaire</small>`
           : `<span class="score-badge film-average-badge stade-neutre">pas de note</span>`;
       const dateLabel = "Sortie";
       const linkLabel = item.kind === "film" ? "Voir la page film" : "Voir la page s\u00E9rie";
