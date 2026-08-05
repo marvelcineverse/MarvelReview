@@ -576,6 +576,15 @@ select:focus-visible {
   visibility: hidden;
 }
 
+.score-temporary-tag {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.78em;
+  font-weight: 600;
+  font-style: italic;
+}
+
 .home-latest-card h3 {
   display: flex;
   align-items: center;

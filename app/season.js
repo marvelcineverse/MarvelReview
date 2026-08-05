@@ -205,13 +205,19 @@ function computeSeasonMetrics() {
   const context = buildSeasonComputationContext();
   const allUserIds = new Set([...context.episodeStatsByUser.keys(), ...context.seasonRowsByUser.keys()]);
   const effectiveScores = [];
+  const partialEpisodeAverages = [];
   for (const userId of allUserIds) {
     const resolved = resolveSeasonUserScoreFromContext(context, userId);
     if (Number.isFinite(resolved.effectiveScore)) effectiveScores.push(resolved.effectiveScore);
+    if (Number.isFinite(resolved.episodeAverage)) partialEpisodeAverages.push(resolved.episodeAverage);
   }
 
   const siteAverage = effectiveScores.length
     ? effectiveScores.reduce((sum, score) => sum + score, 0) / effectiveScores.length
+    : null;
+
+  const siteTemporaryAverage = siteAverage === null && partialEpisodeAverages.length
+    ? partialEpisodeAverages.reduce((sum, score) => sum + score, 0) / partialEpisodeAverages.length
     : null;
 
   const user = resolveSeasonUserScoreFromContext(context, state.currentUserId);
@@ -223,7 +229,8 @@ function computeSeasonMetrics() {
     userAdjustment: user.adjustment,
     userEffective: user.effectiveScore,
     userHasAllEpisodeRatings: user.isComplete,
-    siteAverage
+    siteAverage,
+    siteTemporaryAverage
   };
 }
 
@@ -255,9 +262,11 @@ function renderSeasonCard() {
     ? `Pas de note`
     : `${formatScore(metrics.userEpisodeAverage, 2, 2)} / 10`;
 
-  const siteAverageBadge = metrics.siteAverage === null
-    ? `<span class="score-badge stade-neutre">Pas de note</span>`
-    : `<span class="score-badge ${getScoreClass(metrics.siteAverage)}">${formatScore(metrics.siteAverage, 2, 2)} / 10</span>`;
+  const siteAverageBadge = metrics.siteAverage !== null
+    ? `<span class="score-badge ${getScoreClass(metrics.siteAverage)}">${formatScore(metrics.siteAverage, 2, 2)} / 10</span>`
+    : metrics.siteTemporaryAverage !== null
+      ? `<span class="score-badge ${getScoreClass(metrics.siteTemporaryAverage)}">${formatScore(metrics.siteTemporaryAverage, 2, 2)} / 10</span><small class="score-temporary-tag">(Temporaire)</small>`
+      : `<span class="score-badge stade-neutre">Pas de note</span>`;
 
   const userAverage = metrics.userEffective === null
     ? `<span class="score-badge stade-neutre">-</span>`

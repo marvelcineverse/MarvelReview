@@ -265,6 +265,7 @@ function computeSeasonAverages(seasons, episodes, episodeRatings, seasonUserRati
     const seasonRows = seasonRowsBySeasonId.get(season.id) || [];
     const allUserIds = new Set([...episodeByUser.keys(), ...seasonRows.map((row) => row.user_id)]);
     const effectiveScores = [];
+    const partialEpisodeAverages = [];
 
     for (const userId of allUserIds) {
       const manualRow = seasonRows.find((row) => row.user_id === userId);
@@ -281,13 +282,20 @@ function computeSeasonAverages(seasons, episodes, episodeRatings, seasonUserRati
       if (Number.isFinite(effective)) {
         effectiveScores.push(effective);
       }
+      if (Number.isFinite(episodeAverage)) {
+        partialEpisodeAverages.push(episodeAverage);
+      }
     }
 
     const average = effectiveScores.length
       ? effectiveScores.reduce((sum, value) => sum + value, 0) / effectiveScores.length
       : null;
 
-    averageBySeasonId.set(season.id, { average, count: effectiveScores.length });
+    const temporaryAverage = average === null && partialEpisodeAverages.length
+      ? partialEpisodeAverages.reduce((sum, value) => sum + value, 0) / partialEpisodeAverages.length
+      : null;
+
+    averageBySeasonId.set(season.id, { average, count: effectiveScores.length, temporaryAverage });
   }
 
   return averageBySeasonId;
@@ -328,7 +336,9 @@ function renderLatestContent(items) {
     .map((item) => {
       const averageLabel = item.rating_count > 0
         ? `<span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span>`
-        : `<span class="score-badge film-average-badge stade-neutre">pas de note</span>`;
+        : item.temporary_average !== null && item.temporary_average !== undefined
+          ? `<span class="score-badge film-average-badge ${getScoreClass(item.temporary_average)}">${formatScore(item.temporary_average, 2, 2)} / 10</span><small class="score-temporary-tag">(Temporaire)</small>`
+          : `<span class="score-badge film-average-badge stade-neutre">pas de note</span>`;
       const dateLabel = "Sortie";
       const linkLabel = item.kind === "film" ? "Voir la page film" : "Voir la page s\u00E9rie";
       const linkHref = item.kind === "film" ? `/film.html?id=${item.id}` : `/series.html?id=${item.id}`;
@@ -685,8 +695,8 @@ async function loadHomePage() {
         const highlightDate = latestSeason?.start_date || row.start_date || null;
         if (!isReleasedOnOrBeforeToday(highlightDate)) return null;
         const latestSeasonAverageData = latestSeason
-          ? (seasonAverageById.get(latestSeason.id) || { average: null, count: 0 })
-          : { average: null, count: 0 };
+          ? (seasonAverageById.get(latestSeason.id) || { average: null, count: 0, temporaryAverage: null })
+          : { average: null, count: 0, temporaryAverage: null };
         const seriesAverageData = seriesAverageById.get(row.id) || { average: null, count: 0 };
         return {
           kind: "series",
@@ -699,6 +709,7 @@ async function loadHomePage() {
           season_name: latestSeason?.name || "",
           rating_count: latestSeasonAverageData.count,
           average: latestSeasonAverageData.average,
+          temporary_average: latestSeasonAverageData.temporaryAverage,
           series_rating_count: seriesAverageData.count,
           series_average: seriesAverageData.average
         };
