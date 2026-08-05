@@ -23,7 +23,7 @@ document.querySelector("#update-password-form")?.addEventListener("submit", asyn
   }
 
   if (password.length < 6) {
-    setMessage("#form-message", "Le mot de passe doit contenir au moins 6 caracteres.", true);
+    setMessage("#form-message", "Le mot de passe doit contenir au moins 6 caractères.", true);
     return;
   }
 
@@ -32,7 +32,7 @@ document.querySelector("#update-password-form")?.addEventListener("submit", asyn
     if (!isPasswordRecoveryPending() || !ready) {
       setMessage(
         "#form-message",
-        "Lien invalide ou expire. Redemande un email de reinitialisation.",
+        "Lien invalide ou expiré. Redemande un email de réinitialisation.",
         true
       );
       return;
@@ -44,12 +44,12 @@ document.querySelector("#update-password-form")?.addEventListener("submit", asyn
     clearPasswordRecoveryPending();
     await signOut();
 
-    setMessage("#form-message", "Mot de passe mis a jour. Redirection vers la connexion...");
+    setMessage("#form-message", "Mot de passe mis à jour. Redirection vers la connexion...");
     window.setTimeout(() => {
       window.location.href = "/login.html?reset=success";
     }, 1000);
   } catch (error) {
-    setMessage("#form-message", error.message || "Mise a jour impossible.", true);
+    setMessage("#form-message", error.message || "Mise à jour impossible.", true);
   }
 });
 

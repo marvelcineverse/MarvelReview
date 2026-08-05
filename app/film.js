@@ -61,7 +61,7 @@ function applyRatingAvailability() {
   const ratingForm = document.querySelector("#rating-form");
   const adminForm = document.querySelector("#admin-rating-form");
 
-  const message = "Ce film n'est pas encore sorti (ou n'a pas de date de sortie). La notation est desactivee.";
+  const message = "Ce film n'est pas encore sorti (ou n'a pas de date de sortie). La notation est désactivée.";
   if (messageEl) {
     messageEl.textContent = canRate ? "" : message;
     messageEl.style.display = canRate ? "none" : "block";
@@ -93,7 +93,7 @@ function buildJustWatchWidgetMarkup({ title, objectType, year }) {
 
   const yearAttribute = year ? ` data-year="${escapeHTML(year)}"` : "";
   return `
-    <section class="justwatch-widget-block" aria-label="Disponibilite streaming">
+    <section class="justwatch-widget-block" aria-label="Disponibilité streaming">
       <div
         class="justwatch-widget-slot"
         data-api-key="${escapeHTML(JUSTWATCH_API_KEY)}"
@@ -178,7 +178,7 @@ function renderRatings(ratings, mediaByUserId) {
     .map((rating) => {
       const profile = rating.profiles || {};
       const mediaNames = mediaByUserId.get(rating.user_id) || [];
-      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Independant";
+      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Indépendant";
 
       return `
         <article class="card review-card">
@@ -275,7 +275,7 @@ async function loadAdminUsersForFilm(filmId) {
 async function loadFilmPage() {
   const filmId = getFilmIdFromURL();
   if (!filmId) {
-    setMessage("#page-message", "Film introuvable: parametre id manquant.", true);
+    setMessage("#page-message", "Film introuvable: paramètre id manquant.", true);
     return;
   }
 
@@ -360,7 +360,7 @@ async function handleRatingSubmit(event) {
   }
 
   if (!isQuarterStep(scoreValue) || scoreValue < 0 || scoreValue > 10) {
-    setMessage("#form-message", "Le score doit etre entre 0 et 10, par pas de 0,25.", true);
+    setMessage("#form-message", "Le score doit être entre 0 et 10, par pas de 0,25.", true);
     return;
   }
 
@@ -377,7 +377,7 @@ async function handleRatingSubmit(event) {
       .upsert(payload, { onConflict: "user_id,film_id" });
     if (error) throw error;
 
-    setMessage("#form-message", "Note enregistree.");
+    setMessage("#form-message", "Note enregistrée.");
     await loadFilmPage();
   } catch (error) {
     setMessage("#form-message", error.message || "Impossible d'enregistrer la note.", true);
@@ -402,12 +402,12 @@ async function handleAdminRatingSubmit(event) {
   }
 
   if (!targetUserId) {
-    setMessage("#admin-rating-message", "Selectionne un utilisateur cible.", true);
+    setMessage("#admin-rating-message", "Sélectionne un utilisateur cible.", true);
     return;
   }
 
   if (!isQuarterStep(scoreValue) || scoreValue < 0 || scoreValue > 10) {
-    setMessage("#admin-rating-message", "Le score doit etre entre 0 et 10, par pas de 0,25.", true);
+    setMessage("#admin-rating-message", "Le score doit être entre 0 et 10, par pas de 0,25.", true);
     return;
   }
 
@@ -421,7 +421,7 @@ async function handleAdminRatingSubmit(event) {
 
     if (error) throw error;
 
-    setMessage("#admin-rating-message", "Note attribuee / modifiee.");
+    setMessage("#admin-rating-message", "Note attribuée / modifiée.");
     await loadFilmPage();
   } catch (error) {
     setMessage("#admin-rating-message", error.message || "Attribution impossible.", true);
@@ -453,10 +453,10 @@ async function handleAdminFilmSave(event) {
     const { error } = await supabase.from("films").upsert(payload);
     if (error) throw error;
 
-    setMessage("#admin-film-message", "Film mis a jour.");
+    setMessage("#admin-film-message", "Film mis à jour.");
     await loadFilmPage();
   } catch (error) {
-    setMessage("#admin-film-message", error.message || "Mise a jour film impossible.", true);
+    setMessage("#admin-film-message", error.message || "Mise à jour film impossible.", true);
   }
 }
 
@@ -476,7 +476,7 @@ async function handleDeleteRating() {
 
     if (error) throw error;
 
-    setMessage("#form-message", "Note supprimee.");
+    setMessage("#form-message", "Note supprimée.");
     await loadFilmPage();
   } catch (error) {
     setMessage("#form-message", error.message || "Suppression impossible.", true);

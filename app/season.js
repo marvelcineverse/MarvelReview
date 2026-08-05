@@ -345,7 +345,7 @@ function renderSeasonCard() {
               <button type="button" class="icon-circle-btn neutral small" data-action="adjust-season-up" aria-label="Augmenter l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
                 <i class="fa-solid fa-plus" aria-hidden="true"></i>
               </button>
-              <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" aria-label="Reinitialiser l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
+              <button type="button" class="icon-circle-btn neutral small" data-action="reset-season-adjustment" aria-label="Réinitialiser l'ajusteur de saison" ${canRateSeason ? "" : "disabled"}>
                 <i class="fa-solid fa-xmark" aria-hidden="true"></i>
               </button>
             </div>
@@ -412,7 +412,7 @@ function renderSeasonCard() {
                     <td>
                       <span class="episode-title-inline">
                         <a href="/episode.html?id=${episode.id}" class="film-link">${escapeHTML(episode.title)}</a>
-                        <a href="/episode.html?id=${episode.id}" class="icon-circle-btn neutral small icon-link episode-open-link" aria-label="Ouvrir la page episode">
+                        <a href="/episode.html?id=${episode.id}" class="icon-circle-btn neutral small icon-link episode-open-link" aria-label="Ouvrir la page épisode">
                           <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>
                         </a>
                       </span>
@@ -424,11 +424,11 @@ function renderSeasonCard() {
                       <td class="actions-cell">
                         <div class="inline-actions inline-edit">
                           <input data-field="episode-score" data-episode-id="${episode.id}" type="number" min="0" max="10" step="0.25" value="${scoreValue}" placeholder="0 a 10" ${canRate ? "" : "disabled"} />
-                          <button type="button" class="icon-circle-btn save" data-action="save-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Valider la note d'episode">
+                          <button type="button" class="icon-circle-btn save" data-action="save-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Valider la note d'épisode">
                             <i class="fa-solid fa-check" aria-hidden="true"></i>
                           </button>
                           ${userRating ? `
-                            <button type="button" class="icon-circle-btn delete" data-action="delete-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Supprimer la note d'episode">
+                            <button type="button" class="icon-circle-btn delete" data-action="delete-episode-rating" data-episode-id="${episode.id}" ${canRate ? "" : "disabled"} aria-label="Supprimer la note d'épisode">
                               <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                             </button>
                           ` : ""}
@@ -498,7 +498,7 @@ function renderSeasonReviews(mediaByUserId = new Map()) {
     .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
     .map((row) => {
       const mediaNames = mediaByUserId.get(row.user_id) || [];
-      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Independant";
+      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Indépendant";
       return `
         <article class="card review-card">
           <div class="review-head">
@@ -530,7 +530,7 @@ function getCurrentSeasonUserRow() {
 async function loadSeasonData() {
   const seasonId = getSeasonIdFromURL();
   if (!seasonId) {
-    setMessage("#page-message", "Saison introuvable: parametre id manquant.", true);
+    setMessage("#page-message", "Saison introuvable: paramètre id manquant.", true);
     return;
   }
 
@@ -611,7 +611,7 @@ async function saveEpisodeRating(episodeId) {
 
   const episode = state.episodes.find((item) => item.id === episodeId);
   if (!isReleasedOnOrBeforeToday(episode?.air_date || null)) {
-    setMessage("#season-form-message", "Impossible de noter un episode non diffuse ou sans date de diffusion.", true);
+    setMessage("#season-form-message", "Impossible de noter un épisode non diffusé ou sans date de diffusion.", true);
     return { saved: false };
   }
 
@@ -624,7 +624,7 @@ async function saveEpisodeRating(episodeId) {
 
   const score = Number(scoreRaw.replace(",", "."));
   if (!Number.isFinite(score) || score < 0 || score > 10 || !isQuarterStep(score)) {
-    setMessage("#season-form-message", "Le score doit etre entre 0 et 10, par pas de 0,25.", true);
+    setMessage("#season-form-message", "Le score doit être entre 0 et 10, par pas de 0,25.", true);
     return { saved: false };
   }
 
@@ -663,7 +663,7 @@ async function saveSeasonManualScore() {
   if (!session) return;
 
   if (!isSeasonRateable()) {
-    setMessage("#season-form-message", "Impossible de noter une saison non sortie ou dont le dernier episode n'a pas ete diffuse.", true);
+    setMessage("#season-form-message", "Impossible de noter une saison non sortie ou dont le dernier épisode n'a pas été diffusé.", true);
     return;
   }
 
@@ -675,7 +675,7 @@ async function saveSeasonManualScore() {
 
   const score = Number(raw.replace(",", "."));
   if (!Number.isFinite(score) || score < 0 || score > 10 || !isQuarterStep(score)) {
-    setMessage("#season-form-message", "La note de saison doit etre entre 0 et 10, par pas de 0,25.", true);
+    setMessage("#season-form-message", "La note de saison doit être entre 0 et 10, par pas de 0,25.", true);
     return;
   }
 
@@ -723,7 +723,7 @@ async function adjustSeason(delta) {
   if (!session) return;
 
   if (!isSeasonRateable()) {
-    setMessage("#season-form-message", "Impossible d'ajuster une saison non sortie ou dont le dernier episode n'a pas ete diffuse.", true);
+    setMessage("#season-form-message", "Impossible d'ajuster une saison non sortie ou dont le dernier épisode n'a pas été diffusé.", true);
     return;
   }
 
@@ -732,12 +732,12 @@ async function adjustSeason(delta) {
   const base = Number.isFinite(metrics.userEpisodeAverage) ? toFixedNumber(metrics.userEpisodeAverage, 2) : null;
 
   if (metrics.userManualScore !== null) {
-    setMessage("#season-form-message", "L'ajusteur est desactive quand une note manuelle de saison est definie.", true);
+    setMessage("#season-form-message", "L'ajusteur est désactivé quand une note manuelle de saison est définie.", true);
     return;
   }
 
   if (!Number.isFinite(base) || !metrics.userHasAllEpisodeRatings) {
-    setMessage("#season-form-message", "Il faut noter tous les episodes pour utiliser l'ajusteur.", true);
+    setMessage("#season-form-message", "Il faut noter tous les épisodes pour utiliser l'ajusteur.", true);
     return;
   }
 
@@ -836,7 +836,7 @@ async function saveSeasonReview(event) {
     if (error) throw error;
   }
 
-  setMessage("#season-review-message", "Critique saison enregistree.");
+  setMessage("#season-review-message", "Critique saison enregistrée.");
   await refreshAll();
 }
 
@@ -863,7 +863,7 @@ async function deleteSeasonReview() {
     if (error) throw error;
   }
 
-  setMessage("#season-review-message", "Critique saison supprimee.");
+  setMessage("#season-review-message", "Critique saison supprimée.");
   await refreshAll();
 }
 
@@ -933,13 +933,13 @@ function bindSeasonCardEvents() {
       }
 
       if (shouldShowSuccess) {
-        setMessage("#season-form-message", "Sauvegarde reussie.");
+        setMessage("#season-form-message", "Sauvegarde réussie.");
       }
       if (shouldRefresh) {
         await refreshAll();
       }
     } catch (error) {
-      setMessage("#season-form-message", error.message || "Operation impossible.", true);
+      setMessage("#season-form-message", error.message || "Opération impossible.", true);
     }
   });
 }

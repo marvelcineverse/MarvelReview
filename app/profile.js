@@ -595,14 +595,14 @@ document.querySelector("#change-password-form")?.addEventListener("submit", asyn
   }
 
   if (password.length < 6) {
-    setMessage("#password-message", "Le mot de passe doit contenir au moins 6 caracteres.", true);
+    setMessage("#password-message", "Le mot de passe doit contenir au moins 6 caractères.", true);
     return;
   }
 
   try {
     const email = session.user?.email || "";
     if (!email) {
-      setMessage("#password-message", "Adresse email introuvable pour verifier le mot de passe actuel.", true);
+      setMessage("#password-message", "Adresse email introuvable pour vérifier le mot de passe actuel.", true);
       return;
     }
 
@@ -621,9 +621,9 @@ document.querySelector("#change-password-form")?.addEventListener("submit", asyn
     document.querySelector("#profile-current-password").value = "";
     document.querySelector("#profile-new-password").value = "";
     document.querySelector("#profile-new-password-confirm").value = "";
-    setMessage("#password-message", "Mot de passe mis a jour.");
+    setMessage("#password-message", "Mot de passe mis à jour.");
   } catch (error) {
-    setMessage("#password-message", error.message || "Mise a jour impossible.", true);
+    setMessage("#password-message", error.message || "Mise à jour impossible.", true);
   }
 });
 

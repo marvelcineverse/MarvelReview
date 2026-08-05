@@ -285,7 +285,7 @@ function renderRanking() {
   });
 
   if (!ranked.length) {
-    bodyEl.innerHTML = `<tr><td colspan="${showMyScore ? 5 : 4}">Aucun resultat pour ce filtre.</td></tr>`;
+    bodyEl.innerHTML = `<tr><td colspan="${showMyScore ? 5 : 4}">Aucun résultat pour ce filtre.</td></tr>`;
     return;
   }
 

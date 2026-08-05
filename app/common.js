@@ -219,7 +219,7 @@ function ensureSeasonInfoExperienceRoot() {
           type="button"
           class="season-note-info-close"
           data-season-info-action="close"
-          aria-label="Fermer la fenetre d'information"
+          aria-label="Fermer la fenêtre d'information"
         >
           &times;
         </button>
@@ -228,19 +228,19 @@ function ensureSeasonInfoExperienceRoot() {
           <h2 id="season-note-info-title">Pas satisfaisant de la moyenne d'une saison ? Ajuste-la !</h2>
           <div id="season-note-info-description" class="season-note-info-text">
             <p>
-              La note de saison se base sur la moyenne de tes episodes quand toute la saison est notee.
+              La note de saison se base sur la moyenne de tes épisodes quand toute la saison est notée.
             </p>
             <p>
               Si le ressenti global de la saison te semble un peu au-dessus ou en dessous, utilise
               l'ajusteur pour corriger par pas de 0,25.
             </p>
-            <p>Si tu saisis une note manuelle de saison, l'ajusteur se desactive automatiquement.</p>
+            <p>Si tu saisis une note manuelle de saison, l'ajusteur se désactive automatiquement.</p>
           </div>
         </div>
         <figure class="season-note-info-media">
           <img
             src="https://www.marvel-cineverse.fr/medias/files/adobe-express-mr-note-saison.gif"
-            alt="Demonstration du calcul de note de saison et de l'ajusteur"
+            alt="Démonstration du calcul de note de saison et de l'ajusteur"
             loading="lazy"
           />
         </figure>
@@ -402,7 +402,7 @@ async function initCommonLayout() {
           await signOut();
           window.location.href = "/index.html";
         } catch (error) {
-          setMessage("#page-message", error.message || "Erreur de deconnexion.", true);
+          setMessage("#page-message", error.message || "Erreur de déconnexion.", true);
         }
       });
     }

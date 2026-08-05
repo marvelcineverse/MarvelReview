@@ -30,7 +30,7 @@ function loadHCaptchaScript() {
           return;
         }
 
-        reject(new Error("Le script hCaptcha est charge mais indisponible."));
+        reject(new Error("Le script hCaptcha est chargé mais indisponible."));
       }, 150);
     }
 
@@ -80,7 +80,7 @@ export async function createCaptchaController({ containerSelector, messageSelect
   if (!hasValidSiteKey()) {
     return createUnavailableController(
       messageSelector,
-      "Captcha non configure. Ajoute HCAPTCHA_SITE_KEY dans config.js."
+      "Captcha non configuré. Ajoute HCAPTCHA_SITE_KEY dans config.js."
     );
   }
 

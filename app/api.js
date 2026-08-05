@@ -9,12 +9,12 @@ async function guardApiPage() {
     const profile = await getCurrentProfile();
     if (profile?.is_admin) return;
 
-    setMessage("#page-message", "Acces reserve aux administrateurs.", true);
+    setMessage("#page-message", "Accès réservé aux administrateurs.", true);
     window.setTimeout(() => {
       window.location.href = "/index.html";
     }, 700);
   } catch (error) {
-    setMessage("#page-message", error.message || "Verification des droits impossible.", true);
+    setMessage("#page-message", error.message || "Vérification des droits impossible.", true);
     window.setTimeout(() => {
       window.location.href = "/index.html";
     }, 700);

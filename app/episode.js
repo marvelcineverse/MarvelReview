@@ -76,7 +76,7 @@ function applyEpisodeAvailability() {
   const canRate = canRateEpisode();
   const messageEl = document.querySelector("#episode-rating-unavailable-message");
   const form = document.querySelector("#episode-rating-form");
-  const message = "Cet episode n'est pas encore diffuse (ou n'a pas de date de diffusion). La notation est desactivee.";
+  const message = "Cet épisode n'est pas encore diffusé (ou n'a pas de date de diffusion). La notation est désactivée.";
 
   if (messageEl) {
     const shouldShow = canManageRating && !canRate;
@@ -98,7 +98,7 @@ function renderEpisodeDetails() {
   const seasonLabel = state.season?.name || `Saison ${state.season?.season_number || "?"}`;
   const slugLabel = state.episode?.slug ? escapeHTML(state.episode.slug) : "-";
   detailsEl.innerHTML = `
-    <h1>Ep. ${state.episode?.episode_number || "-"} - ${escapeHTML(state.episode?.title || "Episode")}</h1>
+    <h1>Ep. ${state.episode?.episode_number || "-"} - ${escapeHTML(state.episode?.title || "Épisode")}</h1>
     <p>
       S&eacute;rie: <a href="/series.html?id=${state.series?.id || ""}" class="film-link">${escapeHTML(state.series?.title || "-")}</a>
       | Saison: <a href="/season.html?id=${state.season?.id || ""}" class="film-link">${escapeHTML(seasonLabel)}</a>
@@ -150,14 +150,14 @@ async function loadMembershipMapForUsers(userIds) {
 function renderRatings(mediaByUserId = new Map()) {
   const listEl = document.querySelector("#episode-reviews-list");
   if (!state.ratings.length) {
-    listEl.innerHTML = "<p>Aucune critique pour cet episode.</p>";
+    listEl.innerHTML = "<p>Aucune critique pour cet épisode.</p>";
     return;
   }
 
   listEl.innerHTML = state.ratings
     .map((rating) => {
       const mediaNames = mediaByUserId.get(rating.user_id) || [];
-      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Independant";
+      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Indépendant";
       return `
         <article class="card review-card">
           <div class="review-head">
@@ -189,7 +189,7 @@ function fillCurrentUserRating() {
 async function loadEpisodePage() {
   const { id: episodeId, slug: episodeSlug } = getEpisodeRefFromURL();
   if (!episodeId && !episodeSlug) {
-    setMessage("#page-message", "Episode introuvable: parametre id ou slug manquant.", true);
+    setMessage("#page-message", "Épisode introuvable: paramètre id ou slug manquant.", true);
     return;
   }
 
@@ -255,7 +255,7 @@ async function saveEpisodeRatingAndReview(event) {
   if (!session) return;
 
   if (!canRateEpisode()) {
-    setMessage("#episode-form-message", "Impossible de noter/commenter un episode non diffuse ou sans date.", true);
+    setMessage("#episode-form-message", "Impossible de noter/commenter un épisode non diffusé ou sans date.", true);
     return;
   }
 
@@ -264,7 +264,7 @@ async function saveEpisodeRatingAndReview(event) {
   const scoreValue = Number(scoreRaw.replace(",", "."));
 
   if (!Number.isFinite(scoreValue) || scoreValue < 0 || scoreValue > 10 || !isQuarterStep(scoreValue)) {
-    setMessage("#episode-form-message", "Le score doit etre entre 0 et 10, par pas de 0,25.", true);
+    setMessage("#episode-form-message", "Le score doit être entre 0 et 10, par pas de 0,25.", true);
     return;
   }
 
@@ -281,7 +281,7 @@ async function saveEpisodeRatingAndReview(event) {
     );
   if (error) throw error;
 
-  setMessage("#episode-form-message", "Note/critique enregistree.");
+  setMessage("#episode-form-message", "Note/critique enregistrée.");
   await loadEpisodePage();
 }
 
@@ -296,7 +296,7 @@ async function deleteEpisodeRatingAndReview() {
     .eq("episode_id", state.episode.id);
   if (error) throw error;
 
-  setMessage("#episode-form-message", "Note/critique supprimee.");
+  setMessage("#episode-form-message", "Note/critique supprimée.");
   await loadEpisodePage();
 }
 
@@ -317,5 +317,5 @@ document.querySelector("#delete-episode-rating-button")?.addEventListener("click
 });
 
 loadEpisodePage().catch((error) => {
-  setMessage("#page-message", error.message || "Erreur de chargement de l'episode.", true);
+  setMessage("#page-message", error.message || "Erreur de chargement de l'épisode.", true);
 });

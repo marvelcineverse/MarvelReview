@@ -18,7 +18,7 @@ function showAuthQueryMessage() {
   }
 
   if (params.get("blocked") === "banned") {
-    setMessage("#form-message", "Ce compte a ete banni. Tu ne peux plus utiliser Marvel Review.", true);
+    setMessage("#form-message", "Ce compte a été banni. Tu ne peux plus utiliser Marvel Review.", true);
     return;
   }
 

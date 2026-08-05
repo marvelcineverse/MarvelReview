@@ -524,7 +524,7 @@ function renderLatestActivity(allRows, mediaByUserId) {
   if (!listEl) return;
 
   if (!allRows.length) {
-    listEl.innerHTML = "<p>Aucune note ou critique enregistree pour le moment.</p>";
+    listEl.innerHTML = "<p>Aucune note ou critique enregistrée pour le moment.</p>";
     if (toggleEl) toggleEl.style.display = "none";
     return;
   }
@@ -537,7 +537,7 @@ function renderLatestActivity(allRows, mediaByUserId) {
   listEl.innerHTML = rows
     .map((row) => {
       const mediaNames = mediaByUserId.get(row.user_id) || [];
-      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Independant";
+      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Indépendant";
       const scorePart = Number.isFinite(row.score)
         ? `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score, 2, 2)} / 10</span>`
         : '<span class="score-badge stade-neutre">Sans note</span>';
@@ -832,7 +832,7 @@ async function loadHomePage() {
           review: rating.review || "",
           seriesTitle: serie?.title || "",
           seasonLabel: season?.season_number ? `S${season.season_number}` : "Saison",
-          title: episode.title || "Episode",
+          title: episode.title || "Épisode",
           href: `/episode.html?id=${episode.id}`,
           adjustment: 0
         });

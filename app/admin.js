@@ -161,7 +161,7 @@ function initSearchableSelect(selectId) {
 
   const emptyState = document.createElement("small");
   emptyState.className = "admin-searchable-select-empty film-meta";
-  emptyState.textContent = "Aucun resultat pour cette recherche.";
+  emptyState.textContent = "Aucun résultat pour cette recherche.";
   emptyState.hidden = true;
 
   selectEl.parentNode.insertBefore(wrapper, selectEl);
@@ -264,7 +264,7 @@ function renderMediaAvatarPreview(url) {
     return;
   }
 
-  previewEl.innerHTML = `<img src="${escapeHTML(safeURL)}" alt="Image du media" class="avatar media-avatar" />`;
+  previewEl.innerHTML = `<img src="${escapeHTML(safeURL)}" alt="Image du média" class="avatar media-avatar" />`;
 }
 
 function sanitizeFilename(value) {
@@ -294,7 +294,7 @@ async function uploadMediaAvatar(file) {
 function updateMediaSubmitButton(mediaId) {
   const submitButton = document.querySelector("#media-submit-button");
   if (!submitButton) return;
-  submitButton.textContent = mediaId ? "Mettre a jour le media" : "Creer le media";
+  submitButton.textContent = mediaId ? "Mettre à jour le média" : "Créer le média";
 }
 
 function fillMediaForm(mediaId) {
@@ -341,7 +341,7 @@ function renderMediaEditorOptions(preferredMediaId = "") {
   const editableRows = getEditableMediaRows();
 
   if (!editableRows.length && !accessState.isAdmin) {
-    mediaSelectEl.innerHTML = `<option value="">Aucun media gere</option>`;
+    mediaSelectEl.innerHTML = `<option value="">Aucun média géré</option>`;
     syncSearchableSelect("media-id");
     fillMediaForm("");
     return;
@@ -349,7 +349,7 @@ function renderMediaEditorOptions(preferredMediaId = "") {
 
   const options = [];
   if (accessState.isAdmin) {
-    options.push(`<option value="">Nouveau media</option>`);
+    options.push(`<option value="">Nouveau média</option>`);
   }
 
   editableRows.forEach((media) => {
@@ -376,7 +376,7 @@ function renderMembershipMediaOptions() {
   const previousValue = mediaSelectEl.value || "";
   const scopedMediaRows = accessState.isAdmin ? state.mediaOutlets : getEditableMediaRows();
   if (!scopedMediaRows.length) {
-    mediaSelectEl.innerHTML = `<option value="">Aucun media</option>`;
+    mediaSelectEl.innerHTML = `<option value="">Aucun média</option>`;
     syncSearchableSelect("membership-media-id");
     return;
   }
@@ -544,7 +544,7 @@ async function loadManagedMediaRequests() {
 
   const rows = (data || []).map((row) => ({
     id: row.id,
-    mediaName: mediaById.get(row.media_id) || "Media",
+    mediaName: mediaById.get(row.media_id) || "Média",
     profileName: profileById.get(row.profile_id) || row.profile_id,
     status: row.status
   }));
@@ -567,7 +567,7 @@ async function ensureAdminOrManager() {
   const isAdmin = Boolean(currentProfile?.is_admin);
   const managedMediaIds = new Set((managedMedias || []).map((media) => media.id));
   if (!isAdmin && managedMediaIds.size === 0) {
-    setMessage("#page-message", "Acces reserve aux administrateurs et gestionnaires de media.", true);
+    setMessage("#page-message", "Accès réservé aux administrateurs et gestionnaires de média.", true);
     document.querySelector("#admin-root").style.display = "none";
     return null;
   }
@@ -582,15 +582,15 @@ async function ensureAdminOrManager() {
   const mediaRoleHintEl = document.querySelector("#media-role-hint");
   if (mediaRoleHintEl) {
     mediaRoleHintEl.textContent = isAdmin
-      ? "Mode admin: creation et edition de tous les medias."
-      : "Mode gestionnaire: edition uniquement de tes medias.";
+      ? "Mode admin: création et édition de tous les médias."
+      : "Mode gestionnaire: édition uniquement de tes médias.";
   }
 
   const managerScopeEl = document.querySelector("#media-manager-scope");
   if (managerScopeEl) {
     managerScopeEl.textContent = isAdmin
       ? "Tu vois toutes les demandes de rattachement."
-      : "Tu vois uniquement les demandes liees a tes medias.";
+      : "Tu vois uniquement les demandes liées à tes médias.";
   }
 
   const membershipMediaLabel = document.querySelector("#membership-media-id")?.closest("label");
@@ -741,11 +741,11 @@ function bindAdminResetActions() {
       });
       if (error) throw error;
 
-      setMessage("#admin-users-message", `Email de reinitialisation envoye a ${email}.`);
+      setMessage("#admin-users-message", `Email de réinitialisation envoyé à ${email}.`);
     } catch (error) {
       setMessage(
         "#admin-users-message",
-        error.message || "Impossible d'envoyer l'email de reinitialisation.",
+        error.message || "Impossible d'envoyer l'email de réinitialisation.",
         true
       );
     } finally {
@@ -784,12 +784,12 @@ function bindCreateMedia() {
     let avatarURL = document.querySelector("#media-avatar-url").value.trim() || null;
 
     if (!accessState.isAdmin && !selectedMediaId) {
-      setMessage("#create-media-message", "Tu peux uniquement modifier un media dont tu es gestionnaire.", true);
+      setMessage("#create-media-message", "Tu peux uniquement modifier un média dont tu es gestionnaire.", true);
       return;
     }
 
     if (selectedMediaId && !canEditMedia(selectedMediaId)) {
-      setMessage("#create-media-message", "Tu ne peux modifier que ton media.", true);
+      setMessage("#create-media-message", "Tu ne peux modifier que ton média.", true);
       return;
     }
 
@@ -805,7 +805,7 @@ function bindCreateMedia() {
     };
 
     if (!payload.name) {
-      setMessage("#create-media-message", "Le nom du media est obligatoire.", true);
+      setMessage("#create-media-message", "Le nom du média est obligatoire.", true);
       return;
     }
 
@@ -824,7 +824,7 @@ function bindCreateMedia() {
 
         const { error } = await supabase.from("media_outlets").update(payload).eq("id", selectedMediaId);
         if (error) throw error;
-        setMessage("#create-media-message", "Media mis a jour.");
+        setMessage("#create-media-message", "Média mis à jour.");
         await loadMediaOutlets(selectedMediaId);
       } else {
         payload.admin_profile_id = document.querySelector("#media-admin-profile-id").value || null;
@@ -834,13 +834,13 @@ function bindCreateMedia() {
           .select("id")
           .single();
         if (error) throw error;
-        setMessage("#create-media-message", "Media cree.");
+        setMessage("#create-media-message", "Média créé.");
         await loadMediaOutlets(inserted?.id || "");
       }
 
       await loadManagedMediaRequests();
     } catch (error) {
-      setMessage("#create-media-message", error.message || "Enregistrement media impossible.", true);
+      setMessage("#create-media-message", error.message || "Enregistrement média impossible.", true);
     }
   });
 }
@@ -864,7 +864,7 @@ function bindManagedRequestsActions() {
 
       if (error) throw error;
 
-      setMessage("#media-manager-message", "Decision enregistree.");
+      setMessage("#media-manager-message", "Décision enregistrée.");
       await loadManagedMediaRequests();
       await loadManagedMediaMembers();
     } catch (error) {
@@ -878,7 +878,7 @@ function bindManualMembershipActions() {
     try {
       await loadManagedMediaMembers();
     } catch (error) {
-      setMessage("#media-manager-message", error.message || "Impossible de charger les membres du media.", true);
+      setMessage("#media-manager-message", error.message || "Impossible de charger les membres du média.", true);
     }
   });
 
@@ -890,12 +890,12 @@ function bindManualMembershipActions() {
   document.querySelector("#membership-attach-button")?.addEventListener("click", async () => {
     const { mediaId, profileId } = readSelections();
     if (!mediaId || !profileId) {
-      setMessage("#media-manager-message", "Selectionne un media et un profil.", true);
+      setMessage("#media-manager-message", "Sélectionne un média et un profil.", true);
       return;
     }
 
     if (!canEditMedia(mediaId)) {
-      setMessage("#media-manager-message", "Tu ne peux gerer que ton media.", true);
+      setMessage("#media-manager-message", "Tu ne peux gérer que ton média.", true);
       return;
     }
 
@@ -912,7 +912,7 @@ function bindManualMembershipActions() {
       );
       if (error) throw error;
 
-      setMessage("#media-manager-message", "Profil rattache.");
+      setMessage("#media-manager-message", "Profil rattaché.");
       await loadManagedMediaRequests();
       await loadManagedMediaMembers();
     } catch (error) {
@@ -923,12 +923,12 @@ function bindManualMembershipActions() {
   document.querySelector("#membership-detach-button")?.addEventListener("click", async () => {
     const { mediaId, profileId } = readSelections();
     if (!mediaId || !profileId) {
-      setMessage("#media-manager-message", "Selectionne un media et un profil.", true);
+      setMessage("#media-manager-message", "Sélectionne un média et un profil.", true);
       return;
     }
 
     if (!canEditMedia(mediaId)) {
-      setMessage("#media-manager-message", "Tu ne peux gerer que ton media.", true);
+      setMessage("#media-manager-message", "Tu ne peux gérer que ton média.", true);
       return;
     }
 
@@ -940,7 +940,7 @@ function bindManualMembershipActions() {
         .eq("profile_id", profileId);
       if (error) throw error;
 
-      setMessage("#media-manager-message", "Rattachement supprime.");
+      setMessage("#media-manager-message", "Rattachement supprimé.");
       await loadManagedMediaRequests();
       await loadManagedMediaMembers();
     } catch (error) {
@@ -960,7 +960,7 @@ function bindManagedMembersActions() {
     if (!membershipId || !mediaId) return;
 
     if (!canEditMedia(mediaId)) {
-      setMessage("#media-manager-message", "Tu ne peux gerer que ton media.", true);
+      setMessage("#media-manager-message", "Tu ne peux gérer que ton média.", true);
       return;
     }
 
@@ -971,7 +971,7 @@ function bindManagedMembersActions() {
       const { error } = await supabase.from("profile_media_memberships").delete().eq("id", membershipId);
       if (error) throw error;
 
-      setMessage("#media-manager-message", `Rattachement supprime pour ${profileName}.`);
+      setMessage("#media-manager-message", `Rattachement supprimé pour ${profileName}.`);
       await loadManagedMediaMembers();
       await loadManagedMediaRequests();
     } catch (error) {
@@ -1021,12 +1021,12 @@ function fillFilmForm(filmId) {
 
 function renderSeriesOptions() {
   const seriesOptions = [
-    `<option value="">Nouvelle serie</option>`,
+    `<option value="">Nouvelle série</option>`,
     ...state.series.map((serie) => `<option value="${serie.id}">${escapeHTML(serie.title)}</option>`)
   ].join("");
 
   const seasonSeriesOptions = [
-    `<option value="">Selectionne une serie</option>`,
+    `<option value="">Sélectionne une série</option>`,
     ...state.series.map((serie) => `<option value="${serie.id}">${escapeHTML(serie.title)}</option>`)
   ].join("");
 
@@ -1046,10 +1046,10 @@ function renderSeasonOptions(seriesId = "") {
   syncSearchableSelect("season-id");
 
   const episodeSeasonOptions = [
-    `<option value="">Selectionne une saison</option>`,
+    `<option value="">Sélectionne une saison</option>`,
     ...state.seasons.map((season) => {
       const serie = state.series.find((item) => item.id === season.series_id);
-      const serieName = serie?.title || "Serie";
+      const serieName = serie?.title || "Série";
       return `<option value="${season.id}">${escapeHTML(serieName)} - S${season.season_number} - ${escapeHTML(season.name)}</option>`;
     })
   ].join("");
@@ -1074,7 +1074,7 @@ function renderEpisodeOptions(seasonId = "") {
   if (!episodeSelectEl) return;
 
   episodeSelectEl.innerHTML = [
-    `<option value="">Nouvel episode</option>`,
+    `<option value="">Nouvel épisode</option>`,
     ...filtered
       .sort((a, b) => a.episode_number - b.episode_number)
       .map((episode) => {
@@ -1242,8 +1242,8 @@ function renderBulkEpisodeRows(count, previousRows = []) {
     return `
       <tr class="bulk-episode-row" data-bulk-row>
         <td class="bulk-episode-index">${idx + 1}</td>
-        <td><input data-field="episode-number" type="number" min="1" step="1" value="${escapeHTML(episodeNumber)}" placeholder="Numero" /></td>
-        <td><input data-field="episode-title" type="text" value="${title}" placeholder="Titre episode" /></td>
+        <td><input data-field="episode-number" type="number" min="1" step="1" value="${escapeHTML(episodeNumber)}" placeholder="Numéro" /></td>
+        <td><input data-field="episode-title" type="text" value="${title}" placeholder="Titre épisode" /></td>
         <td><input data-field="episode-slug" type="text" value="${slug}" placeholder="Slug (optionnel)" /></td>
         <td><input data-field="episode-air-date" type="text" value="${airDate}" placeholder="Date (YYYY-MM-DD ou DD/MM/YYYY)" /></td>
       </tr>
@@ -1257,7 +1257,7 @@ function renderBulkEpisodeRows(count, previousRows = []) {
 function parseBulkEpisodesRows() {
   const rows = getBulkRowsValues();
   if (!rows.length) {
-    throw new Error("Aucune ligne a importer.");
+    throw new Error("Aucune ligne à importer.");
   }
 
   const parsed = [];
@@ -1265,10 +1265,10 @@ function parseBulkEpisodesRows() {
   for (const row of rows) {
     const episodeNumber = Number(row.episode_number.replace(/^ep\.?\s*/i, ""));
     if (!Number.isInteger(episodeNumber) || episodeNumber < 1) {
-      throw new Error(`Ligne ${row.index}: numero d'episode invalide.`);
+      throw new Error(`Ligne ${row.index}: numéro d'épisode invalide.`);
     }
     if (seenEpisodeNumbers.has(episodeNumber)) {
-      throw new Error(`Ligne ${row.index}: numero d'episode duplique.`);
+      throw new Error(`Ligne ${row.index}: numéro d'épisode dupliqué.`);
     }
     seenEpisodeNumbers.add(episodeNumber);
 
@@ -1382,7 +1382,7 @@ function bindSeriesForms() {
     try {
       const { error } = await supabase.from("films").upsert(payload);
       if (error) throw error;
-      setMessage("#film-message", "Film enregistre.");
+      setMessage("#film-message", "Film enregistré.");
       await refreshSeriesData();
     } catch (error) {
       setMessage("#film-message", error.message || "Enregistrement film impossible.", true);
@@ -1421,10 +1421,10 @@ function bindSeriesForms() {
     try {
       const { error } = await supabase.from("series").upsert(payload);
       if (error) throw error;
-      setMessage("#series-message", "Serie enregistree.");
+      setMessage("#series-message", "Série enregistrée.");
       await refreshSeriesData();
     } catch (error) {
-      setMessage("#series-message", error.message || "Enregistrement serie impossible.", true);
+      setMessage("#series-message", error.message || "Enregistrement série impossible.", true);
     }
   });
 
@@ -1456,7 +1456,7 @@ function bindSeriesForms() {
     };
 
     if (!payload.series_id || !payload.name || !Number.isInteger(payload.season_number) || payload.season_number < 1) {
-      setMessage("#season-message", "Serie, nom et numero de saison sont obligatoires.", true);
+      setMessage("#season-message", "Série, nom et numéro de saison sont obligatoires.", true);
       return;
     }
 
@@ -1465,7 +1465,7 @@ function bindSeriesForms() {
     try {
       const { error } = await supabase.from("series_seasons").upsert(payload);
       if (error) throw error;
-      setMessage("#season-message", "Saison enregistree.");
+      setMessage("#season-message", "Saison enregistrée.");
       await refreshSeriesData();
       renderSeasonOptions(seriesId);
     } catch (error) {
@@ -1498,7 +1498,7 @@ function bindSeriesForms() {
     };
 
     if (!payload.season_id || !payload.title || !Number.isInteger(payload.episode_number) || payload.episode_number < 1) {
-      setMessage("#episode-message", "Saison, numero et titre sont obligatoires.", true);
+      setMessage("#episode-message", "Saison, numéro et titre sont obligatoires.", true);
       return;
     }
 
@@ -1507,11 +1507,11 @@ function bindSeriesForms() {
     try {
       const { error } = await supabase.from("series_episodes").upsert(payload);
       if (error) throw error;
-      setMessage("#episode-message", "Episode enregistre.");
+      setMessage("#episode-message", "Épisode enregistré.");
       await refreshSeriesData();
       renderEpisodeOptions(seasonId);
     } catch (error) {
-      setMessage("#episode-message", error.message || "Enregistrement episode impossible.", true);
+      setMessage("#episode-message", error.message || "Enregistrement épisode impossible.", true);
     }
   });
 
@@ -1520,14 +1520,14 @@ function bindSeriesForms() {
     const seasonId = document.querySelector("#episode-season-id").value || "";
 
     if (!episodeId) {
-      setMessage("#episode-message", "Selectionne un episode existant a supprimer.", true);
+      setMessage("#episode-message", "Sélectionne un épisode existant à supprimer.", true);
       return;
     }
 
     const episodeRow = state.episodes.find((item) => item.id === episodeId);
     const episodeLabel = episodeRow
       ? `Ep ${episodeRow.episode_number} - ${episodeRow.title}`
-      : "cet episode";
+      : "cet épisode";
     const confirmed = window.confirm(`Confirmer la suppression de ${episodeLabel} ?`);
     if (!confirmed) return;
 
@@ -1535,7 +1535,7 @@ function bindSeriesForms() {
       const { error } = await supabase.from("series_episodes").delete().eq("id", episodeId);
       if (error) throw error;
 
-      setMessage("#episode-message", "Episode supprime.");
+      setMessage("#episode-message", "Épisode supprimé.");
       await refreshSeriesData();
 
       const episodeSeasonEl = document.querySelector("#episode-season-id");
@@ -1545,7 +1545,7 @@ function bindSeriesForms() {
       renderEpisodeOptions(seasonId);
       fillEpisodeForm("");
     } catch (error) {
-      setMessage("#episode-message", error.message || "Suppression episode impossible.", true);
+      setMessage("#episode-message", error.message || "Suppression épisode impossible.", true);
     }
   });
 
@@ -1555,7 +1555,7 @@ function bindSeriesForms() {
     const seasonId = document.querySelector("#episode-bulk-season-id").value || null;
 
     if (!seasonId) {
-      setMessage("#episode-bulk-message", "Selectionne une saison.", true);
+      setMessage("#episode-bulk-message", "Sélectionne une saison.", true);
       return;
     }
 
@@ -1581,7 +1581,7 @@ function bindSeriesForms() {
         .upsert(payload, { onConflict: "season_id,episode_number" });
       if (error) throw error;
 
-      setMessage("#episode-bulk-message", `${episodes.length} episode(s) importe(s).`);
+      setMessage("#episode-bulk-message", `${episodes.length} épisode(s) importé(s).`);
       await refreshSeriesData();
       renderEpisodeOptions(seasonId);
     } catch (error) {
