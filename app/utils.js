@@ -179,6 +179,20 @@ export function formatScore(value, minimumFractionDigits = 0, maximumFractionDig
   });
 }
 
+export function getSeasonScoreBasisLabel(userManualScore, userAdjustment) {
+  if (userManualScore !== null && userManualScore !== undefined) {
+    return "Note directe de l'utilisateur";
+  }
+
+  const adjustment = Number(userAdjustment || 0);
+  if (adjustment) {
+    const sign = adjustment > 0 ? "+" : "-";
+    return `Moyenne des épisodes ajustée (${sign} ${formatScore(Math.abs(adjustment), 2, 2)} pts)`;
+  }
+
+  return "Moyenne des épisodes";
+}
+
 export function isQuarterStep(value) {
   const score = Number(value);
   if (!Number.isFinite(score)) return false;

@@ -943,11 +943,6 @@ button:hover {
   margin: 0.6rem 0 0.9rem;
 }
 
-.season-rating-separator {
-  margin: 0.6rem 0 0.7rem;
-  border-top: 1px solid #d9e3ef;
-}
-
 .season-rating-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1009,6 +1004,21 @@ button:hover {
 .series-average-block + .series-average-block {
   padding-left: 2.5rem;
   border-left: 1px solid var(--border);
+}
+
+.season-average-label {
+  margin: 0 0 0.4rem;
+  font-weight: 700;
+  color: #0f1823;
+}
+
+.season-score-basis {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--muted);
+  font-size: 0.82em;
+  font-weight: 600;
+  font-style: italic;
 }
 
 .season-card-header h3 {

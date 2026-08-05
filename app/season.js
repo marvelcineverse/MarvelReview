@@ -6,6 +6,7 @@ import {
   getLastEpisodeAirDate,
   getScoreClass,
   getSeasonIdFromURL,
+  getSeasonScoreBasisLabel,
   isQuarterStep,
   isReleasedOnOrBeforeToday,
   setMessage
@@ -277,6 +278,10 @@ function renderSeasonCard() {
     ? `<span class="score-badge stade-neutre">-</span>`
     : `<span class="score-badge ${getScoreClass(metrics.userEffective)}">${formatScore(metrics.userEffective, 2, 2)} / 10</span>`;
 
+  const userScoreBasisLabel = metrics.userEffective === null
+    ? ""
+    : getSeasonScoreBasisLabel(metrics.userManualScore, metrics.userAdjustment);
+
   const manualValue = metrics.userManualScore === null ? "" : String(metrics.userManualScore);
   const adjustmentValue = formatScore(metrics.userAdjustment, 2, 2);
   const phaseLabel = String(state.season?.phase || "").trim();
@@ -303,19 +308,26 @@ function renderSeasonCard() {
   container.innerHTML = `
     <article>
       <div class="season-card-header">
-        <h3>
-          ${escapeHTML(state.season.name || `Saison ${state.season.season_number}`)}
-          - Moyenne du site: ${siteAverageBadge}
-        </h3>
+        <h3>${escapeHTML(state.season.name || `Saison ${state.season.season_number}`)}</h3>
         <a href="/series.html?id=${state.series?.id || ""}" class="button season-open-button">Voir page s&eacute;rie</a>
       </div>
       <p>${seasonMetaLine}</p>
 
-      ${showUserEpisodeActions ? `
-        <div class="season-rating-separator" aria-hidden="true"></div>
-        <p>Ta note effective de la saison: ${userAverage}</p>
-        <p class="film-meta">Base utilis&eacute;e pour ta note : ${metrics.userManualScore === null ? "Moyenne de tes &eacute;pisodes" : "Note manuelle de saison"} | &Eacute;pisodes: ${metrics.episodeCount}</p>
+      <div class="series-average-row">
+        <div class="series-average-block">
+          <p class="season-average-label">Moyenne du site</p>
+          <p class="score-row">${siteAverageBadge}</p>
+        </div>
+        ${showUserEpisodeActions ? `
+          <div class="series-average-block">
+            <p class="season-average-label">Ta note effective de la saison</p>
+            <p class="score-row">${userAverage}</p>
+            ${userScoreBasisLabel ? `<small class="season-score-basis">${userScoreBasisLabel}</small>` : ""}
+          </div>
+        ` : ""}
+      </div>
 
+      ${showUserEpisodeActions ? `
         <div id="season-review-anchor"></div>
 
         <div class="season-rating-layout">

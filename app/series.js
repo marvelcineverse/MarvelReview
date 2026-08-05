@@ -6,6 +6,7 @@ import {
   formatScore,
   getLastEpisodeAirDate,
   getScoreClass,
+  getSeasonScoreBasisLabel,
   getSeriesIdFromURL,
   isQuarterStep,
   isReleasedOnOrBeforeToday,
@@ -1333,8 +1334,6 @@ function renderSeasons(openSeasonIds = null) {
   const showUserEpisodeActions = Boolean(activeUserId);
   const isOwnProfile = !isAdminProxyMode();
   const effectiveSeasonLabel = isOwnProfile ? "Ta note effective de la saison" : "Note effective du profil";
-  const baseNoteLabel = isOwnProfile ? "Base utilisée pour ta note" : "Base utilisée pour la note du profil";
-  const episodeBaseLabel = isOwnProfile ? "Moyenne de tes épisodes" : "Moyenne des épisodes";
   const episodeAverageLabel = isOwnProfile ? "Moyenne de tes épisodes" : "Moyenne des épisodes du profil";
   const tableScoreLabel = isOwnProfile ? "Ta note" : "Note profil";
 
@@ -1370,6 +1369,10 @@ function renderSeasons(openSeasonIds = null) {
         ? `<span class="score-badge stade-neutre">-</span>`
         : `<span class="score-badge ${getScoreClass(metrics.userEffective)}">${formatScore(metrics.userEffective, 2, 2)} / 10</span>`;
 
+      const userScoreBasisLabel = metrics.userEffective === null
+        ? ""
+        : getSeasonScoreBasisLabel(metrics.userManualScore, metrics.userAdjustment);
+
       const manualValue = metrics.userManualScore === null ? "" : String(metrics.userManualScore);
       const adjustmentValue = formatScore(metrics.userAdjustment, 2, 2);
       const isOpen = initialOpenAll || openSeasonIds.has(season.id);
@@ -1385,19 +1388,26 @@ function renderSeasons(openSeasonIds = null) {
       return `
         <article class="card">
           <div class="season-card-header">
-            <h3>
-              ${escapeHTML(season.name || `Saison ${season.season_number}`)}
-              - Moyenne du site: ${siteAverageBadge}
-            </h3>
+            <h3>${escapeHTML(season.name || `Saison ${season.season_number}`)}</h3>
             <a href="/season.html?id=${season.id}" class="button season-open-button">Voir page saison</a>
           </div>
           <p>${seasonMetaLine}</p>
 
-          ${showUserEpisodeActions ? `
-            <div class="season-rating-separator" aria-hidden="true"></div>
-            <p>${effectiveSeasonLabel}: ${userAverage}</p>
-            <p class="film-meta">${baseNoteLabel} : ${metrics.userManualScore === null ? episodeBaseLabel : "Note manuelle de saison"} | \u00C9pisodes: ${metrics.episodeCount}</p>
+          <div class="series-average-row">
+            <div class="series-average-block">
+              <p class="season-average-label">Moyenne du site</p>
+              <p class="score-row">${siteAverageBadge}</p>
+            </div>
+            ${showUserEpisodeActions ? `
+              <div class="series-average-block">
+                <p class="season-average-label">${effectiveSeasonLabel}</p>
+                <p class="score-row">${userAverage}</p>
+                ${userScoreBasisLabel ? `<small class="season-score-basis">${userScoreBasisLabel}</small>` : ""}
+              </div>
+            ` : ""}
+          </div>
 
+          ${showUserEpisodeActions ? `
             <div class="season-rating-layout">
               <section class="season-rating-panel">
                 <p class="film-meta season-manual-help">Renseigne une note g\u00E9n\u00E9rale pour toute la saison (optionnel).</p>
