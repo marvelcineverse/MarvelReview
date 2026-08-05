@@ -107,8 +107,8 @@ function applySeasonAvailability() {
   const messageEl = document.querySelector("#season-rating-unavailable-message");
   const seasonNotReleased = !isReleasedOnOrBeforeToday(state.season?.start_date || null);
   const message = seasonNotReleased
-    ? "Cette saison n'est pas encore sortie (ou n'a pas de date de debut). La notation est desactivee."
-    : "Le dernier episode de cette saison n'a pas encore ete diffuse. La notation de la saison est desactivee.";
+    ? "Cette saison n'est pas encore sortie (ou n'a pas de date de début). La notation est désactivée."
+    : "Le dernier épisode de cette saison n'a pas encore été diffusé. La notation de la saison est désactivée.";
   if (messageEl) {
     const shouldShow = canManageSeasonRating && !canRate;
     messageEl.textContent = shouldShow ? message : "";

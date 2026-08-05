@@ -995,8 +995,7 @@ button:hover {
 .series-average-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 1.75rem;
+  gap: 2.5rem;
 }
 
 .series-average-block {
@@ -1004,7 +1003,12 @@ button:hover {
 }
 
 .series-average-block h2 {
-  margin-bottom: 0.4rem;
+  margin: 0 0 0.4rem;
+}
+
+.series-average-block + .series-average-block {
+  padding-left: 2.5rem;
+  border-left: 1px solid var(--border);
 }
 
 .season-card-header h3 {
@@ -1536,14 +1540,6 @@ textarea {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
-}
-
-#series-my-average-block {
-  margin-top: 0.5rem;
-}
-
-#series-my-average-block h2 {
-  margin-bottom: 0.56rem;
 }
 
 #series-review-form {
@@ -2139,6 +2135,13 @@ textarea {
   .series-average-row {
     flex-direction: column;
     gap: 0.6rem;
+  }
+
+  .series-average-block + .series-average-block {
+    padding-left: 0;
+    padding-top: 0.6rem;
+    border-left: none;
+    border-top: 1px solid var(--border);
   }
 
   .season-open-button {
