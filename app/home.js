@@ -334,7 +334,7 @@ function renderLatestContent(items) {
       const linkHref = item.kind === "film" ? `/film.html?id=${item.id}` : `/series.html?id=${item.id}`;
       const subtitle = item.kind === "series" && item.season_name
         ? `<small class="home-latest-card-subtitle">${escapeHTML(item.season_name)}</small>`
-        : "";
+        : `<small class="home-latest-card-subtitle home-latest-card-subtitle--empty" aria-hidden="true">&nbsp;</small>`;
 
       return `
         <article class="card film-card home-latest-card">

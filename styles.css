@@ -572,6 +572,17 @@ select:focus-visible {
   line-height: 1.2;
 }
 
+.home-latest-card-subtitle--empty {
+  visibility: hidden;
+}
+
+.home-latest-card h3 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.4em;
+}
+
 .film-card img {
   width: 100%;
   border-radius: var(--radius-sm);
