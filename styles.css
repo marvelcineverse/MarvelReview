@@ -1071,6 +1071,14 @@ button:hover {
   border-left: 1px solid var(--border);
 }
 
+.film-rating-block {
+  flex: 1 1 320px;
+}
+
+.film-rating-form {
+  max-width: none;
+}
+
 .season-average-label {
   margin: 0 0 0.4rem;
   font-weight: 700;
