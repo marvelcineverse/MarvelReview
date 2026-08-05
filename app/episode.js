@@ -309,6 +309,14 @@ document.querySelector("#episode-rating-form")?.addEventListener("submit", async
 });
 
 document.querySelector("#delete-episode-rating-button")?.addEventListener("click", async () => {
+  const existingReview = state.ratings.find((rating) => rating.user_id === state.currentUserId)?.review;
+  if (String(existingReview || "").trim()) {
+    const confirmed = window.confirm(
+      "Supprimer ta note supprimera aussi la critique que tu as écrite pour cet épisode. Continuer ?"
+    );
+    if (!confirmed) return;
+  }
+
   try {
     await deleteEpisodeRatingAndReview();
   } catch (error) {

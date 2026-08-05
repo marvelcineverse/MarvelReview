@@ -954,6 +954,15 @@ function bindSeasonCardEvents() {
         renderSeasonCard();
         return;
       } else if (action === "delete-episode-rating" && episodeId) {
+        const existingReview = state.episodeRatings.find(
+          (rating) => rating.episode_id === episodeId && rating.user_id === state.currentUserId
+        )?.review;
+        if (String(existingReview || "").trim()) {
+          const confirmed = window.confirm(
+            "Supprimer ta note supprimera aussi la critique que tu as écrite pour cet épisode. Continuer ?"
+          );
+          if (!confirmed) return;
+        }
         await deleteEpisodeRating(episodeId);
         state.episodeReviewEditorEpisodeIds.delete(episodeId);
         if (state.episodeReviewPromptEpisodeId === episodeId) {

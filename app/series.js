@@ -2069,6 +2069,16 @@ function bindDetailEvents() {
         renderSeasons(openSeasonIds);
         return;
       } else if (action === "delete-episode-rating" && episodeId) {
+        const activeUserId = getActiveRatingUserId();
+        const existingReview = state.episodeRatings.find(
+          (rating) => rating.episode_id === episodeId && rating.user_id === activeUserId
+        )?.review;
+        if (String(existingReview || "").trim()) {
+          const confirmed = window.confirm(
+            "Supprimer cette note supprimera aussi la critique écrite pour cet épisode. Continuer ?"
+          );
+          if (!confirmed) return;
+        }
         await deleteEpisodeRating(episodeId);
         state.episodeReviewEditorEpisodeIds.delete(episodeId);
         if (state.episodeReviewPromptEpisodeId === episodeId) {
