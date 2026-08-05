@@ -3,6 +3,7 @@ import {
   escapeHTML,
   formatDate,
   formatScore,
+  getLastEpisodeAirDate,
   getScoreClass,
   getSeasonIdFromURL,
   isQuarterStep,
@@ -92,14 +93,22 @@ function buildAdjustmentTargets(base) {
 }
 
 function isSeasonRateable() {
-  return isReleasedOnOrBeforeToday(state.season?.start_date || null);
+  if (!isReleasedOnOrBeforeToday(state.season?.start_date || null)) return false;
+
+  const lastEpisodeAirDate = getLastEpisodeAirDate(state.episodes);
+  if (lastEpisodeAirDate === null && !state.episodes.length) return true;
+
+  return isReleasedOnOrBeforeToday(lastEpisodeAirDate);
 }
 
 function applySeasonAvailability() {
   const canManageSeasonRating = Boolean(state.currentUserId);
   const canRate = isSeasonRateable();
   const messageEl = document.querySelector("#season-rating-unavailable-message");
-  const message = "Cette saison n'est pas encore sortie (ou n'a pas de date de debut). La notation est desactivee.";
+  const seasonNotReleased = !isReleasedOnOrBeforeToday(state.season?.start_date || null);
+  const message = seasonNotReleased
+    ? "Cette saison n'est pas encore sortie (ou n'a pas de date de debut). La notation est desactivee."
+    : "Le dernier episode de cette saison n'a pas encore ete diffuse. La notation de la saison est desactivee.";
   if (messageEl) {
     const shouldShow = canManageSeasonRating && !canRate;
     messageEl.textContent = shouldShow ? message : "";
@@ -633,7 +642,7 @@ async function saveSeasonManualScore() {
   if (!session) return;
 
   if (!isSeasonRateable()) {
-    setMessage("#season-form-message", "Impossible de noter une saison non sortie ou sans date de debut.", true);
+    setMessage("#season-form-message", "Impossible de noter une saison non sortie ou dont le dernier episode n'a pas ete diffuse.", true);
     return;
   }
 
@@ -693,7 +702,7 @@ async function adjustSeason(delta) {
   if (!session) return;
 
   if (!isSeasonRateable()) {
-    setMessage("#season-form-message", "Impossible d'ajuster une saison non sortie ou sans date de debut.", true);
+    setMessage("#season-form-message", "Impossible d'ajuster une saison non sortie ou dont le dernier episode n'a pas ete diffuse.", true);
     return;
   }
 
