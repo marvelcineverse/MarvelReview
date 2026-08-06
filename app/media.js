@@ -343,7 +343,7 @@ function renderMediaRanking() {
             <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>
             <small>(${row.type === "film" ? "Film" : row.type === "season" ? "Saison" : "Série"}${row.release_date ? ` - ${formatDate(row.release_date)}` : ""}${row.type === "film" ? "" : ` - ${escapeHTML(row.phase)}`})</small>
           </td>
-          <td><span class="score-badge ${getScoreClass(row.average)}">${formatScore(row.average, 2, 2)} / 10</span></td>
+          <td><span class="score-badge ${getScoreClass(row.average)}">${formatScore(row.average, 2, 2)}</span> / 10</td>
           <td>${row.count}</td>
         </tr>
       `

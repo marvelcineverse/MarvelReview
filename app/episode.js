@@ -121,7 +121,7 @@ function renderAverage() {
   const total = state.ratings.reduce((sum, rating) => sum + Number(rating.score || 0), 0);
   const average = total / state.ratings.length;
   averageEl.innerHTML = `
-    <span class="score-badge ${getScoreClass(average)}">${formatScore(average, 2, 2)} / 10</span>
+    <span class="score-badge ${getScoreClass(average)}">${formatScore(average, 2, 2)}</span> / 10
     <span>${state.ratings.length} note(s)</span>
   `;
 }
@@ -173,7 +173,7 @@ function renderRatings(mediaByUserId = new Map()) {
           <div class="review-head">
             <strong>${escapeHTML(rating.profiles?.username || "Utilisateur")}</strong>
             ${mediaLabel ? `<span>${escapeHTML(mediaLabel)}</span>` : ""}
-            <span class="score-badge ${getScoreClass(rating.score)}">${formatScore(rating.score)} / 10</span>
+            <span class="score-badge ${getScoreClass(rating.score)}">${formatScore(rating.score)}</span> / 10
             ${editButton}
           </div>
           ${renderReviewParagraph(rating.review, {

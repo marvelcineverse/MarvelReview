@@ -857,7 +857,7 @@ function renderSeriesList(rows) {
           <p class="film-meta">${item.season_count || 0} ${item.season_count === 1 ? "saison" : "saisons"}</p>
           <p class="film-average">${
             item.rating_count > 0
-              ? `<span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span>`
+              ? `<span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)}</span> / 10`
               : `<span class="score-badge film-average-badge stade-neutre">pas de note</span>`
           }</p>
           <p>D\u00E9but : ${formatDate(item.start_date)}</p>
@@ -1117,7 +1117,7 @@ function renderSeriesReviews(mediaByUserId = new Map()) {
       const entryId = `series-review-${review.id || review.user_id}`;
       const userAverage = userAverageById.get(review.user_id);
       const userAverageLabel = Number.isFinite(userAverage)
-        ? `<span class="score-badge ${getScoreClass(userAverage)}">${formatScore(userAverage, 2, 2)} / 10</span>`
+        ? `<span class="score-badge ${getScoreClass(userAverage)}">${formatScore(userAverage, 2, 2)}</span> / 10`
         : `<span class="score-badge stade-neutre">Pas de moyenne</span>`;
       const editButton = state.isAdmin && review.id
         ? buildAdminReviewEditButtonMarkup("series_reviews", review.id, {
@@ -1172,7 +1172,7 @@ function renderSeriesSocialActivity(mediaByUserId = new Map()) {
       const mediaLabel = mediaNames.join(", ");
       const entryId = `series-activity-${row.id}`;
       const scorePart = Number.isFinite(row.score)
-        ? `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score, 2, 2)} / 10</span>`
+        ? `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score, 2, 2)}</span> / 10`
         : '<span class="score-badge stade-neutre">Sans note</span>';
       const adjustmentPart = row.type === "season" && row.adjustment !== 0
         ? ` | Ajustement ${row.adjustment > 0 ? "+" : ""}${formatScore(row.adjustment, 2, 2)}`
@@ -1241,7 +1241,7 @@ function renderSeriesAverage() {
   globalEl.innerHTML = metrics.globalAverage === null
     ? `<span class="score-badge stade-neutre">Pas encore de note</span>`
     : `
-      <span class="score-badge ${getScoreClass(metrics.globalAverage)}">${formatScore(metrics.globalAverage, 2, 2)} / 10</span>
+      <span class="score-badge ${getScoreClass(metrics.globalAverage)}">${formatScore(metrics.globalAverage, 2, 2)}</span> / 10
       <span>${metrics.contributorCount} profil(s) contributeur(s)</span>
     `;
 
@@ -1255,7 +1255,7 @@ function renderSeriesAverage() {
     : "Tu n'as pas encore de moyenne sur cette série";
   myEl.innerHTML = metrics.myAverage === null
     ? `<span class="score-badge stade-neutre">${emptyLabel}</span>`
-    : `<span class="score-badge ${getScoreClass(metrics.myAverage)}">${formatScore(metrics.myAverage, 2, 2)} / 10</span>`;
+    : `<span class="score-badge ${getScoreClass(metrics.myAverage)}">${formatScore(metrics.myAverage, 2, 2)}</span> / 10`;
 }
 
 function computeEpisodeSiteRankingRows() {
@@ -1412,14 +1412,14 @@ function renderSeasons(openSeasonIds = null) {
         : `${formatScore(metrics.userEpisodeAverage, 2, 2)} / 10`;
 
       const siteAverageBadge = metrics.siteAverage !== null
-        ? `<span class="score-badge ${getScoreClass(metrics.siteAverage)}">${formatScore(metrics.siteAverage, 2, 2)} / 10</span>`
+        ? `<span class="score-badge ${getScoreClass(metrics.siteAverage)}">${formatScore(metrics.siteAverage, 2, 2)}</span> / 10`
         : metrics.siteTemporaryAverage !== null
-          ? `<span class="score-badge ${getScoreClass(metrics.siteTemporaryAverage)}">${formatScore(metrics.siteTemporaryAverage, 2, 2)} / 10</span><small class="score-temporary-tag">⚠️ Temporaire</small>`
+          ? `<span class="score-badge ${getScoreClass(metrics.siteTemporaryAverage)}">${formatScore(metrics.siteTemporaryAverage, 2, 2)}</span> / 10<small class="score-temporary-tag">⚠️ Temporaire</small>`
           : `<span class="score-badge stade-neutre">Pas de note</span>`;
 
       const userAverage = metrics.userEffective === null
         ? `<span class="score-badge stade-neutre">-</span>`
-        : `<span class="score-badge ${getScoreClass(metrics.userEffective)}">${formatScore(metrics.userEffective, 2, 2)} / 10</span>`;
+        : `<span class="score-badge ${getScoreClass(metrics.userEffective)}">${formatScore(metrics.userEffective, 2, 2)}</span> / 10`;
 
       const userScoreBasisLabel = metrics.userEffective === null
         ? ""
@@ -1434,7 +1434,7 @@ function renderSeasons(openSeasonIds = null) {
           <div class="season-adjust-dialog" role="dialog" aria-modal="true" aria-labelledby="season-adjust-prompt-title-${season.id}">
             <p id="season-adjust-prompt-title-${season.id}" class="season-adjust-prompt-average">
               Votre moyenne des épisodes de cette saison donne
-              <span class="score-badge ${getScoreClass(metrics.userEpisodeAverage)}">${formatScore(metrics.userEpisodeAverage, 2, 2)} / 10</span>
+              <span class="score-badge ${getScoreClass(metrics.userEpisodeAverage)}">${formatScore(metrics.userEpisodeAverage, 2, 2)}</span> / 10
             </p>
             <p>Cette moyenne vous convient-elle ? Vous pouvez l'ajuster</p>
             <section class="season-rating-panel">
@@ -1563,7 +1563,7 @@ function renderSeasons(openSeasonIds = null) {
                     const showReviewEditor = hasReview || state.episodeReviewEditorEpisodeIds.has(episode.id);
                     const showReviewPrompt = state.episodeReviewPromptEpisodeId === episode.id;
                     const scoreBadge = userRating
-                      ? `<span class="score-badge ${getScoreClass(userRating.score)}">${formatScore(userRating.score)} / 10</span>`
+                      ? `<span class="score-badge ${getScoreClass(userRating.score)}">${formatScore(userRating.score)}</span> / 10`
                       : `<span class="score-badge stade-neutre">-</span>`;
                     const episodeAverage = episodeAverageById.get(episode.id);
                     const averageBadge = Number.isFinite(episodeAverage)

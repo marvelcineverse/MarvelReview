@@ -1191,6 +1191,16 @@ button:hover {
   color: #a12626;
 }
 
+.ranking-diff-positive-strong {
+  background: var(--success);
+  color: #ffffff;
+}
+
+.ranking-diff-negative-strong {
+  background: var(--danger);
+  color: #ffffff;
+}
+
 .ranking-diff-neutral {
   background: #eef2f6;
   color: var(--muted);

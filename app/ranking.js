@@ -303,12 +303,12 @@ function renderRanking() {
   bodyEl.innerHTML = ranked
     .map((item, index) => {
       const averageCell = item.count
-        ? `<span class="score-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)} / 10</span>`
+        ? `<span class="score-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)}</span> / 10`
         : `<span class="score-badge stade-neutre">Pas de note</span>`;
 
       const myScoreCell = item.myScore === null
         ? `<span class="score-badge stade-neutre">-</span>`
-        : `<span class="score-badge ta-note-badge ${getScoreClass(item.myScore)}">${formatScore(item.myScore, 2, 2)} / 10</span>`;
+        : `<span class="score-badge ta-note-badge ${getScoreClass(item.myScore)}">${formatScore(item.myScore, 2, 2)}</span> / 10`;
 
       const detailParts = [];
       if (!state.filters.franchise && item.franchise) {
@@ -391,20 +391,22 @@ function renderMyRanking() {
       const rank = isRated ? rankLabels[rankIndex++] : "-";
 
       const myScoreCell = isRated
-        ? `<span class="score-badge ta-note-badge ${getScoreClass(item.myScore)}">${formatScore(item.myScore, 2, 2)} / 10</span>`
+        ? `<span class="score-badge ta-note-badge ${getScoreClass(item.myScore)}">${formatScore(item.myScore, 2, 2)}</span> / 10`
         : `<span class="score-badge stade-neutre">Pas not&eacute;</span>`;
 
       let diffCell = `<span class="ranking-diff-badge ranking-diff-neutral">-</span>`;
       if (isRated && Number.isFinite(item.average)) {
         const diff = item.myScore - item.average;
         const epsilon = 0.001;
+        const absDiff = Math.abs(diff);
+        const isStrong = absDiff > 1 + epsilon;
         const sign = diff > epsilon ? "+" : diff < -epsilon ? "-" : "";
         const diffClass = diff > epsilon
-          ? "ranking-diff-positive"
+          ? (isStrong ? "ranking-diff-positive-strong" : "ranking-diff-positive")
           : diff < -epsilon
-            ? "ranking-diff-negative"
+            ? (isStrong ? "ranking-diff-negative-strong" : "ranking-diff-negative")
             : "ranking-diff-neutral";
-        diffCell = `<span class="ranking-diff-badge ${diffClass}">${sign}${formatScore(Math.abs(diff), 2, 2)} pt</span>`;
+        diffCell = `<span class="ranking-diff-badge ${diffClass}">${sign}${formatScore(absDiff, 2, 2)} pt</span>`;
       }
 
       const detailParts = [];

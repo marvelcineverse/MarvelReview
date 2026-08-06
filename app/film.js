@@ -163,7 +163,7 @@ function renderAverage(ratings) {
   const average = total / ratings.length;
 
   avgEl.innerHTML = `
-    <span class="score-badge ${getScoreClass(average)}">${formatScore(average, 2, 2)} / 10</span>
+    <span class="score-badge ${getScoreClass(average)}">${formatScore(average, 2, 2)}</span> / 10
     <span>${ratings.length} note(s)</span>
   `;
 }
@@ -194,7 +194,7 @@ function renderRatings(ratings, mediaByUserId) {
           <div class="review-head">
             <strong>${escapeHTML(profile.username || "Utilisateur")}</strong>
             ${mediaLabel ? `<span>${escapeHTML(mediaLabel)}</span>` : ""}
-            <span class="score-badge ${getScoreClass(rating.score)}">${formatScore(rating.score)} / 10</span>
+            <span class="score-badge ${getScoreClass(rating.score)}">${formatScore(rating.score)}</span> / 10
             ${editButton}
           </div>
           ${renderReviewParagraph(rating.review, {
