@@ -275,14 +275,14 @@ function renderSeasonCard() {
     : `${formatScore(metrics.userEpisodeAverage, 2, 2)} / 10`;
 
   const siteAverageBadge = metrics.siteAverage !== null
-    ? `<span class="score-badge ${getScoreClass(metrics.siteAverage)}">${formatScore(metrics.siteAverage, 2, 2)}</span> / 10`
+    ? `<span class="score-with-suffix"><span class="score-badge ${getScoreClass(metrics.siteAverage)}">${formatScore(metrics.siteAverage, 2, 2)}</span> <span class="score-suffix">/ 10</span></span>`
     : metrics.siteTemporaryAverage !== null
-      ? `<span class="score-badge ${getScoreClass(metrics.siteTemporaryAverage)}">${formatScore(metrics.siteTemporaryAverage, 2, 2)}</span> / 10<small class="score-temporary-tag">⚠️ Temporaire</small>`
+      ? `<span class="score-with-suffix"><span class="score-badge ${getScoreClass(metrics.siteTemporaryAverage)}">${formatScore(metrics.siteTemporaryAverage, 2, 2)}</span> <span class="score-suffix">/ 10</span></span><small class="score-temporary-tag">⚠️ Temporaire</small>`
       : `<span class="score-badge stade-neutre">Pas de note</span>`;
 
   const userAverage = metrics.userEffective === null
     ? `<span class="score-badge stade-neutre">-</span>`
-    : `<span class="score-badge ${getScoreClass(metrics.userEffective)}">${formatScore(metrics.userEffective, 2, 2)}</span> / 10`;
+    : `<span class="score-with-suffix"><span class="score-badge ${getScoreClass(metrics.userEffective)}">${formatScore(metrics.userEffective, 2, 2)}</span> <span class="score-suffix">/ 10</span></span>`;
 
   const userScoreBasisLabel = metrics.userEffective === null
     ? ""
@@ -297,7 +297,7 @@ function renderSeasonCard() {
       <div class="season-adjust-dialog" role="dialog" aria-modal="true" aria-labelledby="season-adjust-prompt-title">
         <p id="season-adjust-prompt-title" class="season-adjust-prompt-average">
           Votre moyenne des &eacute;pisodes de cette saison donne
-          <span class="score-badge ${getScoreClass(metrics.userEpisodeAverage)}">${formatScore(metrics.userEpisodeAverage, 2, 2)}</span> / 10
+          <span class="score-with-suffix"><span class="score-badge ${getScoreClass(metrics.userEpisodeAverage)}">${formatScore(metrics.userEpisodeAverage, 2, 2)}</span> <span class="score-suffix">/ 10</span></span>
         </p>
         <p>Cette moyenne vous convient-elle ? Vous pouvez l'ajuster</p>
         <section class="season-rating-panel">
@@ -439,7 +439,7 @@ function renderSeasonCard() {
                 const showReviewEditor = hasReview || state.episodeReviewEditorEpisodeIds.has(episode.id);
                 const showReviewPrompt = state.episodeReviewPromptEpisodeId === episode.id;
                 const scoreBadge = userRating
-                  ? `<span class="score-badge ${getScoreClass(userRating.score)}">${formatScore(userRating.score)}</span> / 10`
+                  ? `<span class="score-with-suffix"><span class="score-badge ${getScoreClass(userRating.score)}">${formatScore(userRating.score)}</span> <span class="score-suffix">/ 10</span></span>`
                   : `<span class="score-badge stade-neutre">-</span>`;
                 const episodeAverage = episodeAverageById.get(episode.id);
                 const averageBadge = Number.isFinite(episodeAverage)

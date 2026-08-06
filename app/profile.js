@@ -226,7 +226,7 @@ function renderPersonalRatings() {
       const scoreText = row.score === null ? "" : String(row.score);
       const badge = row.score === null
         ? `<span class="score-badge stade-neutre">Pas noté</span>`
-        : `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score)}</span> / 10`;
+        : `<span class="score-with-suffix"><span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score)}</span> <span class="score-suffix">/ 10</span></span>`;
       const typeLabel = row.type === "film" ? "Film" : "Série";
       const href = row.type === "film"
         ? `/film.html?id=${row.film_id}`

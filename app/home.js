@@ -341,9 +341,9 @@ function renderLatestContent(items) {
   listEl.innerHTML = items
     .map((item) => {
       const averageLabel = item.rating_count > 0
-        ? `<span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)}</span> / 10`
+        ? `<span class="score-with-suffix"><span class="score-badge film-average-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)}</span> <span class="score-suffix">/ 10</span></span>`
         : item.temporary_average !== null && item.temporary_average !== undefined
-          ? `<span class="score-badge film-average-badge ${getScoreClass(item.temporary_average)}">${formatScore(item.temporary_average, 2, 2)}</span> / 10<small class="score-temporary-tag">⚠️ Temporaire</small>`
+          ? `<span class="score-with-suffix"><span class="score-badge film-average-badge ${getScoreClass(item.temporary_average)}">${formatScore(item.temporary_average, 2, 2)}</span> <span class="score-suffix">/ 10</span></span><small class="score-temporary-tag">⚠️ Temporaire</small>`
           : `<span class="score-badge film-average-badge stade-neutre">pas de note</span>`;
       const dateLabel = "Sortie";
       const linkLabel = item.kind === "film" ? "Voir la page film" : "Voir la page s\u00E9rie";
@@ -392,7 +392,7 @@ function renderTopRankedContent(items) {
           <td>
             <a href="${href}" class="film-link">${escapeHTML(item.title)}</a>
           </td>
-          <td><span class="score-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)}</span> / 10</td>
+          <td><span class="score-with-suffix"><span class="score-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)}</span> <span class="score-suffix">/ 10</span></span></td>
         </tr>
       `;
     })
@@ -549,7 +549,7 @@ function renderLatestActivity(allRows, mediaByUserId) {
       const mediaNames = mediaByUserId.get(row.user_id) || [];
       const mediaLabel = mediaNames.join(", ");
       const scorePart = Number.isFinite(row.score)
-        ? `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score, 2, 2)}</span> / 10`
+        ? `<span class="score-with-suffix"><span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score, 2, 2)}</span> <span class="score-suffix">/ 10</span></span>`
         : '<span class="score-badge stade-neutre">Sans note</span>';
       const adjustmentPart = row.type === "season" && row.adjustment !== 0
         ? ` | Ajustement ${row.adjustment > 0 ? "+" : ""}${formatScore(row.adjustment, 2, 2)}`

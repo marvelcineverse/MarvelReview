@@ -1782,7 +1782,19 @@ textarea {
   padding: 0.35rem 0.66rem;
   border-radius: var(--radius-sm);
   font-weight: 700;
-  min-width: 96px;
+  min-width: 60px;
+}
+
+.score-with-suffix {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.score-suffix {
+  color: var(--text-soft);
+  font-weight: 500;
 }
 
 .table-wrapper {
@@ -1950,7 +1962,7 @@ textarea {
 }
 
 .ta-note-badge {
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .avatar {

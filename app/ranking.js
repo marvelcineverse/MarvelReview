@@ -303,12 +303,12 @@ function renderRanking() {
   bodyEl.innerHTML = ranked
     .map((item, index) => {
       const averageCell = item.count
-        ? `<span class="score-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)}</span> / 10`
+        ? `<span class="score-with-suffix"><span class="score-badge ${getScoreClass(item.average)}">${formatScore(item.average, 2, 2)}</span> <span class="score-suffix">/ 10</span></span>`
         : `<span class="score-badge stade-neutre">Pas de note</span>`;
 
       const myScoreCell = item.myScore === null
         ? `<span class="score-badge stade-neutre">-</span>`
-        : `<span class="score-badge ta-note-badge ${getScoreClass(item.myScore)}">${formatScore(item.myScore, 2, 2)}</span> / 10`;
+        : `<span class="score-with-suffix"><span class="score-badge ta-note-badge ${getScoreClass(item.myScore)}">${formatScore(item.myScore, 2, 2)}</span> <span class="score-suffix">/ 10</span></span>`;
 
       const detailParts = [];
       if (!state.filters.franchise && item.franchise) {
@@ -391,7 +391,7 @@ function renderMyRanking() {
       const rank = isRated ? rankLabels[rankIndex++] : "-";
 
       const myScoreCell = isRated
-        ? `<span class="score-badge ta-note-badge ${getScoreClass(item.myScore)}">${formatScore(item.myScore, 2, 2)}</span> / 10`
+        ? `<span class="score-with-suffix"><span class="score-badge ta-note-badge ${getScoreClass(item.myScore)}">${formatScore(item.myScore, 2, 2)}</span> <span class="score-suffix">/ 10</span></span>`
         : `<span class="score-badge stade-neutre">Pas not&eacute;</span>`;
 
       let diffCell = `<span class="ranking-diff-badge ranking-diff-neutral">-</span>`;

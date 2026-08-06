@@ -298,7 +298,7 @@ function renderFilms() {
             <h3>${escapeHTML(film.title)}</h3>
             <p class="film-average">${
               film.rating_count > 0
-                ? `<span class="score-badge film-average-badge ${getScoreClass(film.average)}">${formatScore(film.average, 2, 2)}</span> / 10`
+                ? `<span class="score-with-suffix"><span class="score-badge film-average-badge ${getScoreClass(film.average)}">${formatScore(film.average, 2, 2)}</span> <span class="score-suffix">/ 10</span></span>`
                 : `<span class="score-badge film-average-badge stade-neutre">pas de note</span>`
             }</p>
             <p>Sortie : ${formatDate(film.release_date)}</p>
