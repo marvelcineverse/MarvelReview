@@ -1519,6 +1519,20 @@ textarea {
   border-bottom: 1px dashed #cfdae7;
 }
 
+.ghost-button-danger {
+  border-color: rgba(201, 63, 63, 0.45);
+  color: var(--danger);
+}
+
+.ghost-button-danger:hover {
+  background: #ffe8e8;
+  border-color: var(--danger);
+}
+
+.admin-review-edit-button {
+  margin-left: auto;
+}
+
 .spoiler-checkbox-label {
   display: inline-flex;
   align-items: center;

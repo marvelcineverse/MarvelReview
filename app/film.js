@@ -1,5 +1,6 @@
 ﻿import { supabase } from "../supabaseClient.js";
 import {
+  buildAdminReviewEditButtonMarkup,
   escapeHTML,
   formatDate,
   formatScore,
@@ -179,14 +180,22 @@ function renderRatings(ratings, mediaByUserId) {
     .map((rating) => {
       const profile = rating.profiles || {};
       const mediaNames = mediaByUserId.get(rating.user_id) || [];
-      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Indépendant";
+      const mediaLabel = mediaNames.join(", ");
+      const canAdminEdit = Boolean(currentProfile?.is_admin) && String(rating.review || "").trim();
+      const editButton = canAdminEdit
+        ? buildAdminReviewEditButtonMarkup("ratings", rating.id, {
+          authorLabel: profile.username || "Utilisateur",
+          contentLabel: currentFilm?.title || ""
+        })
+        : "";
 
       return `
         <article class="card review-card">
           <div class="review-head">
             <strong>${escapeHTML(profile.username || "Utilisateur")}</strong>
-            <span>${escapeHTML(mediaLabel)}</span>
+            ${mediaLabel ? `<span>${escapeHTML(mediaLabel)}</span>` : ""}
             <span class="score-badge ${getScoreClass(rating.score)}">${formatScore(rating.score)} / 10</span>
+            ${editButton}
           </div>
           ${renderReviewParagraph(rating.review, {
             hasSpoiler: Boolean(rating.has_spoiler),
@@ -301,6 +310,10 @@ async function loadFilmPage() {
     document.querySelector("#admin-film-editor").style.display = "none";
     document.querySelector("#admin-rating-editor").style.display = "none";
 
+    const session = await getSession();
+    applyFilmAuthVisibility(Boolean(session));
+    currentProfile = session ? await getCurrentProfile() : null;
+
     const ratings = await fetchPagedRows((from, to) =>
       supabase
         .from("ratings")
@@ -316,12 +329,7 @@ async function loadFilmPage() {
     renderAverage(ratings || []);
     renderRatings(ratings || [], mediaByUserId);
 
-    const session = await getSession();
-    applyFilmAuthVisibility(Boolean(session));
-    currentProfile = null;
-
     if (session) {
-      currentProfile = await getCurrentProfile();
       await fillExistingUserRating(filmId, session.user.id, "score", "review");
 
       if (currentProfile?.is_admin) {

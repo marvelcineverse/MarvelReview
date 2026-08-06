@@ -1,22 +1,24 @@
 import { supabase } from "../supabaseClient.js";
 import {
+  buildAdminReviewEditButtonMarkup,
+  buildSpoilerCheckboxMarkup,
   escapeHTML,
   formatDate,
   formatScore,
   getLastEpisodeAirDate,
   getScoreClass,
   getSeasonIdFromURL,
-  buildSpoilerCheckboxMarkup,
   getSeasonScoreBasisLabel,
   isQuarterStep,
   isReleasedOnOrBeforeToday,
   renderReviewParagraph,
   setMessage
 } from "./utils.js";
-import { getSession, requireAuth } from "./auth.js";
+import { getCurrentProfile, getSession, requireAuth } from "./auth.js";
 
 const state = {
   currentUserId: null,
+  isAdmin: false,
   season: null,
   series: null,
   episodes: [],
@@ -560,12 +562,19 @@ function renderSeasonReviews(mediaByUserId = new Map()) {
     .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
     .map((row) => {
       const mediaNames = mediaByUserId.get(row.user_id) || [];
-      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Indépendant";
+      const mediaLabel = mediaNames.join(", ");
+      const editButton = state.isAdmin
+        ? buildAdminReviewEditButtonMarkup("season_user_ratings", row.id, {
+          authorLabel: row.profiles?.username || "Utilisateur",
+          contentLabel: state.season?.name || ""
+        })
+        : "";
       return `
         <article class="card review-card">
           <div class="review-head">
             <strong>${escapeHTML(row.profiles?.username || "Utilisateur")}</strong>
-            <span>${escapeHTML(mediaLabel)}</span>
+            ${mediaLabel ? `<span>${escapeHTML(mediaLabel)}</span>` : ""}
+            ${editButton}
           </div>
           ${renderReviewParagraph(row.review, { hasSpoiler: Boolean(row.has_spoiler), referenceDate })}
           <small>${formatDate(row.created_at)}</small>
@@ -600,6 +609,7 @@ async function loadSeasonData() {
 
   const session = await getSession();
   state.currentUserId = session?.user?.id || null;
+  state.isAdmin = session ? Boolean((await getCurrentProfile())?.is_admin) : false;
 
   const { data: season, error: seasonError } = await supabase
     .from("series_seasons")

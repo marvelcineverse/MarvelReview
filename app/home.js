@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient.js";
 import {
+  buildAdminReviewEditButtonMarkup,
   buildDenseRankLabels,
   escapeHTML,
   formatDate,
@@ -8,8 +9,10 @@ import {
   getScoreClass,
   isReleasedOnOrBeforeToday,
   isSpoilerCurrentlyBlurred,
+  resolveReviewEditTarget,
   setMessage
 } from "./utils.js";
+import { getCurrentProfile, getSession } from "./auth.js";
 
 const LATEST_CONTENT_LIMIT = 2;
 const TOP_RANKED_LIMIT = 10;
@@ -17,6 +20,7 @@ const LATEST_ACTIVITY_INITIAL_LIMIT = 6;
 const LATEST_ACTIVITY_LIMIT = 20;
 const ACTIVITY_REVIEW_PREVIEW_LENGTH = 320;
 const state = {
+  isAdmin: false,
   latestActivityExpanded: false,
   latestActivityExpandedReviewIds: new Set()
 };
@@ -543,7 +547,7 @@ function renderLatestActivity(allRows, mediaByUserId) {
   listEl.innerHTML = rows
     .map((row) => {
       const mediaNames = mediaByUserId.get(row.user_id) || [];
-      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Indépendant";
+      const mediaLabel = mediaNames.join(", ");
       const scorePart = Number.isFinite(row.score)
         ? `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score, 2, 2)} / 10</span>`
         : '<span class="score-badge stade-neutre">Sans note</span>';
@@ -598,12 +602,22 @@ function renderLatestActivity(allRows, mediaByUserId) {
           <small class="social-inline-date">${formatDate(row.activity_at)}</small>
         </div>
       `;
+      const editTarget = state.isAdmin && reviewPreview.full
+        ? resolveReviewEditTarget(row.type, row.id)
+        : null;
+      const editButton = editTarget
+        ? buildAdminReviewEditButtonMarkup(editTarget.table, editTarget.rowId, {
+          authorLabel: row.username || "Utilisateur",
+          contentLabel: row.title || ""
+        })
+        : "";
 
       return `
         <article class="card review-card">
           <div class="review-head">
             <strong>${escapeHTML(row.username || "Utilisateur")}</strong>
-            <span>${escapeHTML(mediaLabel)}</span>
+            ${mediaLabel ? `<span>${escapeHTML(mediaLabel)}</span>` : ""}
+            ${editButton}
           </div>
           <p class="film-meta">${detailLabel}</p>
           <p>${scorePart}<span class="film-meta">${escapeHTML(adjustmentPart)}</span></p>
@@ -645,7 +659,8 @@ async function loadHomePage() {
       episodeRatings,
       seasonUserRatings,
       seriesReviews,
-      ratings
+      ratings,
+      isAdmin
     ] = await Promise.all([
       fetchAllRows("films", "id, title, release_date, poster_url, franchise, type"),
       fetchAllRows("series", "id, title, start_date, end_date, poster_url, franchise, type"),
@@ -656,8 +671,10 @@ async function loadHomePage() {
       fetchAllRows("episode_ratings", "id, user_id, episode_id, score, review, has_spoiler, created_at, updated_at, profiles(username)"),
       fetchAllRows("season_user_ratings", "id, user_id, season_id, manual_score, adjustment, review, has_spoiler, created_at, updated_at, profiles(username)"),
       fetchAllRows("series_reviews", "id, user_id, series_id, review, has_spoiler, created_at, updated_at, profiles(username)"),
-      fetchAllRows("ratings", "id, user_id, film_id, score, review, has_spoiler, created_at, updated_at, profiles(username)")
+      fetchAllRows("ratings", "id, user_id, film_id, score, review, has_spoiler, created_at, updated_at, profiles(username)"),
+      getSession().then((session) => (session ? getCurrentProfile() : null)).then((profile) => Boolean(profile?.is_admin))
     ]);
+    state.isAdmin = isAdmin;
 
     const filmScoreById = new Map();
     for (const row of ratings || []) {

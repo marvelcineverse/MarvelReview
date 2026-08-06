@@ -364,6 +364,229 @@ function initSpoilerReveal() {
 
 initSpoilerReveal();
 
+const ADMIN_REVIEW_EDIT_TABLE_LABELS = {
+  ratings: "critique de film",
+  episode_ratings: "critique d'épisode",
+  season_user_ratings: "critique de saison",
+  series_reviews: "critique de série"
+};
+
+let adminReviewEditContext = null;
+
+function ensureAdminReviewEditRoot() {
+  let root = document.querySelector("#admin-review-edit-root");
+  if (root) return root;
+
+  root = document.createElement("div");
+  root.id = "admin-review-edit-root";
+  root.innerHTML = `
+    <div id="admin-review-edit-modal" class="season-adjust-modal admin-review-edit-modal" hidden>
+      <div class="season-adjust-backdrop" data-admin-review-edit-action="close"></div>
+      <section
+        class="season-adjust-dialog admin-review-edit-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-review-edit-title"
+      >
+        <h2 id="admin-review-edit-title">Modifier la critique (admin)</h2>
+        <p id="admin-review-edit-meta" class="film-meta"></p>
+        <form id="admin-review-edit-form" class="form">
+          <label>
+            Texte de la critique
+            <textarea id="admin-review-edit-textarea" maxlength="2500"></textarea>
+          </label>
+          <label class="spoiler-checkbox-label" for="admin-review-edit-spoiler">
+            <input type="checkbox" id="admin-review-edit-spoiler" class="spoiler-checkbox-input" />
+            <span>Cette critique r&eacute;v&egrave;le des &eacute;l&eacute;ments de l'intrigue (spoiler)</span>
+          </label>
+          <div class="inline-actions">
+            <button type="submit" class="button">Enregistrer</button>
+            <button type="button" id="admin-review-edit-delete-button" class="ghost-button ghost-button-danger">Supprimer totalement</button>
+            <button type="button" class="ghost-button" data-admin-review-edit-action="close">Annuler</button>
+          </div>
+          <p id="admin-review-edit-message" class="message" aria-live="polite"></p>
+        </form>
+      </section>
+    </div>
+  `;
+
+  document.body.appendChild(root);
+  return root;
+}
+
+function closeAdminReviewEditModal() {
+  const modal = document.querySelector("#admin-review-edit-modal");
+  if (!modal) return;
+  modal.hidden = true;
+  adminReviewEditContext = null;
+}
+
+function openAdminReviewEditModal() {
+  const modal = document.querySelector("#admin-review-edit-modal");
+  if (!modal) return;
+  modal.hidden = false;
+  document.querySelector("#admin-review-edit-textarea")?.focus();
+}
+
+function setAdminReviewEditMessage(message, isError = false) {
+  const messageEl = document.querySelector("#admin-review-edit-message");
+  if (!messageEl) return;
+  messageEl.textContent = message || "";
+  messageEl.classList.toggle("error", isError);
+}
+
+async function handleAdminReviewEditTrigger(button) {
+  const table = button.dataset.reviewTable;
+  const id = button.dataset.reviewId;
+  if (!table || !id) return;
+
+  const root = ensureAdminReviewEditRoot();
+  const textarea = root.querySelector("#admin-review-edit-textarea");
+  const spoilerInput = root.querySelector("#admin-review-edit-spoiler");
+  const metaEl = root.querySelector("#admin-review-edit-meta");
+
+  setAdminReviewEditMessage("");
+  textarea.value = "";
+  spoilerInput.checked = false;
+  const label = ADMIN_REVIEW_EDIT_TABLE_LABELS[table] || "critique";
+  const authorLabel = button.dataset.reviewAuthor || "";
+  const contentLabel = button.dataset.reviewContent || "";
+  metaEl.textContent = [label, authorLabel, contentLabel].filter(Boolean).join(" — ");
+
+  const selectColumns = table === "season_user_ratings"
+    ? "review, has_spoiler, manual_score, adjustment"
+    : "review, has_spoiler";
+
+  const { data, error } = await supabase.from(table).select(selectColumns).eq("id", id).maybeSingle();
+  if (error || !data) {
+    adminReviewEditContext = null;
+    setAdminReviewEditMessage("Impossible de charger cette critique.", true);
+    openAdminReviewEditModal();
+    return;
+  }
+
+  adminReviewEditContext = {
+    table,
+    id,
+    manualScore: data.manual_score ?? null,
+    adjustment: Number(data.adjustment || 0)
+  };
+  textarea.value = data.review || "";
+  spoilerInput.checked = Boolean(data.has_spoiler);
+  openAdminReviewEditModal();
+}
+
+async function saveAdminReviewEdit() {
+  if (!adminReviewEditContext) return;
+  const { table, id } = adminReviewEditContext;
+  const textarea = document.querySelector("#admin-review-edit-textarea");
+  const spoilerInput = document.querySelector("#admin-review-edit-spoiler");
+  const reviewValue = textarea.value.trim();
+
+  if (table === "series_reviews" && !reviewValue) {
+    setAdminReviewEditMessage("La critique d'une série ne peut pas être vide — utilise Supprimer.", true);
+    return;
+  }
+
+  const { error } = await supabase
+    .from(table)
+    .update({
+      review: reviewValue || null,
+      has_spoiler: reviewValue ? spoilerInput.checked : false
+    })
+    .eq("id", id);
+
+  if (error) {
+    setAdminReviewEditMessage(error.message || "Impossible d'enregistrer.", true);
+    return;
+  }
+
+  window.location.reload();
+}
+
+async function deleteAdminReviewEdit() {
+  if (!adminReviewEditContext) return;
+  const { table, id, manualScore, adjustment } = adminReviewEditContext;
+
+  if (table === "ratings" || table === "episode_ratings") {
+    const confirmed = window.confirm(
+      "Supprimer cette critique supprimera aussi la note (score) associée. Continuer ?"
+    );
+    if (!confirmed) return;
+    const { error } = await supabase.from(table).delete().eq("id", id);
+    if (error) return setAdminReviewEditMessage(error.message || "Suppression impossible.", true);
+    window.location.reload();
+    return;
+  }
+
+  if (table === "series_reviews") {
+    const confirmed = window.confirm("Supprimer définitivement cette critique de série ?");
+    if (!confirmed) return;
+    const { error } = await supabase.from(table).delete().eq("id", id);
+    if (error) return setAdminReviewEditMessage(error.message || "Suppression impossible.", true);
+    window.location.reload();
+    return;
+  }
+
+  const hasScoreData = manualScore !== null || Number(adjustment || 0) !== 0;
+  if (!hasScoreData) {
+    const confirmed = window.confirm("Supprimer définitivement cette critique de saison ?");
+    if (!confirmed) return;
+    const { error } = await supabase.from(table).delete().eq("id", id);
+    if (error) return setAdminReviewEditMessage(error.message || "Suppression impossible.", true);
+    window.location.reload();
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Cette saison a une note associée : seule la critique (texte) sera supprimée, la note sera conservée. Continuer ?"
+  );
+  if (!confirmed) return;
+  const { error } = await supabase.from(table).update({ review: null, has_spoiler: false }).eq("id", id);
+  if (error) return setAdminReviewEditMessage(error.message || "Suppression impossible.", true);
+  window.location.reload();
+}
+
+function initAdminReviewEdit() {
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-admin-review-edit]");
+    if (trigger) {
+      handleAdminReviewEditTrigger(trigger).catch((error) => {
+        setAdminReviewEditMessage(error.message || "Erreur de chargement.", true);
+        openAdminReviewEditModal();
+      });
+      return;
+    }
+
+    if (event.target.closest("[data-admin-review-edit-action='close']")) {
+      closeAdminReviewEditModal();
+      return;
+    }
+
+    if (event.target.closest("#admin-review-edit-delete-button")) {
+      deleteAdminReviewEdit().catch((error) => {
+        setAdminReviewEditMessage(error.message || "Erreur.", true);
+      });
+    }
+  });
+
+  document.addEventListener("submit", (event) => {
+    if (event.target.id !== "admin-review-edit-form") return;
+    event.preventDefault();
+    saveAdminReviewEdit().catch((error) => {
+      setAdminReviewEditMessage(error.message || "Erreur.", true);
+    });
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const modal = document.querySelector("#admin-review-edit-modal");
+    if (modal && !modal.hidden) closeAdminReviewEditModal();
+  });
+}
+
+initAdminReviewEdit();
+
 async function initCommonLayout() {
   ensureAppHeadMetadata();
   injectLayout();

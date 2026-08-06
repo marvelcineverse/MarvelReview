@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient.js";
 import {
+  buildAdminReviewEditButtonMarkup,
   escapeHTML,
   formatDate,
   formatScore,
@@ -9,10 +10,11 @@ import {
   renderReviewParagraph,
   setMessage
 } from "./utils.js";
-import { getSession, requireAuth } from "./auth.js";
+import { getCurrentProfile, getSession, requireAuth } from "./auth.js";
 
 const state = {
   currentUserId: null,
+  isAdmin: false,
   episode: null,
   season: null,
   series: null,
@@ -158,13 +160,21 @@ function renderRatings(mediaByUserId = new Map()) {
   listEl.innerHTML = state.ratings
     .map((rating) => {
       const mediaNames = mediaByUserId.get(rating.user_id) || [];
-      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Indépendant";
+      const mediaLabel = mediaNames.join(", ");
+      const canAdminEdit = state.isAdmin && String(rating.review || "").trim();
+      const editButton = canAdminEdit
+        ? buildAdminReviewEditButtonMarkup("episode_ratings", rating.id, {
+          authorLabel: rating.profiles?.username || "Utilisateur",
+          contentLabel: state.episode?.title || ""
+        })
+        : "";
       return `
         <article class="card review-card">
           <div class="review-head">
             <strong>${escapeHTML(rating.profiles?.username || "Utilisateur")}</strong>
-            <span>${escapeHTML(mediaLabel)}</span>
+            ${mediaLabel ? `<span>${escapeHTML(mediaLabel)}</span>` : ""}
             <span class="score-badge ${getScoreClass(rating.score)}">${formatScore(rating.score)} / 10</span>
+            ${editButton}
           </div>
           ${renderReviewParagraph(rating.review, {
             hasSpoiler: Boolean(rating.has_spoiler),
@@ -201,6 +211,7 @@ async function loadEpisodePage() {
 
   const session = await getSession();
   state.currentUserId = session?.user?.id || null;
+  state.isAdmin = session ? Boolean((await getCurrentProfile())?.is_admin) : false;
 
   let episodeQuery = supabase
     .from("series_episodes")

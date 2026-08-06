@@ -245,6 +245,41 @@ export function buildSpoilerCheckboxMarkup(id, { checked = false, extraAttrs = "
   `;
 }
 
+const REVIEW_EDIT_TABLE_BY_ACTIVITY_TYPE = {
+  film: "ratings",
+  episode: "episode_ratings",
+  season: "season_user_ratings",
+  series: "series_reviews"
+};
+
+export function resolveReviewEditTarget(activityType, prefixedId) {
+  const table = REVIEW_EDIT_TABLE_BY_ACTIVITY_TYPE[activityType];
+  if (!table) return null;
+
+  const rawId = String(prefixedId || "").replace(/^(film|episode|season|series)-/, "");
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
+  if (!isUuid) return null;
+
+  return { table, rowId: rawId };
+}
+
+export function buildAdminReviewEditButtonMarkup(table, rowId, { authorLabel = "", contentLabel = "" } = {}) {
+  return `
+    <button
+      type="button"
+      class="icon-circle-btn neutral small admin-review-edit-button"
+      data-admin-review-edit="true"
+      data-review-table="${escapeHTML(table)}"
+      data-review-id="${escapeHTML(rowId)}"
+      data-review-author="${escapeHTML(authorLabel)}"
+      data-review-content="${escapeHTML(contentLabel)}"
+      aria-label="Modifier cette critique (admin)"
+    >
+      <i class="fa-solid fa-pen" aria-hidden="true"></i>
+    </button>
+  `;
+}
+
 export function getScoreClass(value) {
   const score = Number(value);
   if (!Number.isFinite(score)) return "stade-neutre";

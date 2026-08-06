@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient.js";
 import {
+  buildAdminReviewEditButtonMarkup,
   buildDenseRankLabels,
   buildSpoilerCheckboxMarkup,
   escapeHTML,
@@ -13,6 +14,7 @@ import {
   isReleasedOnOrBeforeToday,
   isSpoilerCurrentlyBlurred,
   renderReviewParagraph,
+  resolveReviewEditTarget,
   setMessage
 } from "./utils.js";
 import { getCurrentProfile, getSession, requireAuth } from "./auth.js";
@@ -1111,18 +1113,25 @@ function renderSeriesReviews(mediaByUserId = new Map()) {
     .map((review) => {
       const profile = review.profiles || {};
       const mediaNames = mediaByUserId.get(review.user_id) || [];
-      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Indépendant";
+      const mediaLabel = mediaNames.join(", ");
       const entryId = `series-review-${review.id || review.user_id}`;
       const userAverage = userAverageById.get(review.user_id);
       const userAverageLabel = Number.isFinite(userAverage)
         ? `<span class="score-badge ${getScoreClass(userAverage)}">${formatScore(userAverage, 2, 2)} / 10</span>`
         : `<span class="score-badge stade-neutre">Pas de moyenne</span>`;
+      const editButton = state.isAdmin && review.id
+        ? buildAdminReviewEditButtonMarkup("series_reviews", review.id, {
+          authorLabel: profile.username || "Utilisateur",
+          contentLabel: state.series?.title || ""
+        })
+        : "";
 
       return `
         <article class="card review-card">
           <div class="review-head">
             <strong>${escapeHTML(profile.username || "Utilisateur")}</strong>
-            <span>${escapeHTML(mediaLabel)}</span>
+            ${mediaLabel ? `<span>${escapeHTML(mediaLabel)}</span>` : ""}
+            ${editButton}
           </div>
           <p class="film-meta">Moyenne de la personne sur cette série: ${userAverageLabel}</p>
           ${renderSocialReviewSnippet(review.review, entryId, {
@@ -1160,7 +1169,7 @@ function renderSeriesSocialActivity(mediaByUserId = new Map()) {
   listEl.innerHTML = rowsToShow
     .map((row) => {
       const mediaNames = mediaByUserId.get(row.user_id) || [];
-      const mediaLabel = mediaNames.length ? mediaNames.join(", ") : "Indépendant";
+      const mediaLabel = mediaNames.join(", ");
       const entryId = `series-activity-${row.id}`;
       const scorePart = Number.isFinite(row.score)
         ? `<span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score, 2, 2)} / 10</span>`
@@ -1168,12 +1177,22 @@ function renderSeriesSocialActivity(mediaByUserId = new Map()) {
       const adjustmentPart = row.type === "season" && row.adjustment !== 0
         ? ` | Ajustement ${row.adjustment > 0 ? "+" : ""}${formatScore(row.adjustment, 2, 2)}`
         : "";
+      const editTarget = state.isAdmin && String(row.review || "").trim()
+        ? resolveReviewEditTarget(row.type, row.id)
+        : null;
+      const editButton = editTarget
+        ? buildAdminReviewEditButtonMarkup(editTarget.table, editTarget.rowId, {
+          authorLabel: row.username,
+          contentLabel: row.title || ""
+        })
+        : "";
 
       return `
         <article class="card review-card">
           <div class="review-head">
             <strong>${escapeHTML(row.username)}</strong>
-            <span>${escapeHTML(mediaLabel)}</span>
+            ${mediaLabel ? `<span>${escapeHTML(mediaLabel)}</span>` : ""}
+            ${editButton}
           </div>
           <p class="film-meta">
             ${row.type === "episode" ? "Épisode" : "Saison"} - ${escapeHTML(row.seasonLabel)} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>
