@@ -1533,6 +1533,10 @@ textarea {
   margin-left: auto;
 }
 
+.admin-review-edit-modal[hidden] {
+  display: none;
+}
+
 .spoiler-checkbox-label {
   display: inline-flex;
   align-items: center;
