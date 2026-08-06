@@ -1519,6 +1519,78 @@ textarea {
   border-bottom: 1px dashed #cfdae7;
 }
 
+.spoiler-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.spoiler-checkbox-label .spoiler-checkbox-input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.spoiler-wrap {
+  position: relative;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  outline-offset: 3px;
+}
+
+.spoiler-wrap .spoiler-text {
+  filter: blur(8px);
+  transition: filter 1.5s ease;
+  user-select: none;
+}
+
+.spoiler-wrap .spoiler-badge {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.5rem;
+  text-align: center;
+  border-radius: var(--radius-sm);
+  background: rgba(19, 32, 49, 0.55);
+  color: #fff;
+  opacity: 1;
+  transition: opacity 1.5s ease;
+  pointer-events: none;
+}
+
+.spoiler-wrap .spoiler-badge-title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.spoiler-wrap .spoiler-badge-hint {
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.spoiler-wrap:hover .spoiler-text,
+.spoiler-wrap:focus-visible .spoiler-text,
+.spoiler-wrap.is-revealed .spoiler-text {
+  filter: blur(0);
+}
+
+.spoiler-wrap:hover .spoiler-badge,
+.spoiler-wrap:focus-visible .spoiler-badge,
+.spoiler-wrap.is-revealed .spoiler-badge {
+  opacity: 0;
+}
+
 .social-columns {
   display: grid;
   gap: 1rem;
@@ -2335,6 +2407,19 @@ textarea {
 
   .creation-tab {
     font-size: 0.88rem;
+  }
+
+  .spoiler-wrap .spoiler-badge {
+    padding: 0.35rem;
+    gap: 0.1rem;
+  }
+
+  .spoiler-wrap .spoiler-badge-title {
+    font-size: 0.76rem;
+  }
+
+  .spoiler-wrap .spoiler-badge-hint {
+    font-size: 0.64rem;
   }
 }
 

@@ -200,6 +200,51 @@ export function isQuarterStep(value) {
   return Math.abs(score - rounded) < 0.000001;
 }
 
+export const SPOILER_WINDOW_DAYS = 14;
+
+export function isSpoilerCurrentlyBlurred(hasSpoiler, referenceDate) {
+  if (!hasSpoiler) return false;
+  if (!referenceDate) return true;
+
+  const reference = new Date(referenceDate);
+  if (Number.isNaN(reference.getTime())) return true;
+
+  const cutoff = reference.getTime() + SPOILER_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  return Date.now() < cutoff;
+}
+
+export function renderReviewParagraph(
+  reviewText,
+  { hasSpoiler = false, referenceDate = null, emptyLabel = "(Pas de commentaire)", className = "" } = {}
+) {
+  const trimmed = String(reviewText || "").trim();
+  const safeText = escapeHTML(trimmed || emptyLabel);
+  const classAttr = className ? ` class="${className}"` : "";
+
+  if (!trimmed || !isSpoilerCurrentlyBlurred(hasSpoiler, referenceDate)) {
+    return `<p${classAttr}>${safeText}</p>`;
+  }
+
+  return `
+    <div class="spoiler-wrap" role="button" tabindex="0" aria-label="Critique masqu&eacute;e car elle contient des spoilers. Survolez ou appuyez pour la r&eacute;v&eacute;ler.">
+      <p class="spoiler-text${className ? ` ${className}` : ""}">${safeText}</p>
+      <div class="spoiler-badge" aria-hidden="true">
+        <span class="spoiler-badge-title">Spoiler</span>
+        <span class="spoiler-badge-hint">Survolez ou touchez pour r&eacute;v&eacute;ler</span>
+      </div>
+    </div>
+  `;
+}
+
+export function buildSpoilerCheckboxMarkup(id, { checked = false, extraAttrs = "" } = {}) {
+  return `
+    <label class="spoiler-checkbox-label" for="${id}">
+      <input type="checkbox" id="${id}" class="spoiler-checkbox-input" ${extraAttrs} ${checked ? "checked" : ""} />
+      <span>Cette critique r&eacute;v&egrave;le des &eacute;l&eacute;ments de l'intrigue (spoiler)</span>
+    </label>
+  `;
+}
+
 export function getScoreClass(value) {
   const score = Number(value);
   if (!Number.isFinite(score)) return "stade-neutre";

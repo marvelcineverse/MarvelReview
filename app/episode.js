@@ -6,6 +6,7 @@ import {
   getScoreClass,
   isQuarterStep,
   isReleasedOnOrBeforeToday,
+  renderReviewParagraph,
   setMessage
 } from "./utils.js";
 import { getSession, requireAuth } from "./auth.js";
@@ -165,7 +166,10 @@ function renderRatings(mediaByUserId = new Map()) {
             <span>${escapeHTML(mediaLabel)}</span>
             <span class="score-badge ${getScoreClass(rating.score)}">${formatScore(rating.score)} / 10</span>
           </div>
-          <p>${escapeHTML(rating.review || "(Pas de commentaire)")}</p>
+          ${renderReviewParagraph(rating.review, {
+            hasSpoiler: Boolean(rating.has_spoiler),
+            referenceDate: state.episode?.air_date
+          })}
           <small>${formatDate(rating.created_at)}</small>
         </article>
       `;
@@ -176,6 +180,7 @@ function renderRatings(mediaByUserId = new Map()) {
 function fillCurrentUserRating() {
   const scoreInput = document.querySelector("#episode-score");
   const reviewInput = document.querySelector("#episode-review");
+  const spoilerInput = document.querySelector("#episode-review-has-spoiler");
   const deleteBtn = document.querySelector("#delete-episode-rating-button");
   if (!scoreInput || !reviewInput || !deleteBtn) return;
 
@@ -183,6 +188,7 @@ function fillCurrentUserRating() {
 
   scoreInput.value = row ? String(row.score) : "";
   reviewInput.value = row?.review || "";
+  if (spoilerInput) spoilerInput.checked = Boolean(row?.has_spoiler);
   deleteBtn.style.display = row ? "inline-flex" : "none";
 }
 
@@ -217,7 +223,7 @@ async function loadEpisodePage() {
     fetchPagedRows((from, to) =>
       supabase
         .from("episode_ratings")
-        .select("id, episode_id, user_id, score, review, created_at, profiles(username)")
+        .select("id, episode_id, user_id, score, review, has_spoiler, created_at, profiles(username)")
         .eq("episode_id", episode.id)
         .order("created_at", { ascending: false })
         .range(from, to)
@@ -261,6 +267,7 @@ async function saveEpisodeRatingAndReview(event) {
 
   const scoreRaw = document.querySelector("#episode-score").value.trim();
   const reviewValue = document.querySelector("#episode-review").value.trim();
+  const hasSpoiler = document.querySelector("#episode-review-has-spoiler").checked;
   const scoreValue = Number(scoreRaw.replace(",", "."));
 
   if (!Number.isFinite(scoreValue) || scoreValue < 0 || scoreValue > 10 || !isQuarterStep(scoreValue)) {
@@ -275,7 +282,8 @@ async function saveEpisodeRatingAndReview(event) {
         user_id: session.user.id,
         episode_id: state.episode.id,
         score: scoreValue,
-        review: reviewValue || null
+        review: reviewValue || null,
+        has_spoiler: reviewValue ? hasSpoiler : false
       },
       { onConflict: "user_id,episode_id" }
     );

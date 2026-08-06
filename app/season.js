@@ -6,9 +6,11 @@ import {
   getLastEpisodeAirDate,
   getScoreClass,
   getSeasonIdFromURL,
+  buildSpoilerCheckboxMarkup,
   getSeasonScoreBasisLabel,
   isQuarterStep,
   isReleasedOnOrBeforeToday,
+  renderReviewParagraph,
   setMessage
 } from "./utils.js";
 import { getSession, requireAuth } from "./auth.js";
@@ -448,6 +450,10 @@ function renderSeasonCard() {
                         <div class="episode-mini-review-box">
                           <label for="episode-review-${episode.id}">Mini-critique (optionnel)</label>
                           <textarea id="episode-review-${episode.id}" data-field="episode-review" data-episode-id="${episode.id}" maxlength="2500" placeholder="Ton avis rapide en quelques lignes...">${escapeHTML(reviewValue)}</textarea>
+                          ${buildSpoilerCheckboxMarkup(`episode-review-has-spoiler-${episode.id}`, {
+                            checked: Boolean(userRating?.has_spoiler),
+                            extraAttrs: `data-field="episode-review-has-spoiler" data-episode-id="${episode.id}"`
+                          })}
                         </div>
                       </td>
                     </tr>
@@ -536,6 +542,10 @@ async function loadMembershipMapForUsers(userIds) {
   return map;
 }
 
+function getSeasonReferenceDate() {
+  return getLastEpisodeAirDate(state.episodes) || state.season?.end_date || null;
+}
+
 function renderSeasonReviews(mediaByUserId = new Map()) {
   const listEl = document.querySelector("#season-reviews-list");
   const rows = state.seasonUserRatings.filter((row) => row.review && row.review.trim());
@@ -545,6 +555,7 @@ function renderSeasonReviews(mediaByUserId = new Map()) {
     return;
   }
 
+  const referenceDate = getSeasonReferenceDate();
   listEl.innerHTML = rows
     .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
     .map((row) => {
@@ -556,7 +567,7 @@ function renderSeasonReviews(mediaByUserId = new Map()) {
             <strong>${escapeHTML(row.profiles?.username || "Utilisateur")}</strong>
             <span>${escapeHTML(mediaLabel)}</span>
           </div>
-          <p>${escapeHTML(row.review || "(Pas de commentaire)")}</p>
+          ${renderReviewParagraph(row.review, { hasSpoiler: Boolean(row.has_spoiler), referenceDate })}
           <small>${formatDate(row.created_at)}</small>
         </article>
       `;
@@ -566,11 +577,13 @@ function renderSeasonReviews(mediaByUserId = new Map()) {
 
 function fillCurrentUserSeasonReview() {
   const textarea = document.querySelector("#season-review");
+  const spoilerInput = document.querySelector("#season-review-has-spoiler");
   const deleteBtn = document.querySelector("#delete-season-review-button");
   const row = state.seasonUserRatings.find((item) => item.user_id === state.currentUserId);
   if (!textarea || !deleteBtn) return;
 
   textarea.value = row?.review || "";
+  if (spoilerInput) spoilerInput.checked = Boolean(row?.has_spoiler);
   deleteBtn.style.display = row?.review ? "inline-flex" : "none";
 }
 
@@ -623,14 +636,14 @@ async function loadRatingsData() {
   const [episodeRatings, seasonUserRatings] = await Promise.all([
     fetchAllRowsByIn(
       "episode_ratings",
-      "id, episode_id, user_id, score, review, created_at, profiles(username)",
+      "id, episode_id, user_id, score, review, has_spoiler, created_at, profiles(username)",
       "episode_id",
       episodeIds
     ),
     fetchPagedRows((from, to) =>
       supabase
         .from("season_user_ratings")
-        .select("id, season_id, user_id, manual_score, adjustment, review, created_at, profiles(username)")
+        .select("id, season_id, user_id, manual_score, adjustment, review, has_spoiler, created_at, profiles(username)")
         .eq("season_id", state.season.id)
         .order("id", { ascending: true })
         .range(from, to)
@@ -688,15 +701,20 @@ async function saveEpisodeRating(episodeId) {
 
   const existing = state.episodeRatings.find((row) => row.episode_id === episodeId && row.user_id === session.user.id);
   const reviewInput = document.querySelector(`[data-field="episode-review"][data-episode-id="${episodeId}"]`);
+  const spoilerInput = document.querySelector(`[data-field="episode-review-has-spoiler"][data-episode-id="${episodeId}"]`);
   const reviewValue = reviewInput ? reviewInput.value.trim() : "";
   const hasExistingReview = String(existing?.review || "").trim().length > 0;
   const nextReview = reviewInput ? (reviewValue || null) : (existing?.review ?? null);
+  const nextHasSpoiler = reviewInput
+    ? Boolean(nextReview && spoilerInput?.checked)
+    : Boolean(existing?.has_spoiler);
   const { error } = await supabase.from("episode_ratings").upsert(
     {
       user_id: session.user.id,
       episode_id: episodeId,
       score,
-      review: nextReview
+      review: nextReview,
+      has_spoiler: nextHasSpoiler
     },
     { onConflict: "user_id,episode_id" }
   );
@@ -744,7 +762,8 @@ async function saveSeasonManualScore() {
       season_id: state.season.id,
       manual_score: score,
       adjustment: 0,
-      review: existing?.review ?? null
+      review: existing?.review ?? null,
+      has_spoiler: existing?.has_spoiler ?? false
     },
     { onConflict: "user_id,season_id" }
   );
@@ -824,7 +843,8 @@ async function adjustSeason(delta) {
     season_id: state.season.id,
     manual_score: existing?.manual_score ?? null,
     adjustment: nextAdjustment,
-    review: existing?.review ?? null
+    review: existing?.review ?? null,
+    has_spoiler: existing?.has_spoiler ?? false
   };
 
   if (payload.manual_score === null && payload.adjustment === 0 && !payload.review) {
@@ -856,7 +876,8 @@ async function resetSeasonAdjustment() {
         season_id: state.season.id,
         manual_score: existing.manual_score ?? null,
         adjustment: 0,
-        review: existing.review ?? null
+        review: existing.review ?? null,
+        has_spoiler: existing.has_spoiler ?? false
       },
       { onConflict: "user_id,season_id" }
     );
@@ -869,6 +890,7 @@ async function saveSeasonReview(event) {
   if (!session) return;
 
   const reviewValue = document.querySelector("#season-review").value.trim();
+  const hasSpoiler = document.querySelector("#season-review-has-spoiler").checked;
   const existing = getCurrentSeasonUserRow();
 
   if (!reviewValue && existing?.manual_score === null && Number(existing?.adjustment || 0) === 0) {
@@ -887,7 +909,8 @@ async function saveSeasonReview(event) {
           season_id: state.season.id,
           manual_score: existing?.manual_score ?? null,
           adjustment: Number(existing?.adjustment || 0),
-          review: reviewValue || null
+          review: reviewValue || null,
+          has_spoiler: reviewValue ? hasSpoiler : false
         },
         { onConflict: "user_id,season_id" }
       );
@@ -915,7 +938,7 @@ async function deleteSeasonReview() {
   } else {
     const { error } = await supabase
       .from("season_user_ratings")
-      .update({ review: null })
+      .update({ review: null, has_spoiler: false })
       .eq("user_id", session.user.id)
       .eq("season_id", state.season.id);
     if (error) throw error;

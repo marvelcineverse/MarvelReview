@@ -346,6 +346,24 @@ function initSeasonInfoExperience({ isLoggedIn, profileId }) {
   }
 }
 
+function initSpoilerReveal() {
+  const toggle = (target) => {
+    const wrap = target.closest?.(".spoiler-wrap");
+    if (!wrap) return;
+    wrap.classList.toggle("is-revealed");
+  };
+
+  document.addEventListener("click", (event) => toggle(event.target));
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    if (!event.target.closest?.(".spoiler-wrap")) return;
+    event.preventDefault();
+    toggle(event.target);
+  });
+}
+
+initSpoilerReveal();
+
 async function initCommonLayout() {
   ensureAppHeadMetadata();
   injectLayout();

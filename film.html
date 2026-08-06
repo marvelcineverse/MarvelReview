@@ -38,6 +38,11 @@
                   <textarea id="review" maxlength="2500" placeholder="Ton avis..."></textarea>
                 </label>
 
+                <label class="spoiler-checkbox-label" for="review-has-spoiler">
+                  <input type="checkbox" id="review-has-spoiler" class="spoiler-checkbox-input" />
+                  <span>Cette critique r&eacute;v&egrave;le des &eacute;l&eacute;ments de l'intrigue (spoiler)</span>
+                </label>
+
                 <div class="inline-actions">
                   <button type="submit" class="icon-circle-btn save" aria-label="Enregistrer ma note">
                     <i class="fa-solid fa-check" aria-hidden="true"></i>
@@ -74,6 +79,11 @@
           <label>
             Review (optionnelle)
             <textarea id="admin-review" maxlength="2500" placeholder="Critique attribu&eacute;e..."></textarea>
+          </label>
+
+          <label class="spoiler-checkbox-label" for="admin-review-has-spoiler">
+            <input type="checkbox" id="admin-review-has-spoiler" class="spoiler-checkbox-input" />
+            <span>Cette critique r&eacute;v&egrave;le des &eacute;l&eacute;ments de l'intrigue (spoiler)</span>
           </label>
 
           <button type="submit">Attribuer / Mettre &agrave; jour</button>

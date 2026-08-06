@@ -7,6 +7,7 @@ import {
   getScoreClass,
   isQuarterStep,
   isReleasedOnOrBeforeToday,
+  renderReviewParagraph,
   setMessage
 } from "./utils.js";
 import { getCurrentProfile, requireAuth, getSession } from "./auth.js";
@@ -187,7 +188,10 @@ function renderRatings(ratings, mediaByUserId) {
             <span>${escapeHTML(mediaLabel)}</span>
             <span class="score-badge ${getScoreClass(rating.score)}">${formatScore(rating.score)} / 10</span>
           </div>
-          <p>${escapeHTML(rating.review || "(Pas de commentaire)")}</p>
+          ${renderReviewParagraph(rating.review, {
+            hasSpoiler: Boolean(rating.has_spoiler),
+            referenceDate: currentFilm?.release_date
+          })}
           <small>${formatDate(rating.created_at)}</small>
         </article>
       `;
@@ -222,7 +226,7 @@ async function loadMembershipMapForUsers(userIds) {
 async function fillExistingUserRating(filmId, userId, scoreInputId, reviewInputId) {
   const { data, error } = await supabase
     .from("ratings")
-    .select("score, review")
+    .select("score, review, has_spoiler")
     .eq("film_id", filmId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -231,6 +235,7 @@ async function fillExistingUserRating(filmId, userId, scoreInputId, reviewInputI
 
   const scoreInput = document.querySelector(`#${scoreInputId}`);
   const reviewInput = document.querySelector(`#${reviewInputId}`);
+  const spoilerInput = document.querySelector(`#${reviewInputId}-has-spoiler`);
   const deleteButton = scoreInputId === "score"
     ? document.querySelector("#delete-rating-button")
     : null;
@@ -238,12 +243,14 @@ async function fillExistingUserRating(filmId, userId, scoreInputId, reviewInputI
   if (!data) {
     scoreInput.value = "";
     reviewInput.value = "";
+    if (spoilerInput) spoilerInput.checked = false;
     if (deleteButton) deleteButton.style.display = "none";
     return;
   }
 
   scoreInput.value = String(data.score);
   reviewInput.value = data.review || "";
+  if (spoilerInput) spoilerInput.checked = Boolean(data.has_spoiler);
   if (deleteButton) deleteButton.style.display = "inline-block";
 }
 
@@ -297,7 +304,7 @@ async function loadFilmPage() {
     const ratings = await fetchPagedRows((from, to) =>
       supabase
         .from("ratings")
-        .select("id, user_id, score, review, created_at, profiles(username)")
+        .select("id, user_id, score, review, has_spoiler, created_at, profiles(username)")
         .eq("film_id", filmId)
         .order("created_at", { ascending: false })
         .range(from, to)
@@ -353,6 +360,7 @@ async function handleRatingSubmit(event) {
   const filmId = getFilmIdFromURL();
   const scoreValue = Number(document.querySelector("#score").value);
   const reviewValue = document.querySelector("#review").value.trim();
+  const hasSpoiler = document.querySelector("#review-has-spoiler").checked;
 
   if (!canRateCurrentFilm()) {
     setMessage("#form-message", "Impossible de noter un film non sorti ou sans date de sortie.", true);
@@ -369,7 +377,8 @@ async function handleRatingSubmit(event) {
       user_id: session.user.id,
       film_id: filmId,
       score: scoreValue,
-      review: reviewValue || null
+      review: reviewValue || null,
+      has_spoiler: reviewValue ? hasSpoiler : false
     };
 
     const { error } = await supabase
@@ -395,6 +404,7 @@ async function handleAdminRatingSubmit(event) {
   const targetUserId = document.querySelector("#admin-target-user").value;
   const scoreValue = Number(document.querySelector("#admin-score").value);
   const reviewValue = document.querySelector("#admin-review").value.trim();
+  const hasSpoiler = document.querySelector("#admin-review-has-spoiler").checked;
 
   if (!canRateCurrentFilm()) {
     setMessage("#admin-rating-message", "Impossible de noter un film non sorti ou sans date de sortie.", true);
@@ -416,7 +426,8 @@ async function handleAdminRatingSubmit(event) {
       p_user_id: targetUserId,
       p_film_id: filmId,
       p_score: scoreValue,
-      p_review: reviewValue || null
+      p_review: reviewValue || null,
+      p_has_spoiler: reviewValue ? hasSpoiler : false
     });
 
     if (error) throw error;

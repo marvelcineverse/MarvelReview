@@ -4,8 +4,10 @@ import {
   escapeHTML,
   formatDate,
   formatScore,
+  getLastEpisodeAirDate,
   getScoreClass,
   isReleasedOnOrBeforeToday,
+  isSpoilerCurrentlyBlurred,
   setMessage
 } from "./utils.js";
 
@@ -474,6 +476,8 @@ function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRa
         activity_at: seasonRow?.updated_at || seasonRow?.created_at || stats.lastActivityAt,
         score: Number.isFinite(effectiveScore) ? effectiveScore : null,
         review: seasonRow?.review || "",
+        hasSpoiler: Boolean(seasonRow?.has_spoiler),
+        referenceDate: getLastEpisodeAirDate(episodesBySeasonId.get(season.id) || []) || season.end_date || null,
         adjustment,
         seriesTitle: seriesById.get(season.series_id)?.title || "",
         title: season.name || "Saison",
@@ -509,6 +513,8 @@ async function fetchLatestActivityViaApi(limit = LATEST_ACTIVITY_LIMIT) {
       activity_at: row.activity_at || null,
       score: toNumericOrNull(row.score),
       review: row.review || "",
+      hasSpoiler: Boolean(row.has_spoiler),
+      referenceDate: row.content_date || null,
       adjustment: toNumericOrNull(row.adjustment) || 0,
       title: row.title || "",
       seriesTitle: row.series_title || "",
@@ -562,19 +568,30 @@ function renderLatestActivity(allRows, mediaByUserId) {
         : row.type === "episode"
           ? `${typeLabel} - ${episodeSeriesPart}${escapeHTML(row.seasonLabel || "-")} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`
           : `${typeLabel} - ${seasonSeriesPart}${escapeHTML(row.seasonLabel || "-")} - <a href="${row.href}" class="film-link">${escapeHTML(row.title)}</a>`;
+      const isSpoilerBlurred = isSpoilerCurrentlyBlurred(row.hasSpoiler, row.referenceDate);
       const reviewPreview = getReviewPreview(row.review);
       const isReviewExpanded = state.latestActivityExpandedReviewIds.has(row.id);
       const displayedReview = isReviewExpanded || !reviewPreview.isTruncated
         ? reviewPreview.full
         : reviewPreview.preview;
-      const toggleReviewButton = reviewPreview.full && reviewPreview.isTruncated
+      const toggleReviewButton = reviewPreview.full && reviewPreview.isTruncated && !isSpoilerBlurred
         ? `<button type="button" class="ghost-button social-inline-more" data-action="toggle-activity-review" data-activity-id="${escapeHTML(row.id)}">${isReviewExpanded ? "Voir moins" : "Voir plus"}</button>`
         : "";
-      const reviewMarkup = reviewPreview.full
-        ? `
-          <p class="social-review-text">${escapeHTML(displayedReview).replace(/\n/g, "<br>")}</p>
-        `
-        : "";
+      const reviewMarkup = !reviewPreview.full
+        ? ""
+        : isSpoilerBlurred
+          ? `
+            <div class="spoiler-wrap" role="button" tabindex="0" aria-label="Critique masqu&eacute;e car elle contient des spoilers. Survolez ou appuyez pour la r&eacute;v&eacute;ler.">
+              <p class="social-review-text spoiler-text">${escapeHTML(reviewPreview.full).replace(/\n/g, "<br>")}</p>
+              <div class="spoiler-badge" aria-hidden="true">
+                <span class="spoiler-badge-title">Spoiler</span>
+                <span class="spoiler-badge-hint">Survolez ou touchez pour r&eacute;v&eacute;ler</span>
+              </div>
+            </div>
+          `
+          : `
+            <p class="social-review-text">${escapeHTML(displayedReview).replace(/\n/g, "<br>")}</p>
+          `;
       const footerMarkup = `
         <div class="social-inline-footer">
           ${toggleReviewButton}
@@ -634,12 +651,12 @@ async function loadHomePage() {
       fetchAllRows("series", "id, title, start_date, end_date, poster_url, franchise, type"),
       fetchAllRows("profiles", "id, moderation_status"),
       fetchAllRows("media_outlets", "id"),
-      fetchAllRows("series_seasons", "id, series_id, name, season_number, start_date, poster_url"),
-      fetchAllRows("series_episodes", "id, season_id, title, episode_number"),
-      fetchAllRows("episode_ratings", "id, user_id, episode_id, score, review, created_at, updated_at, profiles(username)"),
-      fetchAllRows("season_user_ratings", "id, user_id, season_id, manual_score, adjustment, review, created_at, updated_at, profiles(username)"),
-      fetchAllRows("series_reviews", "id, user_id, series_id, review, created_at, updated_at, profiles(username)"),
-      fetchAllRows("ratings", "id, user_id, film_id, score, review, created_at, updated_at, profiles(username)")
+      fetchAllRows("series_seasons", "id, series_id, name, season_number, start_date, end_date, poster_url"),
+      fetchAllRows("series_episodes", "id, season_id, title, episode_number, air_date"),
+      fetchAllRows("episode_ratings", "id, user_id, episode_id, score, review, has_spoiler, created_at, updated_at, profiles(username)"),
+      fetchAllRows("season_user_ratings", "id, user_id, season_id, manual_score, adjustment, review, has_spoiler, created_at, updated_at, profiles(username)"),
+      fetchAllRows("series_reviews", "id, user_id, series_id, review, has_spoiler, created_at, updated_at, profiles(username)"),
+      fetchAllRows("ratings", "id, user_id, film_id, score, review, has_spoiler, created_at, updated_at, profiles(username)")
     ]);
 
     const filmScoreById = new Map();
@@ -791,6 +808,8 @@ async function loadHomePage() {
           activity_at: rating.updated_at || rating.created_at || null,
           score: Number(rating.score),
           review: rating.review || "",
+          hasSpoiler: Boolean(rating.has_spoiler),
+          referenceDate: film.release_date || null,
           seasonLabel: "Film",
           title: film.title || "Film",
           href: `/film.html?id=${film.id}`,
@@ -809,6 +828,8 @@ async function loadHomePage() {
           activity_at: review.updated_at || review.created_at || null,
           score: null,
           review: review.review || "",
+          hasSpoiler: Boolean(review.has_spoiler),
+          referenceDate: serie.end_date || null,
           seasonLabel: "S\u00E9rie",
           title: serie.title || "S\u00E9rie",
           href: `/series.html?id=${serie.id}`,
@@ -830,6 +851,8 @@ async function loadHomePage() {
           activity_at: rating.updated_at || rating.created_at || null,
           score: Number(rating.score),
           review: rating.review || "",
+          hasSpoiler: Boolean(rating.has_spoiler),
+          referenceDate: episode.air_date || null,
           seriesTitle: serie?.title || "",
           seasonLabel: season?.season_number ? `S${season.season_number}` : "Saison",
           title: episode.title || "Épisode",

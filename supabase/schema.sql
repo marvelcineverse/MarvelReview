@@ -98,6 +98,8 @@ create table if not exists public.ratings (
   unique (user_id, film_id)
 );
 
+alter table public.ratings add column if not exists has_spoiler boolean not null default false;
+
 alter table public.ratings
   alter column score type numeric(4,2) using score::numeric;
 
@@ -330,11 +332,14 @@ begin
 end;
 $$;
 
+drop function if exists public.admin_upsert_rating_for_user(uuid, uuid, numeric, text);
+
 create or replace function public.admin_upsert_rating_for_user(
   p_user_id uuid,
   p_film_id uuid,
   p_score numeric,
-  p_review text
+  p_review text,
+  p_has_spoiler boolean default false
 )
 returns void
 language plpgsql
@@ -346,12 +351,13 @@ begin
     raise exception 'Admin rights required';
   end if;
 
-  insert into public.ratings (user_id, film_id, score, review)
-  values (p_user_id, p_film_id, p_score, p_review)
+  insert into public.ratings (user_id, film_id, score, review, has_spoiler)
+  values (p_user_id, p_film_id, p_score, p_review, coalesce(p_has_spoiler, false))
   on conflict (user_id, film_id)
   do update set
     score = excluded.score,
     review = excluded.review,
+    has_spoiler = excluded.has_spoiler,
     updated_at = timezone('utc', now());
 end;
 $$;
@@ -745,6 +751,8 @@ create table if not exists public.episode_ratings (
   unique (user_id, episode_id)
 );
 
+alter table public.episode_ratings add column if not exists has_spoiler boolean not null default false;
+
 alter table public.episode_ratings
   alter column score type numeric(4,2) using score::numeric;
 
@@ -1063,16 +1071,21 @@ on conflict (season_id, episode_number) do update
 -- Reviews series/saisons
 alter table public.season_user_ratings
   add column if not exists review text;
+alter table public.season_user_ratings
+  add column if not exists has_spoiler boolean not null default false;
 
 create table if not exists public.series_reviews (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   series_id uuid not null references public.series(id) on delete cascade,
   review text not null,
+  has_spoiler boolean not null default false,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   unique (user_id, series_id)
 );
+
+alter table public.series_reviews add column if not exists has_spoiler boolean not null default false;
 
 drop trigger if exists trg_series_reviews_updated_at on public.series_reviews;
 create trigger trg_series_reviews_updated_at
@@ -1208,6 +1221,8 @@ as $$
   group by tf.id, tf.title, tf.slug, p.scope_kind, p.scope_ref;
 $$;
 
+drop function if exists public.api_film_reviews(text, text, text, integer, integer);
+
 create or replace function public.api_film_reviews(
   p_film_ref text,
   p_scope text default 'global',
@@ -1224,6 +1239,7 @@ returns table (
   user_media text,
   score numeric,
   review text,
+  has_spoiler boolean,
   rated_at timestamptz
 )
 language sql
@@ -1292,6 +1308,7 @@ as $$
     um.user_media,
     r.score::numeric as score,
     coalesce(r.review, '') as review,
+    coalesce(r.has_spoiler, false) as has_spoiler,
     coalesce(r.updated_at, r.created_at) as rated_at
   from target_film tf
   join public.ratings r
@@ -1887,6 +1904,8 @@ as $$
   group by s.id, s.title, s.slug, p.scope_kind, p.scope_ref;
 $$;
 
+drop function if exists public.api_series_reviews(text, text, text, integer, integer);
+
 create or replace function public.api_series_reviews(
   p_series_ref text,
   p_scope text default 'global',
@@ -1903,6 +1922,7 @@ returns table (
   user_media text,
   score numeric,
   review text,
+  has_spoiler boolean,
   rated_at timestamptz
 )
 language sql
@@ -2014,6 +2034,7 @@ as $$
     select
       sr.user_id,
       coalesce(sr.review, '') as review,
+      coalesce(sr.has_spoiler, false) as has_spoiler,
       coalesce(sr.updated_at, sr.created_at) as review_last_activity
     from public.series_reviews sr
     join target_series ts on ts.id = sr.series_id
@@ -2057,6 +2078,7 @@ as $$
     um.user_media,
     sus.series_score as score,
     coalesce(srr.review, '') as review,
+    coalesce(srr.has_spoiler, false) as has_spoiler,
     case
       when srr.review_last_activity is null then sus.score_last_activity
       when sus.score_last_activity is null then srr.review_last_activity
@@ -2751,6 +2773,8 @@ as $$
   order by f.release_date desc nulls last, f.title asc;
 $$;
 
+drop function if exists public.api_latest_activity(integer);
+
 create or replace function public.api_latest_activity(p_limit integer default 20)
 returns table (
   activity_id text,
@@ -2761,6 +2785,8 @@ returns table (
   activity_at timestamptz,
   score numeric,
   review text,
+  has_spoiler boolean,
+  content_date date,
   adjustment numeric,
   title text,
   series_title text,
@@ -2796,6 +2822,11 @@ as $$
     select ses.season_id, ses.user_id
     from season_episode_stats ses
   ),
+  season_last_air_date as (
+    select ep.season_id, max(ep.air_date) as last_air_date
+    from public.series_episodes ep
+    group by ep.season_id
+  ),
   season_activity as (
     select
       concat('season-', coalesce(sur.id::text, concat(sk.season_id::text, '-', sk.user_id::text))) as activity_id,
@@ -2813,6 +2844,8 @@ as $$
         else null
       end as score,
       coalesce(sur.review, '') as review,
+      coalesce(sur.has_spoiler, false) as has_spoiler,
+      coalesce(sla.last_air_date, ss.end_date) as content_date,
       coalesce(sur.adjustment, 0)::numeric as adjustment,
       coalesce(ss.name, 'Saison') as title,
       coalesce(s.title, '') as series_title,
@@ -2832,6 +2865,8 @@ as $$
       on s.id = ss.series_id
     left join public.profiles p
       on p.id = sk.user_id
+    left join season_last_air_date sla
+      on sla.season_id = sk.season_id
     where
       sur.manual_score is not null
       or coalesce(sur.adjustment, 0) <> 0
@@ -2852,6 +2887,8 @@ as $$
       coalesce(r.updated_at, r.created_at) as activity_at,
       r.score::numeric as score,
       coalesce(r.review, '') as review,
+      coalesce(r.has_spoiler, false) as has_spoiler,
+      f.release_date as content_date,
       0::numeric as adjustment,
       coalesce(f.title, 'Film') as title,
       ''::text as series_title,
@@ -2904,6 +2941,8 @@ as $$
       coalesce(sr.updated_at, sr.created_at) as activity_at,
       sus.series_score as score,
       coalesce(sr.review, '') as review,
+      coalesce(sr.has_spoiler, false) as has_spoiler,
+      s.end_date as content_date,
       0::numeric as adjustment,
       coalesce(s.title, 'Serie') as title,
       ''::text as series_title,
@@ -2927,6 +2966,8 @@ as $$
       coalesce(er.updated_at, er.created_at) as activity_at,
       er.score::numeric as score,
       coalesce(er.review, '') as review,
+      coalesce(er.has_spoiler, false) as has_spoiler,
+      ep.air_date as content_date,
       0::numeric as adjustment,
       coalesce(ep.title, 'Episode') as title,
       coalesce(s.title, '') as series_title,
@@ -2962,6 +3003,8 @@ as $$
     a.activity_at,
     a.score,
     a.review,
+    a.has_spoiler,
+    a.content_date,
     a.adjustment,
     a.title,
     a.series_title,
