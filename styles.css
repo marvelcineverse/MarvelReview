@@ -1168,6 +1168,46 @@ button:hover {
   display: block;
 }
 
+.ranking-diff-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 74px;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.ranking-diff-positive {
+  background: #e8f7ea;
+  color: #216c2f;
+}
+
+.ranking-diff-negative {
+  background: #ffe8e8;
+  color: #a12626;
+}
+
+.ranking-diff-neutral {
+  background: #eef2f6;
+  color: var(--muted);
+}
+
+.ranking-under-construction {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-soft);
+}
+
+.ranking-under-construction-emoji {
+  font-size: 2.6rem;
+  letter-spacing: 0.3rem;
+}
+
 .episode-bulk-form {
   max-width: none;
 }

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
@@ -20,40 +20,104 @@
 
       <p id="page-message" class="message" aria-live="polite"></p>
 
-      <section class="card home-stack-card">
-        <div class="home-stack-chunk">
-          <h2>Filtres</h2>
-          <div class="inline-actions">
-            <label class="checkbox-inline">
-              <input id="filter-films" type="checkbox" checked />
-              Films
-            </label>
-            <label class="checkbox-inline">
-              <input id="filter-series" type="checkbox" checked />
-              S&eacute;ries
-            </label>
-          </div>
-          <div class="filters-grid ranking-filters-grid">
-            <label>
-              Franchise
-              <select id="ranking-franchise-filter">
-                <option value="">Toutes les franchises</option>
-              </select>
-            </label>
-          </div>
+      <section class="card content-creation-card">
+        <div class="creation-tabs" role="tablist" aria-label="Classements">
+          <button type="button" class="creation-tab is-active" role="tab" aria-selected="true" data-tab-target="mine">
+            Mon classement
+          </button>
+          <button type="button" class="creation-tab" role="tab" aria-selected="false" data-tab-target="general">
+            Classement g&eacute;n&eacute;ral
+          </button>
+          <button type="button" class="creation-tab" role="tab" aria-selected="false" data-tab-target="users">
+            Classement par utilisateur
+          </button>
         </div>
 
-        <div class="home-stack-chunk">
-          <section class="table-wrapper ranking-table-shell">
-            <h2>Classement</h2>
-            <table id="ranking-table" class="ranking-table">
+        <section class="creation-panel is-active" data-tab-panel="mine">
+          <p id="ranking-mine-login-message" class="message" style="display: none;">
+            Connecte-toi pour voir ton classement personnel.
+          </p>
+
+          <div id="ranking-mine-filters">
+            <h2>Filtres</h2>
+            <div class="inline-actions">
+              <label class="checkbox-inline">
+                <input id="filter-films-mine" type="checkbox" checked />
+                Films
+              </label>
+              <label class="checkbox-inline">
+                <input id="filter-series-mine" type="checkbox" checked />
+                S&eacute;ries
+              </label>
+            </div>
+            <div class="filters-grid ranking-filters-grid">
+              <label>
+                Franchise
+                <select id="ranking-franchise-filter-mine">
+                  <option value="">Toutes les franchises</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div id="ranking-mine-table-wrapper" class="table-wrapper ranking-table-shell">
+            <h2>Mon classement</h2>
+            <table id="ranking-mine-table" class="ranking-table">
               <thead>
-                <tr id="ranking-head-row"></tr>
+                <tr>
+                  <th>#</th>
+                  <th>Contenu</th>
+                  <th>Ta note</th>
+                  <th>&Eacute;cart</th>
+                </tr>
               </thead>
-              <tbody id="ranking-body"></tbody>
+              <tbody id="ranking-mine-body"></tbody>
             </table>
-          </section>
-        </div>
+          </div>
+        </section>
+
+        <section class="creation-panel" data-tab-panel="general">
+          <div class="home-stack-chunk">
+            <h2>Filtres</h2>
+            <div class="inline-actions">
+              <label class="checkbox-inline">
+                <input id="filter-films" type="checkbox" checked />
+                Films
+              </label>
+              <label class="checkbox-inline">
+                <input id="filter-series" type="checkbox" checked />
+                S&eacute;ries
+              </label>
+            </div>
+            <div class="filters-grid ranking-filters-grid">
+              <label>
+                Franchise
+                <select id="ranking-franchise-filter">
+                  <option value="">Toutes les franchises</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="home-stack-chunk">
+            <section class="table-wrapper ranking-table-shell">
+              <h2>Classement</h2>
+              <table id="ranking-table" class="ranking-table">
+                <thead>
+                  <tr id="ranking-head-row"></tr>
+                </thead>
+                <tbody id="ranking-body"></tbody>
+              </table>
+            </section>
+          </div>
+        </section>
+
+        <section class="creation-panel" data-tab-panel="users">
+          <div class="ranking-under-construction">
+            <p class="ranking-under-construction-emoji" aria-hidden="true">&#x1F6A7; &#x1F477; &#x1F3D7;&#xFE0F;</p>
+            <p>Page en cours de construction.</p>
+          </div>
+        </section>
       </section>
     </main>
 

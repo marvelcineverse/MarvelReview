@@ -16,6 +16,11 @@ const state = {
     films: true,
     series: true,
     franchise: ""
+  },
+  myFilters: {
+    films: true,
+    series: true,
+    franchise: ""
   }
 };
 const SUPABASE_PAGE_SIZE = 1000;
@@ -23,6 +28,10 @@ const SUPABASE_PAGE_SIZE = 1000;
 const filmsFilterEl = document.querySelector("#filter-films");
 const seriesFilterEl = document.querySelector("#filter-series");
 const franchiseFilterEl = document.querySelector("#ranking-franchise-filter");
+
+const myFilmsFilterEl = document.querySelector("#filter-films-mine");
+const mySeriesFilterEl = document.querySelector("#filter-series-mine");
+const myFranchiseFilterEl = document.querySelector("#ranking-franchise-filter-mine");
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -326,6 +335,102 @@ function renderRanking() {
     .join("");
 }
 
+function getFilteredMyRows() {
+  return state.allRows.filter((row) => {
+    if (row.type === "film" && !state.myFilters.films) return false;
+    if (row.type === "series" && !state.myFilters.series) return false;
+
+    if (state.myFilters.franchise && row.franchise !== state.myFilters.franchise) return false;
+    return true;
+  });
+}
+
+function renderMyRanking() {
+  const loginMessageEl = document.querySelector("#ranking-mine-login-message");
+  const filtersEl = document.querySelector("#ranking-mine-filters");
+  const tableWrapEl = document.querySelector("#ranking-mine-table-wrapper");
+  const bodyEl = document.querySelector("#ranking-mine-body");
+  if (!bodyEl) return;
+
+  if (!state.currentUserId) {
+    if (loginMessageEl) loginMessageEl.style.display = "block";
+    if (filtersEl) filtersEl.style.display = "none";
+    if (tableWrapEl) tableWrapEl.style.display = "none";
+    return;
+  }
+
+  if (loginMessageEl) loginMessageEl.style.display = "none";
+  if (filtersEl) filtersEl.style.display = "";
+  if (tableWrapEl) tableWrapEl.style.display = "";
+
+  const filtered = getFilteredMyRows();
+  const sorted = [...filtered].sort((a, b) => {
+    const aRated = a.myScore !== null;
+    const bRated = b.myScore !== null;
+    if (aRated && bRated) {
+      if (b.myScore !== a.myScore) return b.myScore - a.myScore;
+      return a.title.localeCompare(b.title, "fr");
+    }
+    if (aRated) return -1;
+    if (bRated) return 1;
+    return a.title.localeCompare(b.title, "fr");
+  });
+
+  if (!sorted.length) {
+    bodyEl.innerHTML = `<tr><td colspan="4">Aucun résultat pour ce filtre.</td></tr>`;
+    return;
+  }
+
+  const ratedRows = sorted.filter((row) => row.myScore !== null);
+  const rankLabels = buildDenseRankLabels(ratedRows, (row) => row.myScore, 2);
+  let rankIndex = 0;
+
+  bodyEl.innerHTML = sorted
+    .map((item) => {
+      const isRated = item.myScore !== null;
+      const rank = isRated ? rankLabels[rankIndex++] : "-";
+
+      const myScoreCell = isRated
+        ? `<span class="score-badge ta-note-badge ${getScoreClass(item.myScore)}">${formatScore(item.myScore, 2, 2)} / 10</span>`
+        : `<span class="score-badge stade-neutre">Pas not&eacute;</span>`;
+
+      let diffCell = `<span class="ranking-diff-badge ranking-diff-neutral">-</span>`;
+      if (isRated && Number.isFinite(item.average)) {
+        const diff = item.myScore - item.average;
+        const epsilon = 0.001;
+        const sign = diff > epsilon ? "+" : diff < -epsilon ? "-" : "";
+        const diffClass = diff > epsilon
+          ? "ranking-diff-positive"
+          : diff < -epsilon
+            ? "ranking-diff-negative"
+            : "ranking-diff-neutral";
+        diffCell = `<span class="ranking-diff-badge ${diffClass}">${sign}${formatScore(Math.abs(diff), 2, 2)} pt</span>`;
+      }
+
+      const detailParts = [];
+      if (!state.myFilters.franchise && item.franchise) {
+        detailParts.push(escapeHTML(item.franchise));
+      }
+      if (item.typeLabel) {
+        detailParts.push(escapeHTML(item.typeLabel));
+      }
+      const detailLabel = detailParts.join(" - ");
+
+      return `
+        <tr>
+          <td>${rank}</td>
+          <td>
+            <a href="${item.href}" class="film-link">${escapeHTML(item.title)}</a>
+            ${detailLabel ? `<small>(${detailLabel})</small>` : ""}
+          </td>
+          <td>${myScoreCell}</td>
+          <td>${diffCell}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
 function setupFilterOptions() {
   const franchises = Array.from(
     new Set(
@@ -337,6 +442,9 @@ function setupFilterOptions() {
 
   fillSelect(franchiseFilterEl, franchises, "Toutes les franchises");
   if (franchiseFilterEl) franchiseFilterEl.value = state.filters.franchise;
+
+  fillSelect(myFranchiseFilterEl, franchises, "Toutes les franchises");
+  if (myFranchiseFilterEl) myFranchiseFilterEl.value = state.myFilters.franchise;
 }
 
 function bindFilters() {
@@ -354,6 +462,50 @@ function bindFilters() {
     state.filters.franchise = franchiseFilterEl.value || "";
     renderRanking();
   });
+}
+
+function bindMyFilters() {
+  myFilmsFilterEl?.addEventListener("change", () => {
+    state.myFilters.films = myFilmsFilterEl.checked;
+    renderMyRanking();
+  });
+
+  mySeriesFilterEl?.addEventListener("change", () => {
+    state.myFilters.series = mySeriesFilterEl.checked;
+    renderMyRanking();
+  });
+
+  myFranchiseFilterEl?.addEventListener("change", () => {
+    state.myFilters.franchise = myFranchiseFilterEl.value || "";
+    renderMyRanking();
+  });
+}
+
+function bindRankingTabs() {
+  const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
+  const panels = Array.from(document.querySelectorAll("[data-tab-panel]"));
+  if (!tabButtons.length || !panels.length) return;
+
+  const activate = (target) => {
+    tabButtons.forEach((button) => {
+      const isActive = button.dataset.tabTarget === target;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
+    panels.forEach((panel) => {
+      panel.classList.toggle("is-active", panel.dataset.tabPanel === target);
+    });
+  };
+
+  tabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      activate(button.dataset.tabTarget || "mine");
+    });
+  });
+
+  const defaultTab = tabButtons.find((button) => button.classList.contains("is-active"))?.dataset.tabTarget || "mine";
+  activate(defaultTab);
 }
 
 async function loadRanking() {
@@ -392,10 +544,13 @@ async function loadRanking() {
     state.allRows = [...filmRows, ...seriesRows];
     setupFilterOptions();
     renderRanking();
+    renderMyRanking();
   } catch (error) {
     setMessage("#page-message", error.message || "Erreur de chargement du classement.", true);
   }
 }
 
 bindFilters();
+bindMyFilters();
+bindRankingTabs();
 loadRanking();
