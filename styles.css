@@ -1947,7 +1947,7 @@ textarea {
 }
 
 .home-top-ranked-table .score-badge {
-  min-width: 82px;
+  min-width: 60px;
   padding: 0.22rem 0.44rem;
 }
 
@@ -2441,7 +2441,7 @@ textarea {
   }
 
   .ranking-table .score-badge {
-    min-width: 88px;
+    min-width: 60px;
     padding: 0.28rem 0.52rem;
   }
 
