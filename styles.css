@@ -1137,6 +1137,9 @@ button:hover {
   border: 1px solid #cfdbea;
   border-top-left-radius: 14px;
   border-top-right-radius: 14px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  margin-bottom: -1px;
   padding: 0.58rem 0.9rem;
   font-weight: 700;
 }
