@@ -1,5 +1,5 @@
 import { supabase } from "../supabaseClient.js";
-import { injectLayout, setMessage } from "./utils.js";
+import { injectLayout, initThemeToggle, setMessage } from "./utils.js";
 import {
   bindAuthVisibility,
   getCurrentProfile,
@@ -592,6 +592,7 @@ async function initCommonLayout() {
   injectLayout();
   markActiveNavLink();
   initMobileNav();
+  initThemeToggle();
   const statusEl = document.querySelector("#auth-status");
   const navUserValueEl = document.querySelector("#nav-user-value");
 

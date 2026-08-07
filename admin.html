@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MarvelReview - Administration</title>
     <link rel="stylesheet" href="/styles.css" />
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("marvelreview:theme");
+          var theme =
+            stored === "dark" || stored === "light"
+              ? stored
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (_error) {}
+      })();
+    </script>
   </head>
   <body>
     <main class="container">

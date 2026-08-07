@@ -54,6 +54,15 @@ const navMarkup = `
             <a id="logout-link" class="nav-logout-link" href="#">Se d&eacute;connecter</a>
           </small>
         </div>
+        <button
+          id="theme-toggle"
+          type="button"
+          class="theme-toggle"
+          aria-label="Activer le mode sombre"
+          aria-pressed="false"
+        >
+          <i id="theme-toggle-icon" class="fa-solid fa-moon" aria-hidden="true"></i>
+        </button>
       </div>
     </nav>
   </header>
@@ -62,6 +71,62 @@ const navMarkup = `
 export function injectLayout() {
   const navRoot = document.querySelector("#nav-root");
   if (navRoot) navRoot.innerHTML = navMarkup;
+}
+
+const THEME_STORAGE_KEY = "marvelreview:theme";
+
+export function getStoredTheme() {
+  try {
+    const value = localStorage.getItem(THEME_STORAGE_KEY);
+    return value === "dark" || value === "light" ? value : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function storeTheme(theme) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch (_error) {
+    // Ignore storage failures: the toggle can still work for the current page.
+  }
+}
+
+export function getPreferredTheme() {
+  return getStoredTheme() || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+}
+
+export function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+
+  const toggle = document.querySelector("#theme-toggle");
+  const icon = document.querySelector("#theme-toggle-icon");
+  if (toggle) {
+    toggle.setAttribute("aria-pressed", String(theme === "dark"));
+    toggle.setAttribute("aria-label", theme === "dark" ? "Activer le mode clair" : "Activer le mode sombre");
+  }
+  if (icon) {
+    icon.classList.toggle("fa-moon", theme !== "dark");
+    icon.classList.toggle("fa-sun", theme === "dark");
+  }
+}
+
+export function initThemeToggle() {
+  applyTheme(getPreferredTheme());
+
+  const toggle = document.querySelector("#theme-toggle");
+  if (!toggle) return;
+
+  toggle.addEventListener("click", () => {
+    const nextTheme = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    storeTheme(nextTheme);
+    applyTheme(nextTheme);
+  });
+
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
+    if (getStoredTheme()) return;
+    applyTheme(event.matches ? "dark" : "light");
+  });
 }
 
 export function getFilmIdFromURL() {

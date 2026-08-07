@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MarvelReview - Accueil</title>
     <link rel="stylesheet" href="/styles.css" />
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("marvelreview:theme");
+          var theme =
+            stored === "dark" || stored === "light"
+              ? stored
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (_error) {}
+      })();
+    </script>
   </head>
   <body>
     <main class="container">
@@ -14,8 +28,13 @@
         <div>
           <h1 class="sr-only">MarvelReview</h1>
           <img
-            class="home-title-logo"
+            class="home-title-logo home-title-logo-light"
             src="https://www.marvel-cineverse.fr/medias/images/marvelreview-logov1.png"
+            alt="MarvelReview"
+          />
+          <img
+            class="home-title-logo home-title-logo-dark"
+            src="https://www.marvel-cineverse.fr/medias/images/marvelreview-logov1-blanc.png"
             alt="MarvelReview"
           />
           <p><b>Marvel Review, la plateforme communautaire de notes et critiques Marvel</b></p>
