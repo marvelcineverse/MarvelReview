@@ -2117,6 +2117,10 @@ textarea {
   gap: 1.5rem;
 }
 
+.profile-header + .card {
+  margin-top: 1.15rem;
+}
+
 .profile-header-info {
   display: grid;
   gap: 0.55rem;
