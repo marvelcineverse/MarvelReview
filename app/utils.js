@@ -152,6 +152,11 @@ export function getEpisodeIdFromURL() {
   return params.get("id");
 }
 
+export function getUserIdFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("id");
+}
+
 const AVATAR_MAX_DIMENSION = 512;
 const AVATAR_JPEG_QUALITY = 0.82;
 
@@ -402,4 +407,18 @@ export function getScoreClass(value) {
   };
 
   return classByStep[normalized] || "stade-neutre";
+}
+
+export function buildAvatarMarkup(url, imgClass) {
+  const safeURL = String(url || "").trim();
+  if (safeURL) {
+    return `<img src="${escapeHTML(safeURL)}" alt="Photo de profil" class="${imgClass}" />`;
+  }
+  return `<span class="${imgClass} avatar-placeholder" aria-hidden="true"><i class="fa-solid fa-user"></i></span>`;
+}
+
+export function renderAvatarInto(selector, url, imgClass) {
+  const el = document.querySelector(selector);
+  if (!el) return;
+  el.innerHTML = buildAvatarMarkup(url, imgClass);
 }

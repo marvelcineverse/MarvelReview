@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MarvelReview - Profil utilisateur</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("marvelreview:theme");
+          var theme = stored === "dark" || stored === "light" ? stored : "light";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (_error) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <main class="container">
+      <div id="nav-root"></div>
+
+      <section class="page-intro">
+        <div>
+          <h1>Profil utilisateur</h1>
+          <p>Consulte le profil et le classement d'un membre de la communauté.</p>
+        </div>
+        <p id="auth-status" class="status"></p>
+      </section>
+
+      <p id="page-message" class="message" aria-live="polite"></p>
+
+      <section class="card profile-header">
+        <div class="profile-header-info">
+          <h2 id="profile-username-display" class="profile-username-display"></h2>
+
+          <div class="profile-media-block">
+            <p class="film-meta">Média(s) actuel(s) :</p>
+            <ul id="profile-media-approved-list" class="profile-media-list"></ul>
+          </div>
+        </div>
+
+        <div class="profile-header-photo">
+          <div id="profile-avatar-display"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 id="user-ranking-title">Classement</h2>
+        <h3>Filtres</h3>
+        <div class="inline-actions">
+          <label class="checkbox-inline">
+            <input id="filter-films" type="checkbox" checked />
+            Films
+          </label>
+          <label class="checkbox-inline">
+            <input id="filter-series" type="checkbox" checked />
+            Séries
+          </label>
+        </div>
+        <div class="filters-grid ranking-filters-grid">
+          <label>
+            Franchise
+            <select id="ranking-franchise-filter">
+              <option value="">Toutes les franchises</option>
+            </select>
+          </label>
+          <label id="ranking-phase-filter-wrap">
+            Phase
+            <select id="ranking-phase-filter">
+              <option value="">Toutes les phases</option>
+            </select>
+          </label>
+        </div>
+        <div class="ranking-section-divider" aria-hidden="true"></div>
+        <div class="table-wrapper ranking-table-shell">
+          <table class="ranking-table compact">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Titre</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody id="personal-ratings-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/app/common.js"></script>
+    <script type="module" src="/app/user.js"></script>
+  </body>
+</html>
