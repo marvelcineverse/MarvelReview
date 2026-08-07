@@ -589,6 +589,14 @@ document.querySelector("#edit-avatar-button")?.addEventListener("click", () => {
   openModal("edit-avatar-modal");
 });
 
+document.querySelector("#edit-password-button")?.addEventListener("click", () => {
+  setMessage("#password-message", "");
+  document.querySelector("#profile-current-password").value = "";
+  document.querySelector("#profile-new-password").value = "";
+  document.querySelector("#profile-new-password-confirm").value = "";
+  openModal("change-password-modal");
+});
+
 async function loadProfile() {
   const session = await requireAuth("/login.html");
   if (!session) return;
@@ -750,7 +758,7 @@ document.querySelector("#change-password-form")?.addEventListener("submit", asyn
     document.querySelector("#profile-current-password").value = "";
     document.querySelector("#profile-new-password").value = "";
     document.querySelector("#profile-new-password-confirm").value = "";
-    setMessage("#password-message", "Mot de passe mis à jour.");
+    closeModal("change-password-modal");
   } catch (error) {
     setMessage("#password-message", error.message || "Mise à jour impossible.", true);
   }

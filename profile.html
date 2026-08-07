@@ -44,6 +44,7 @@
           </div>
 
           <p class="film-meta">Compte admin : <strong id="admin-badge"></strong></p>
+          <button type="button" id="edit-password-button" class="ghost-button">Modifier le mot de passe</button>
         </div>
 
         <div class="profile-header-photo">
@@ -109,31 +110,37 @@
         </section>
       </div>
 
-      <section class="card">
-        <h2>Mot de passe</h2>
-        <form id="change-password-form" class="form">
-          <label>
-            Mot de passe actuel
-            <input id="profile-current-password" type="password" required autocomplete="current-password" />
-          </label>
-          <label>
-            Nouveau mot de passe
-            <input id="profile-new-password" type="password" minlength="6" required autocomplete="new-password" />
-          </label>
-          <label>
-            Confirmer le nouveau mot de passe
-            <input
-              id="profile-new-password-confirm"
-              type="password"
-              minlength="6"
-              required
-              autocomplete="new-password"
-            />
-          </label>
-          <button type="submit">Mettre &agrave; jour le mot de passe</button>
-          <p id="password-message" class="message" aria-live="polite"></p>
-        </form>
-      </section>
+      <div id="change-password-modal" class="season-adjust-modal" hidden>
+        <div class="season-adjust-backdrop" data-modal-close="change-password-modal"></div>
+        <section class="season-adjust-dialog" role="dialog" aria-modal="true" aria-labelledby="change-password-title">
+          <h2 id="change-password-title">Modifier le mot de passe</h2>
+          <form id="change-password-form" class="form">
+            <label>
+              Mot de passe actuel
+              <input id="profile-current-password" type="password" required autocomplete="current-password" />
+            </label>
+            <label>
+              Nouveau mot de passe
+              <input id="profile-new-password" type="password" minlength="6" required autocomplete="new-password" />
+            </label>
+            <label>
+              Confirmer le nouveau mot de passe
+              <input
+                id="profile-new-password-confirm"
+                type="password"
+                minlength="6"
+                required
+                autocomplete="new-password"
+              />
+            </label>
+            <div class="inline-actions">
+              <button type="submit" class="button">Enregistrer</button>
+              <button type="button" class="ghost-button" data-modal-close="change-password-modal">Annuler</button>
+            </div>
+            <p id="password-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
+      </div>
 
       <section class="card">
         <h2>Mon classement personnel</h2>
