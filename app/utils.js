@@ -35,7 +35,10 @@ const navMarkup = `
         <a class="nav-link" href="/login.html" data-auth="logged-out">Connexion</a>
         <a class="nav-link" href="/signup.html" data-auth="logged-out">Inscription</a>
         <div class="nav-user-block" data-auth="logged-in">
-          <span class="nav-user-line">Connect&eacute; : <span id="nav-user-value"></span></span>
+          <span class="nav-user-line">
+            <img id="nav-user-avatar" class="nav-user-avatar" alt="" hidden />
+            Connect&eacute; : <span id="nav-user-value"></span>
+          </span>
           <small class="nav-user-actions">
             <a
               id="admin-link"
@@ -147,6 +150,36 @@ export function getSeasonIdFromURL() {
 export function getEpisodeIdFromURL() {
   const params = new URLSearchParams(window.location.search);
   return params.get("id");
+}
+
+const AVATAR_MAX_DIMENSION = 512;
+const AVATAR_JPEG_QUALITY = 0.82;
+
+export async function compressImageFile(
+  file,
+  { maxDimension = AVATAR_MAX_DIMENSION, quality = AVATAR_JPEG_QUALITY } = {}
+) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  context.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close?.();
+
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (result) => (result ? resolve(result) : reject(new Error("Compression de l'image impossible."))),
+      "image/jpeg",
+      quality
+    );
+  });
+
+  return new File([blob], "avatar.jpg", { type: "image/jpeg" });
 }
 
 function toLocalISODate(date = new Date()) {

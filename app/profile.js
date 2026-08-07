@@ -2,6 +2,7 @@ import { supabase } from "../supabaseClient.js";
 import { requireAuth } from "./auth.js";
 import {
   buildDenseRankLabels,
+  compressImageFile,
   escapeHTML,
   formatScore,
   getScoreClass,
@@ -11,6 +12,7 @@ import {
 } from "./utils.js";
 
 let currentUserId = null;
+let currentAvatarUrl = null;
 const personalRankingState = {
   allRows: [],
   filters: {
@@ -499,6 +501,46 @@ async function deleteQuickRating(filmId) {
   await loadPersonalRatings(currentUserId);
 }
 
+function renderProfileAvatarPreview(url) {
+  const previewEl = document.querySelector("#profile-avatar-preview");
+  if (!previewEl) return;
+
+  const safeURL = String(url || "").trim();
+  if (!safeURL) {
+    previewEl.innerHTML = "Pas de photo.";
+    return;
+  }
+
+  previewEl.innerHTML = `<img src="${escapeHTML(safeURL)}" alt="Photo de profil" class="avatar media-avatar" />`;
+}
+
+async function uploadProfileAvatar(file) {
+  const compressedFile = await compressImageFile(file);
+  const objectPath = `${currentUserId}/${Date.now()}-avatar.jpg`;
+
+  const { error: uploadError } = await supabase.storage.from("profile-avatars").upload(objectPath, compressedFile, {
+    upsert: true,
+    cacheControl: "3600",
+    contentType: compressedFile.type
+  });
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage.from("profile-avatars").getPublicUrl(objectPath);
+  return data?.publicUrl || null;
+}
+
+document.querySelector("#profile-avatar-file")?.addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  if (!file) {
+    renderProfileAvatarPreview(currentAvatarUrl);
+    return;
+  }
+
+  const objectURL = URL.createObjectURL(file);
+  renderProfileAvatarPreview(objectURL);
+  window.setTimeout(() => URL.revokeObjectURL(objectURL), 3000);
+});
+
 async function loadProfile() {
   const session = await requireAuth("/login.html");
   if (!session) return;
@@ -511,7 +553,7 @@ async function loadProfile() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, username, is_admin")
+      .select("id, username, is_admin, avatar_url")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -520,6 +562,8 @@ async function loadProfile() {
     if (data) {
       document.querySelector("#username").value = data.username || "";
       document.querySelector("#admin-badge").textContent = data.is_admin ? "Oui" : "Non";
+      currentAvatarUrl = data.avatar_url || null;
+      renderProfileAvatarPreview(currentAvatarUrl);
     }
 
     await Promise.all([loadMemberships(user.id), loadPersonalRatings(user.id)]);
@@ -537,6 +581,7 @@ document.querySelector("#profile-form")?.addEventListener("submit", async (event
 
   const username = document.querySelector("#username").value.trim();
   const mediaOutletId = document.querySelector("#media_outlet_id").value || null;
+  const avatarFile = document.querySelector("#profile-avatar-file")?.files?.[0] || null;
 
   if (!username) {
     setMessage("#form-message", "Le nom d'utilisateur est obligatoire.", true);
@@ -549,8 +594,20 @@ document.querySelector("#profile-form")?.addEventListener("submit", async (event
       username
     };
 
+    if (avatarFile) {
+      payload.avatar_url = await uploadProfileAvatar(avatarFile);
+    } else if (currentAvatarUrl) {
+      payload.avatar_url = currentAvatarUrl;
+    }
+
     const { error } = await supabase.from("profiles").upsert(payload);
     if (error) throw error;
+
+    if (payload.avatar_url) {
+      currentAvatarUrl = payload.avatar_url;
+      document.querySelector("#profile-avatar-file").value = "";
+      renderProfileAvatarPreview(currentAvatarUrl);
+    }
 
     if (mediaOutletId) {
       const { error: membershipError } = await supabase.from("profile_media_memberships").upsert(

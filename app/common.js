@@ -595,6 +595,7 @@ async function initCommonLayout() {
   initThemeToggle();
   const statusEl = document.querySelector("#auth-status");
   const navUserValueEl = document.querySelector("#nav-user-value");
+  const navUserAvatarEl = document.querySelector("#nav-user-avatar");
 
   try {
     const session = await getSession();
@@ -624,6 +625,18 @@ async function initCommonLayout() {
       const displayName = String(profile?.username || "").trim() || session.user.email;
       if (navUserValueEl) navUserValueEl.textContent = displayName;
 
+      if (navUserAvatarEl) {
+        const avatarUrl = String(profile?.avatar_url || "").trim();
+        if (avatarUrl) {
+          navUserAvatarEl.src = avatarUrl;
+          navUserAvatarEl.alt = `Photo de profil de ${displayName}`;
+          navUserAvatarEl.hidden = false;
+        } else {
+          navUserAvatarEl.hidden = true;
+          navUserAvatarEl.removeAttribute("src");
+        }
+      }
+
       const managedMediaCount = await getManagedMediaCount(session.user.id);
       const canAccessAdminPage = Boolean(profile?.is_admin) || managedMediaCount > 0;
       setAdminOnlyVisibility(Boolean(profile?.is_admin));
@@ -631,6 +644,10 @@ async function initCommonLayout() {
       initSeasonInfoExperience({ isLoggedIn: true, profileId: profile?.id || session.user.id });
     } else {
       if (navUserValueEl) navUserValueEl.textContent = "";
+      if (navUserAvatarEl) {
+        navUserAvatarEl.hidden = true;
+        navUserAvatarEl.removeAttribute("src");
+      }
       setAdminOnlyVisibility(false);
       setAdminOrManagerVisibility(false);
       initSeasonInfoExperience({ isLoggedIn: false, profileId: "" });

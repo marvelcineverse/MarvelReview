@@ -285,6 +285,16 @@ h3 {
   color: #ffe4e4;
 }
 
+.nav-user-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: middle;
+  margin-right: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
 .nav-user-block small {
   font-size: 0.76rem;
 }
