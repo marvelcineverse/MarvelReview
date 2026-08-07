@@ -635,7 +635,7 @@ document.querySelector("#edit-username-form")?.addEventListener("submit", async 
   }
 
   try {
-    const { error } = await supabase.from("profiles").upsert({ id: session.user.id, username });
+    const { error } = await supabase.from("profiles").update({ username }).eq("id", session.user.id);
     if (error) throw error;
 
     currentUsername = username;
@@ -692,7 +692,7 @@ document.querySelector("#edit-avatar-form")?.addEventListener("submit", async (e
 
   try {
     const avatarUrl = await uploadProfileAvatar(avatarFile);
-    const { error } = await supabase.from("profiles").upsert({ id: session.user.id, avatar_url: avatarUrl });
+    const { error } = await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", session.user.id);
     if (error) throw error;
 
     currentAvatarUrl = avatarUrl;
