@@ -635,7 +635,7 @@ function renderAdminUsers(rows) {
       (row) => `
         <tr>
           <td>${escapeHTML(row.email || "-")}</td>
-          <td>${escapeHTML(row.username || "-")}</td>
+          <td>${row.user_id ? `<a href="/user.html?id=${escapeHTML(row.user_id)}" class="film-link">${escapeHTML(row.username || "-")}</a>` : escapeHTML(row.username || "-")}</td>
           <td><span class="admin-user-status-badge status-${escapeHTML(row.moderation_status || "active")}">${formatStatusLabel(row.moderation_status)}</span></td>
           <td>${escapeHTML(formatAcceptedRules(row.accepted_rules_at))}</td>
           <td>
