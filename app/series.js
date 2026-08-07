@@ -986,10 +986,6 @@ function renderSocialReviewSnippet(reviewValue, entryId, spoilerOptions = {}) {
   if (!fullText) return "";
 
   const { hasSpoiler = false, referenceDate = null } = spoilerOptions;
-  if (isSpoilerCurrentlyBlurred(hasSpoiler, referenceDate)) {
-    return renderReviewParagraph(fullText, { hasSpoiler, referenceDate, className: "social-review-text" });
-  }
-
   const words = fullText.split(/\s+/).filter(Boolean);
   const isTruncated = words.length > SOCIAL_PREVIEW_WORD_LIMIT;
   const isExpanded = state.socialExpandedEntries.has(entryId);
@@ -998,13 +994,24 @@ function renderSocialReviewSnippet(reviewValue, entryId, spoilerOptions = {}) {
     : fullText;
   const textToDisplay = isExpanded ? fullText : previewText;
 
-  return `
-    <p class="social-review-text">${escapeHTML(textToDisplay)}</p>
-    ${isTruncated ? `
+  const toggleButton = isTruncated
+    ? `
       <button type="button" class="ghost-button social-inline-more" data-action="toggle-series-review-preview" data-entry-id="${escapeHTML(entryId)}">
         ${isExpanded ? "Voir moins" : "Voir plus"}
       </button>
-    ` : ""}
+    `
+    : "";
+
+  if (isSpoilerCurrentlyBlurred(hasSpoiler, referenceDate)) {
+    return `
+      ${renderReviewParagraph(textToDisplay, { hasSpoiler, referenceDate, className: "social-review-text" })}
+      ${toggleButton}
+    `;
+  }
+
+  return `
+    <p class="social-review-text">${escapeHTML(textToDisplay)}</p>
+    ${toggleButton}
   `;
 }
 

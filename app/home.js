@@ -578,7 +578,7 @@ function renderLatestActivity(allRows, mediaByUserId) {
       const displayedReview = isReviewExpanded || !reviewPreview.isTruncated
         ? reviewPreview.full
         : reviewPreview.preview;
-      const toggleReviewButton = reviewPreview.full && reviewPreview.isTruncated && !isSpoilerBlurred
+      const toggleReviewButton = reviewPreview.full && reviewPreview.isTruncated
         ? `<button type="button" class="ghost-button social-inline-more" data-action="toggle-activity-review" data-activity-id="${escapeHTML(row.id)}">${isReviewExpanded ? "Voir moins" : "Voir plus"}</button>`
         : "";
       const reviewMarkup = !reviewPreview.full
@@ -586,7 +586,7 @@ function renderLatestActivity(allRows, mediaByUserId) {
         : isSpoilerBlurred
           ? `
             <div class="spoiler-wrap" role="button" tabindex="0" aria-label="Critique masqu&eacute;e car elle contient des spoilers. Survolez ou appuyez pour la r&eacute;v&eacute;ler.">
-              <p class="social-review-text spoiler-text">${escapeHTML(reviewPreview.full).replace(/\n/g, "<br>")}</p>
+              <p class="social-review-text spoiler-text">${escapeHTML(displayedReview).replace(/\n/g, "<br>")}</p>
               <div class="spoiler-badge" aria-hidden="true">
                 <span class="spoiler-badge-title">Spoiler</span>
                 <span class="spoiler-badge-hint">Survolez ou touchez pour r&eacute;v&eacute;ler</span>
