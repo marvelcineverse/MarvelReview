@@ -2100,6 +2100,85 @@ textarea {
   box-shadow: var(--shadow-sm);
 }
 
+.avatar-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-alt);
+  color: var(--muted);
+}
+
+.profile-header {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.profile-header-info {
+  display: grid;
+  gap: 0.55rem;
+  align-content: start;
+  justify-items: start;
+}
+
+.profile-username-display {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+}
+
+.profile-header-photo {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 0.6rem;
+}
+
+.profile-avatar-large {
+  width: 128px;
+  height: 128px;
+  font-size: 2.8rem;
+}
+
+.profile-media-block {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.2rem 0;
+  justify-items: start;
+}
+
+.profile-media-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.profile-media-list:empty {
+  display: none;
+}
+
+.profile-media-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+}
+
+.profile-media-list .fa-circle-check {
+  color: var(--success);
+}
+
+.profile-media-list .fa-hourglass-half {
+  color: var(--warning);
+}
+
+@media (min-width: 700px) {
+  .profile-header {
+    grid-template-columns: 1fr 180px;
+    align-items: start;
+  }
+}
+
 #admin-root {
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   align-items: stretch;

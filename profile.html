@@ -29,34 +29,85 @@
 
       <p id="page-message" class="message" aria-live="polite"></p>
 
-      <section class="card">
-        <form id="profile-form" class="form profile-form">
-          <div id="profile-avatar-preview" class="media-avatar-preview">Pas de photo.</div>
+      <section class="card profile-header">
+        <div class="profile-header-info">
+          <h2 id="profile-username-display" class="profile-username-display"></h2>
+          <button type="button" id="edit-username-button" class="ghost-button">Modifier</button>
 
-          <label>
-            Photo de profil (upload, compress&eacute;e automatiquement)
-            <input id="profile-avatar-file" type="file" accept="image/*" />
-          </label>
+          <p class="film-meta">Email : <strong id="profile-email"></strong></p>
 
-          <p>Email : <strong id="profile-email"></strong></p>
-          <p>Média actuel : <strong id="current-media"></strong></p>
-          <p>Compte admin : <strong id="admin-badge"></strong></p>
+          <div class="profile-media-block">
+            <p class="film-meta">Média(s) actuel(s) :</p>
+            <ul id="profile-media-approved-list" class="profile-media-list"></ul>
+            <ul id="profile-media-pending-list" class="profile-media-list"></ul>
+            <button type="button" id="request-media-button" class="ghost-button">Demander un rattachement</button>
+          </div>
 
-          <label>
-            Nom d'utilisateur / pseudonyme
-            <input id="username" type="text" required minlength="2" maxlength="30" />
-          </label>
+          <p class="film-meta">Compte admin : <strong id="admin-badge"></strong></p>
+        </div>
 
-          <label>
-            Demande de rattachement à un média
-            <select id="media_outlet_id"></select>
-          </label>
-          <p id="media-membership-status" class="status"></p>
-
-          <button type="submit">Sauvegarder</button>
-          <p id="form-message" class="message" aria-live="polite"></p>
-        </form>
+        <div class="profile-header-photo">
+          <div id="profile-avatar-display"></div>
+          <button type="button" id="edit-avatar-button" class="ghost-button">Modifier</button>
+        </div>
       </section>
+
+      <p id="form-message" class="message" aria-live="polite"></p>
+
+      <div id="edit-username-modal" class="season-adjust-modal" hidden>
+        <div class="season-adjust-backdrop" data-modal-close="edit-username-modal"></div>
+        <section class="season-adjust-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-username-title">
+          <h2 id="edit-username-title">Modifier le pseudo</h2>
+          <form id="edit-username-form" class="form">
+            <label>
+              Nom d'utilisateur / pseudonyme
+              <input id="username-input" type="text" required minlength="2" maxlength="30" />
+            </label>
+            <div class="inline-actions">
+              <button type="submit" class="button">Enregistrer</button>
+              <button type="button" class="ghost-button" data-modal-close="edit-username-modal">Annuler</button>
+            </div>
+            <p id="username-modal-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
+      </div>
+
+      <div id="media-request-modal" class="season-adjust-modal" hidden>
+        <div class="season-adjust-backdrop" data-modal-close="media-request-modal"></div>
+        <section class="season-adjust-dialog" role="dialog" aria-modal="true" aria-labelledby="media-request-title">
+          <h2 id="media-request-title">Demande de rattachement à un média</h2>
+          <form id="media-request-form" class="form">
+            <label>
+              Média
+              <select id="media_outlet_id"></select>
+            </label>
+            <div class="inline-actions">
+              <button type="submit" class="button">Envoyer la demande</button>
+              <button type="button" class="ghost-button" data-modal-close="media-request-modal">Annuler</button>
+            </div>
+            <p id="media-request-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
+      </div>
+
+      <div id="edit-avatar-modal" class="season-adjust-modal" hidden>
+        <div class="season-adjust-backdrop" data-modal-close="edit-avatar-modal"></div>
+        <section class="season-adjust-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-avatar-title">
+          <h2 id="edit-avatar-title">Modifier la photo de profil</h2>
+          <div id="profile-avatar-modal-preview" class="media-avatar-preview">Pas de photo.</div>
+          <form id="edit-avatar-form" class="form">
+            <label>
+              Photo de profil (upload, compress&eacute;e automatiquement)
+              <input id="profile-avatar-file" type="file" accept="image/*" />
+            </label>
+            <div class="inline-actions">
+              <button type="submit" class="button">Enregistrer</button>
+              <button type="button" class="ghost-button" data-modal-close="edit-avatar-modal">Annuler</button>
+            </div>
+            <p id="avatar-modal-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
+      </div>
 
       <section class="card">
         <h2>Mot de passe</h2>
