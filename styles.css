@@ -1713,7 +1713,7 @@ textarea {
   text-decoration: underline;
 }
 
-.review-author-avatar {
+.review-author .review-author-avatar {
   width: 32px;
   height: 32px;
   flex: 0 0 auto;
