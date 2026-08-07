@@ -25,7 +25,7 @@
   --border-softer: #cfdbea;
   --border-hover: #c5d3e2;
   --muted: #5b6d81;
-  --overlay: var(--overlay);
+  --overlay: rgba(15, 24, 35, 0.64);
   --scrollbar-thumb: #bfcbda;
   --card-grad-end: #fbfdff;
   --tab-bg: #ecf2f9;
@@ -48,54 +48,6 @@
   --shadow-sm: 0 6px 16px rgba(18, 32, 49, 0.08);
   --shadow: 0 14px 34px rgba(18, 32, 49, 0.1);
   --shadow-lg: 0 24px 48px rgba(18, 32, 49, 0.12);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0f151d;
-    --bg-soft: #131a23;
-    --body-grad-top: #1a1214;
-    --surface: #1a222c;
-    --surface-muted: #1e2731;
-    --surface-alt: #212b36;
-    --surface-hover: #29323d;
-    --text: #e7edf5;
-    --text-soft: #a9b7c6;
-    --text-strong: #f3f6fa;
-    --heading-soft: #b9c8d9;
-    --primary: #ff6b6b;
-    --primary-dark: #ff8a8a;
-    --primary-soft: #3a2020;
-    --primary-soft-text: #ffb4b4;
-    --success: #45c081;
-    --warning: #dba24a;
-    --danger: #e5726b;
-    --border: #2b3541;
-    --border-soft: #29333d;
-    --border-softer: #2e3946;
-    --border-hover: #3a4650;
-    --muted: #93a2b2;
-    --overlay: rgba(4, 7, 11, 0.72);
-    --scrollbar-thumb: #3a4650;
-    --card-grad-end: #171e27;
-    --tab-bg: #202932;
-    --tab-text: #c2cedb;
-    --tab-hover-bg: #29333d;
-    --table-header-start: #33404d;
-    --table-header-end: #262f3a;
-    --status-bg: #1c2734;
-    --status-text: #bcd3ea;
-    --status-border: #2c3c4c;
-    --status-error-bg: #3a2020;
-    --status-error-text: #ffb4b4;
-    --status-error-border: #5a2c2c;
-    --warning-bg: #332510;
-    --warning-border: #5c431c;
-    --warning-text: #eec78a;
-    --shadow-sm: 0 6px 16px rgba(0, 0, 0, 0.32);
-    --shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 24px 48px rgba(0, 0, 0, 0.48);
-  }
 }
 
 :root[data-theme="dark"] {
@@ -473,16 +425,6 @@ select:focus-visible {
 
 .home-title-logo-dark {
   display: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .home-title-logo-light {
-    display: none;
-  }
-
-  :root:not([data-theme="light"]) .home-title-logo-dark {
-    display: block;
-  }
 }
 
 [data-theme="dark"] .home-title-logo-light {
