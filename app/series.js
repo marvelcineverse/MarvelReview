@@ -2,6 +2,7 @@ import { supabase } from "../supabaseClient.js";
 import {
   buildAdminReviewEditButtonMarkup,
   buildDenseRankLabels,
+  buildReviewAuthorMarkup,
   buildSpoilerCheckboxMarkup,
   escapeHTML,
   formatDate,
@@ -462,7 +463,8 @@ function buildSeasonComputationContext(seasonId) {
       count: 0,
       lastCreatedAt: null,
       lastCreatedAtTs: 0,
-      username: null
+      username: null,
+      avatarUrl: null
     };
     current.total += Number(rating.score || 0);
     current.count += 1;
@@ -471,6 +473,7 @@ function buildSeasonComputationContext(seasonId) {
       current.lastCreatedAtTs = createdAtTs;
       current.lastCreatedAt = rating.created_at || null;
       current.username = rating.profiles?.username || current.username;
+      current.avatarUrl = rating.profiles?.avatar_url || current.avatarUrl;
     }
     episodeStatsByUser.set(rating.user_id, current);
   }
@@ -493,7 +496,8 @@ function resolveSeasonUserScoreFromContext(context, userId) {
     total: 0,
     count: 0,
     lastCreatedAt: null,
-    username: null
+    username: null,
+    avatarUrl: null
   };
   const seasonRow = context.seasonRowsByUser.get(userId);
   const manualScore = seasonRow?.manual_score === null || seasonRow?.manual_score === undefined
@@ -514,7 +518,8 @@ function resolveSeasonUserScoreFromContext(context, userId) {
     effectiveScore,
     isComplete,
     statementAt: seasonRow?.created_at || stats.lastCreatedAt || null,
-    username: seasonRow?.profiles?.username || stats.username || "Utilisateur"
+    username: seasonRow?.profiles?.username || stats.username || "Utilisateur",
+    avatarUrl: seasonRow?.profiles?.avatar_url || stats.avatarUrl || null
   };
 }
 
@@ -1050,6 +1055,7 @@ function buildSeriesSocialActivityRows() {
       type: "episode",
       user_id: rating.user_id,
       username: rating.profiles?.username || "Utilisateur",
+      avatar_url: rating.profiles?.avatar_url || null,
       created_at: rating.created_at || null,
       score: Number(rating.score),
       review: rating.review || "",
@@ -1082,6 +1088,7 @@ function buildSeriesSocialActivityRows() {
         type: "season",
         user_id: userId,
         username: resolved.username,
+        avatar_url: resolved.avatarUrl,
         created_at: seasonRow?.created_at || resolved.statementAt,
         score: Number.isFinite(resolved.effectiveScore) ? resolved.effectiveScore : null,
         adjustment: resolved.adjustment,
@@ -1136,7 +1143,7 @@ function renderSeriesReviews(mediaByUserId = new Map()) {
       return `
         <article class="card review-card">
           <div class="review-head">
-            <strong>${escapeHTML(profile.username || "Utilisateur")}</strong>
+            ${buildReviewAuthorMarkup(review.user_id, profile.username, profile.avatar_url)}
             ${mediaLabel ? `<span>${escapeHTML(mediaLabel)}</span>` : ""}
             ${editButton}
           </div>
@@ -1197,7 +1204,7 @@ function renderSeriesSocialActivity(mediaByUserId = new Map()) {
       return `
         <article class="card review-card">
           <div class="review-head">
-            <strong>${escapeHTML(row.username)}</strong>
+            ${buildReviewAuthorMarkup(row.user_id, row.username, row.avatar_url)}
             ${mediaLabel ? `<span>${escapeHTML(mediaLabel)}</span>` : ""}
             ${editButton}
           </div>
@@ -1690,7 +1697,7 @@ async function loadRatingsData() {
     episodeIds.length
       ? fetchAllRowsByIn(
         "episode_ratings",
-        "id, episode_id, user_id, score, review, has_spoiler, created_at, profiles(username)",
+        "id, episode_id, user_id, score, review, has_spoiler, created_at, profiles(username, avatar_url)",
         "episode_id",
         episodeIds
       )
@@ -1698,7 +1705,7 @@ async function loadRatingsData() {
     seasonIds.length
       ? fetchAllRowsByIn(
         "season_user_ratings",
-        "id, season_id, user_id, manual_score, adjustment, review, has_spoiler, created_at, profiles(username)",
+        "id, season_id, user_id, manual_score, adjustment, review, has_spoiler, created_at, profiles(username, avatar_url)",
         "season_id",
         seasonIds
       )
@@ -1706,7 +1713,7 @@ async function loadRatingsData() {
     state.series?.id
       ? fetchAllRowsByEq(
         "series_reviews",
-        "id, series_id, user_id, review, has_spoiler, created_at, profiles(username)",
+        "id, series_id, user_id, review, has_spoiler, created_at, profiles(username, avatar_url)",
         "series_id",
         state.series.id,
         "created_at",

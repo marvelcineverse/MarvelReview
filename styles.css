@@ -1701,6 +1701,24 @@ textarea {
   border-bottom: 1px dashed var(--border-softer);
 }
 
+.review-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.review-author:hover {
+  text-decoration: underline;
+}
+
+.review-author-avatar {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+}
+
 .ghost-button-danger {
   border-color: rgba(201, 63, 63, 0.45);
   color: var(--danger);

@@ -1,6 +1,7 @@
 ﻿import { supabase } from "../supabaseClient.js";
 import {
   buildAdminReviewEditButtonMarkup,
+  buildReviewAuthorMarkup,
   escapeHTML,
   formatDate,
   formatScore,
@@ -192,7 +193,7 @@ function renderRatings(ratings, mediaByUserId) {
       return `
         <article class="card review-card">
           <div class="review-head">
-            <strong>${escapeHTML(profile.username || "Utilisateur")}</strong>
+            ${buildReviewAuthorMarkup(rating.user_id, profile.username, profile.avatar_url)}
             ${mediaLabel ? `<span>${escapeHTML(mediaLabel)}</span>` : ""}
             <span class="score-with-suffix"><span class="score-badge ${getScoreClass(rating.score)}">${formatScore(rating.score)}</span> <span class="score-suffix">/ 10</span></span>
             ${editButton}
@@ -317,7 +318,7 @@ async function loadFilmPage() {
     const ratings = await fetchPagedRows((from, to) =>
       supabase
         .from("ratings")
-        .select("id, user_id, score, review, has_spoiler, created_at, profiles(username)")
+        .select("id, user_id, score, review, has_spoiler, created_at, profiles(username, avatar_url)")
         .eq("film_id", filmId)
         .order("created_at", { ascending: false })
         .range(from, to)

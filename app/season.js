@@ -1,6 +1,7 @@
 import { supabase } from "../supabaseClient.js";
 import {
   buildAdminReviewEditButtonMarkup,
+  buildReviewAuthorMarkup,
   buildSpoilerCheckboxMarkup,
   escapeHTML,
   formatDate,
@@ -572,7 +573,7 @@ function renderSeasonReviews(mediaByUserId = new Map()) {
       return `
         <article class="card review-card">
           <div class="review-head">
-            <strong>${escapeHTML(row.profiles?.username || "Utilisateur")}</strong>
+            ${buildReviewAuthorMarkup(row.user_id, row.profiles?.username, row.profiles?.avatar_url)}
             ${mediaLabel ? `<span>${escapeHTML(mediaLabel)}</span>` : ""}
             ${editButton}
           </div>
@@ -653,7 +654,7 @@ async function loadRatingsData() {
     fetchPagedRows((from, to) =>
       supabase
         .from("season_user_ratings")
-        .select("id, season_id, user_id, manual_score, adjustment, review, has_spoiler, created_at, profiles(username)")
+        .select("id, season_id, user_id, manual_score, adjustment, review, has_spoiler, created_at, profiles(username, avatar_url)")
         .eq("season_id", state.season.id)
         .order("id", { ascending: true })
         .range(from, to)

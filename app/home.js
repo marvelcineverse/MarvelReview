@@ -2,6 +2,7 @@ import { supabase } from "../supabaseClient.js";
 import {
   buildAdminReviewEditButtonMarkup,
   buildDenseRankLabels,
+  buildReviewAuthorMarkup,
   escapeHTML,
   formatDate,
   formatScore,
@@ -420,7 +421,8 @@ function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRa
       count: 0,
       lastActivityAt: null,
       lastActivityAtTs: 0,
-      username: null
+      username: null,
+      avatarUrl: null
     };
     current.total += Number(rating.score || 0);
     current.count += 1;
@@ -430,6 +432,7 @@ function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRa
       current.lastActivityAtTs = activityTs;
       current.lastActivityAt = activityAt;
       current.username = rating.profiles?.username || current.username;
+      current.avatarUrl = rating.profiles?.avatar_url || current.avatarUrl;
     }
     episodeRatingsBySeasonAndUser.set(key, current);
   }
@@ -454,7 +457,8 @@ function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRa
         total: 0,
         count: 0,
         lastActivityAt: null,
-        username: null
+        username: null,
+        avatarUrl: null
       };
       const seasonRow = seasonRowsBySeasonAndUser.get(`${season.id}::${userId}`);
       const manualScore = seasonRow?.manual_score === null || seasonRow?.manual_score === undefined
@@ -477,6 +481,7 @@ function buildSeasonActivityRows(seasons, episodes, episodeRatings, seasonUserRa
         type: "season",
         user_id: userId,
         username: seasonRow?.profiles?.username || stats.username || "Utilisateur",
+        avatar_url: seasonRow?.profiles?.avatar_url || stats.avatarUrl || null,
         activity_at: seasonRow?.updated_at || seasonRow?.created_at || stats.lastActivityAt,
         score: Number.isFinite(effectiveScore) ? effectiveScore : null,
         review: seasonRow?.review || "",
@@ -514,6 +519,7 @@ async function fetchLatestActivityViaApi(limit = LATEST_ACTIVITY_LIMIT) {
       type,
       user_id: row.user_id,
       username: row.username || "Utilisateur",
+      avatar_url: row.avatar_url || null,
       activity_at: row.activity_at || null,
       score: toNumericOrNull(row.score),
       review: row.review || "",
@@ -615,7 +621,7 @@ function renderLatestActivity(allRows, mediaByUserId) {
       return `
         <article class="card review-card">
           <div class="review-head">
-            <strong>${escapeHTML(row.username || "Utilisateur")}</strong>
+            ${buildReviewAuthorMarkup(row.user_id, row.username, row.avatar_url)}
             ${mediaLabel ? `<span>${escapeHTML(mediaLabel)}</span>` : ""}
             ${editButton}
           </div>
@@ -668,10 +674,10 @@ async function loadHomePage() {
       fetchAllRows("media_outlets", "id"),
       fetchAllRows("series_seasons", "id, series_id, name, season_number, start_date, end_date, poster_url"),
       fetchAllRows("series_episodes", "id, season_id, title, episode_number, air_date"),
-      fetchAllRows("episode_ratings", "id, user_id, episode_id, score, review, has_spoiler, created_at, updated_at, profiles(username)"),
-      fetchAllRows("season_user_ratings", "id, user_id, season_id, manual_score, adjustment, review, has_spoiler, created_at, updated_at, profiles(username)"),
-      fetchAllRows("series_reviews", "id, user_id, series_id, review, has_spoiler, created_at, updated_at, profiles(username)"),
-      fetchAllRows("ratings", "id, user_id, film_id, score, review, has_spoiler, created_at, updated_at, profiles(username)"),
+      fetchAllRows("episode_ratings", "id, user_id, episode_id, score, review, has_spoiler, created_at, updated_at, profiles(username, avatar_url)"),
+      fetchAllRows("season_user_ratings", "id, user_id, season_id, manual_score, adjustment, review, has_spoiler, created_at, updated_at, profiles(username, avatar_url)"),
+      fetchAllRows("series_reviews", "id, user_id, series_id, review, has_spoiler, created_at, updated_at, profiles(username, avatar_url)"),
+      fetchAllRows("ratings", "id, user_id, film_id, score, review, has_spoiler, created_at, updated_at, profiles(username, avatar_url)"),
       getSession().then((session) => (session ? getCurrentProfile() : null)).then((profile) => Boolean(profile?.is_admin))
     ]);
     state.isAdmin = isAdmin;
@@ -822,6 +828,7 @@ async function loadHomePage() {
           type: "film",
           user_id: rating.user_id,
           username: rating.profiles?.username || "Utilisateur",
+          avatar_url: rating.profiles?.avatar_url || null,
           activity_at: rating.updated_at || rating.created_at || null,
           score: Number(rating.score),
           review: rating.review || "",
@@ -842,6 +849,7 @@ async function loadHomePage() {
           type: "series",
           user_id: review.user_id,
           username: review.profiles?.username || "Utilisateur",
+          avatar_url: review.profiles?.avatar_url || null,
           activity_at: review.updated_at || review.created_at || null,
           score: null,
           review: review.review || "",
@@ -865,6 +873,7 @@ async function loadHomePage() {
           type: "episode",
           user_id: rating.user_id,
           username: rating.profiles?.username || "Utilisateur",
+          avatar_url: rating.profiles?.avatar_url || null,
           activity_at: rating.updated_at || rating.created_at || null,
           score: Number(rating.score),
           review: rating.review || "",

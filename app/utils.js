@@ -422,3 +422,11 @@ export function renderAvatarInto(selector, url, imgClass) {
   if (!el) return;
   el.innerHTML = buildAvatarMarkup(url, imgClass);
 }
+
+export function buildReviewAuthorMarkup(userId, username, avatarUrl) {
+  const safeUsername = escapeHTML(username || "Utilisateur");
+  const avatar = buildAvatarMarkup(avatarUrl, "avatar review-author-avatar");
+  const tag = userId ? "a" : "span";
+  const hrefAttr = userId ? ` href="/user.html?id=${escapeHTML(userId)}"` : "";
+  return `<${tag} class="review-author"${hrefAttr}>${avatar}<strong>${safeUsername}</strong></${tag}>`;
+}
