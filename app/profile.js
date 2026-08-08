@@ -1,7 +1,7 @@
 import { supabase } from "../supabaseClient.js";
 import { requireAuth } from "./auth.js";
 import { createRankingFilterController } from "./personal-ranking.js";
-import { buildActivityBadgeMarkup, buildLastSignInMarkup, fetchLastActivityAt, getActivityStatus } from "./activity-status.js";
+import { buildActivityBadgeMarkup, buildLastInteractionMarkup, fetchLastInteractionAt, getActivityStatus } from "./activity-status.js";
 import {
   buildDenseRankLabels,
   compressImageFile,
@@ -218,18 +218,14 @@ function renderProfileBioDisplay(bio) {
   el.textContent = bio ? bio : "Aucune description pour l'instant.";
 }
 
-async function renderActivityBadge(userId) {
-  const el = document.querySelector("#profile-activity-badge");
-  if (!el) return;
+async function renderActivitySummary(userId, knownLastSignInAt) {
+  const lastInteractionAt = await fetchLastInteractionAt(userId, { knownLastSignInAt });
 
-  const lastActivityAt = await fetchLastActivityAt(userId);
-  el.innerHTML = buildActivityBadgeMarkup(getActivityStatus(lastActivityAt));
-}
+  const badgeEl = document.querySelector("#profile-activity-badge");
+  if (badgeEl) badgeEl.innerHTML = buildActivityBadgeMarkup(getActivityStatus(lastInteractionAt));
 
-function renderLastSeen(lastSignInAt) {
-  const el = document.querySelector("#profile-last-seen");
-  if (!el) return;
-  el.innerHTML = buildLastSignInMarkup(lastSignInAt);
+  const lastSeenEl = document.querySelector("#profile-last-seen");
+  if (lastSeenEl) lastSeenEl.innerHTML = buildLastInteractionMarkup(lastInteractionAt);
 }
 
 function renderProfileAvatarModalPreview(url) {
@@ -325,7 +321,6 @@ async function loadProfile() {
 
   try {
     await loadMediaOutlets();
-    renderLastSeen(user.last_sign_in_at || null);
 
     const { data, error } = await supabase
       .from("profiles")
@@ -345,7 +340,11 @@ async function loadProfile() {
       renderProfileBioDisplay(currentBio);
     }
 
-    await Promise.all([loadMemberships(user.id), loadPersonalRatings(user.id), renderActivityBadge(user.id)]);
+    await Promise.all([
+      loadMemberships(user.id),
+      loadPersonalRatings(user.id),
+      renderActivitySummary(user.id, user.last_sign_in_at || null)
+    ]);
     document.querySelector("#profile-email").textContent = user.email || "";
   } catch (error) {
     setMessage("#form-message", error.message || "Erreur de chargement profil.", true);

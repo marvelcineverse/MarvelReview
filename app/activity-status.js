@@ -14,6 +14,15 @@ const ACTIVITY_STATUS_LABELS = {
   inactive: "Inactif"
 };
 
+function latestTimestamp(values) {
+  const timestamps = values
+    .map((value) => (value ? new Date(value).getTime() : NaN))
+    .filter((value) => Number.isFinite(value));
+
+  if (!timestamps.length) return null;
+  return new Date(Math.max(...timestamps)).toISOString();
+}
+
 async function fetchLastUpdatedAt(table, userId) {
   const { data, error } = await supabase
     .from(table)
@@ -29,21 +38,31 @@ async function fetchLastUpdatedAt(table, userId) {
 
 export async function fetchLastActivityAt(userId) {
   const results = await Promise.all(ACTIVITY_TABLES.map((table) => fetchLastUpdatedAt(table, userId)));
-  const timestamps = results
-    .map((value) => (value ? new Date(value).getTime() : NaN))
-    .filter((value) => Number.isFinite(value));
-
-  if (!timestamps.length) return null;
-  return new Date(Math.max(...timestamps)).toISOString();
+  return latestTimestamp(results);
 }
 
-export function getActivityStatus(lastActivityAt) {
-  if (!lastActivityAt) return "inactive";
+export async function fetchLastSignInAt(userId) {
+  const { data, error } = await supabase.rpc("api_profile_last_sign_in_at", { p_user_id: userId });
+  if (error) throw error;
+  return data || null;
+}
 
-  const lastActivityTs = new Date(lastActivityAt).getTime();
-  if (!Number.isFinite(lastActivityTs)) return "inactive";
+export async function fetchLastInteractionAt(userId, { knownLastSignInAt } = {}) {
+  const [lastActivityAt, lastSignInAt] = await Promise.all([
+    fetchLastActivityAt(userId),
+    knownLastSignInAt !== undefined ? Promise.resolve(knownLastSignInAt) : fetchLastSignInAt(userId)
+  ]);
 
-  const daysSince = (Date.now() - lastActivityTs) / DAY_MS;
+  return latestTimestamp([lastActivityAt, lastSignInAt]);
+}
+
+export function getActivityStatus(lastInteractionAt) {
+  if (!lastInteractionAt) return "inactive";
+
+  const lastInteractionTs = new Date(lastInteractionAt).getTime();
+  if (!Number.isFinite(lastInteractionTs)) return "inactive";
+
+  const daysSince = (Date.now() - lastInteractionTs) / DAY_MS;
   if (daysSince <= ACTIVE_THRESHOLD_DAYS) return "active";
   if (daysSince <= RECENT_THRESHOLD_DAYS) return "recent";
   return "occasional";
@@ -54,30 +73,23 @@ export function buildActivityBadgeMarkup(status) {
   return `<span class="profile-activity-badge activity-status-${status}">${label}</span>`;
 }
 
-export async function fetchLastSignInAt(userId) {
-  const { data, error } = await supabase.rpc("api_profile_last_sign_in_at", { p_user_id: userId });
-  if (error) throw error;
-  return data || null;
-}
-
-export function buildLastSignInMarkup(lastSignInAt) {
-  const label = lastSignInAt ? `Dernière connexion : ${formatDate(lastSignInAt)}` : "Dernière connexion inconnue";
+export function buildLastInteractionMarkup(lastInteractionAt) {
+  const label = lastInteractionAt
+    ? `Dernière interaction : ${formatDate(lastInteractionAt)}`
+    : "Dernière interaction inconnue";
   return `<small class="film-meta profile-last-seen">${escapeHTML(label)}</small>`;
 }
 
 export async function renderUserActivityInto(userId, { badgeSelector, lastSeenSelector } = {}) {
-  const [lastActivityAt, lastSignInAt] = await Promise.all([
-    fetchLastActivityAt(userId),
-    fetchLastSignInAt(userId)
-  ]);
+  const lastInteractionAt = await fetchLastInteractionAt(userId);
 
   if (badgeSelector) {
     const badgeEl = document.querySelector(badgeSelector);
-    if (badgeEl) badgeEl.innerHTML = buildActivityBadgeMarkup(getActivityStatus(lastActivityAt));
+    if (badgeEl) badgeEl.innerHTML = buildActivityBadgeMarkup(getActivityStatus(lastInteractionAt));
   }
 
   if (lastSeenSelector) {
     const lastSeenEl = document.querySelector(lastSeenSelector);
-    if (lastSeenEl) lastSeenEl.innerHTML = buildLastSignInMarkup(lastSignInAt);
+    if (lastSeenEl) lastSeenEl.innerHTML = buildLastInteractionMarkup(lastInteractionAt);
   }
 }
