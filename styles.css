@@ -122,7 +122,8 @@ body {
 }
 
 body.season-note-info-open,
-body.season-adjust-open {
+body.season-adjust-open,
+body.announcement-open {
   overflow: hidden;
 }
 
@@ -597,6 +598,86 @@ select:focus-visible {
 }
 
 .season-note-info-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.announcement-modal[hidden] {
+  display: none;
+}
+
+.announcement-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.announcement-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay);
+  backdrop-filter: blur(6px);
+}
+
+.announcement-dialog {
+  position: relative;
+  width: min(100%, 720px);
+  max-height: min(calc(100vh - 2rem), 860px);
+  overflow: auto;
+  display: grid;
+  gap: 1.15rem;
+  padding: 1.3rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(226, 54, 54, 0.12), transparent 28%),
+    linear-gradient(180deg, var(--surface) 0%, var(--surface-muted) 100%);
+  box-shadow: 0 28px 60px rgba(15, 24, 35, 0.24);
+}
+
+.announcement-close {
+  position: sticky;
+  top: 0;
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1.5rem;
+  line-height: 1;
+  box-shadow: 0 8px 20px rgba(19, 32, 49, 0.12);
+}
+
+.announcement-close:hover {
+  background: var(--surface-hover);
+  box-shadow: 0 10px 22px rgba(19, 32, 49, 0.14);
+}
+
+.announcement-kicker {
+  margin-bottom: 0.45rem;
+  color: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.announcement-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.announcement-actions {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
@@ -2752,6 +2833,20 @@ a.review-author {
     width: 100%;
   }
 
+  .announcement-dialog {
+    padding: 1rem;
+    border-radius: 20px;
+  }
+
+  .announcement-actions {
+    flex-direction: column-reverse;
+  }
+
+  .announcement-actions .button,
+  .announcement-actions .ghost-button {
+    width: 100%;
+  }
+
   .season-adjust-dialog {
     padding: 1rem;
     border-radius: 20px;
@@ -2894,6 +2989,10 @@ a.review-author {
 
 @media (max-width: 560px) {
   .season-note-info-modal {
+    padding: 0.7rem;
+  }
+
+  .announcement-modal {
     padding: 0.7rem;
   }
 

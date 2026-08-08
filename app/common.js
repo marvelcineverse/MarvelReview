@@ -346,6 +346,144 @@ function initSeasonInfoExperience({ isLoggedIn, profileId }) {
   }
 }
 
+const ANNOUNCEMENT_VERSION = "4.2.0";
+const ANNOUNCEMENT_DISMISSED_KEY = `marvelreview:announcement:dismissed:${ANNOUNCEMENT_VERSION}`;
+const ANNOUNCEMENT_SESSION_KEY = `marvelreview:announcement:session-hidden:${ANNOUNCEMENT_VERSION}`;
+
+function isHomePage(pathname = window.location.pathname) {
+  return normalizePath(pathname) === "/index.html";
+}
+
+function buildAnnouncementStorageKey(baseKey, profileId) {
+  return `${baseKey}:${profileId || "guest"}`;
+}
+
+function ensureAnnouncementModalRoot() {
+  let root = document.querySelector("#announcement-root");
+  if (root) return root;
+
+  root = document.createElement("div");
+  root.id = "announcement-root";
+  root.innerHTML = `
+    <div id="announcement-modal" class="announcement-modal" hidden>
+      <div class="announcement-backdrop" data-announcement-action="close"></div>
+      <section
+        class="announcement-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="announcement-title"
+        aria-describedby="announcement-description"
+      >
+        <button
+          type="button"
+          class="announcement-close"
+          data-announcement-action="close"
+          aria-label="Fermer la fenêtre des nouveautés"
+        >
+          &times;
+        </button>
+        <div class="announcement-copy">
+          <p class="announcement-kicker">Nouveaut&eacute;s - version ${ANNOUNCEMENT_VERSION}</p>
+          <h2 id="announcement-title">Quoi de neuf sur Marvel Review ?</h2>
+          <div id="announcement-description" class="announcement-text">
+            <ul class="announcement-list">
+              <li>Les pages de profil public font leur apparition : classement individuel de chaque utilisateur, consultable directement depuis Classement &gt; Classement par utilisateur gr&acirc;ce &agrave; une recherche dynamique.</li>
+              <li>Le profil s'enrichit : description libre, badge d'activit&eacute; et date de derni&egrave;re connexion.</li>
+              <li>Le mode clair/sombre fait son arriv&eacute;e sur tout le site.</li>
+              <li>Les critiques peuvent d&eacute;sormais &ecirc;tre marqu&eacute;es comme contenant des spoilers.</li>
+              <li>L'interface des s&eacute;ries a &eacute;t&eacute; retravaill&eacute;e.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="announcement-actions">
+          <button type="button" class="ghost-button" data-announcement-action="close">Fermer</button>
+          <button type="button" class="button" data-announcement-action="dismiss">Ne plus afficher</button>
+        </div>
+      </section>
+    </div>
+  `;
+
+  document.body.appendChild(root);
+  return root;
+}
+
+function openAnnouncementModal() {
+  const modal = document.querySelector("#announcement-modal");
+  if (!modal) return;
+
+  modal.hidden = false;
+  document.body.classList.add("announcement-open");
+  document.querySelector(".announcement-close")?.focus();
+}
+
+function closeAnnouncementModal(profileId, rememberForSession = false) {
+  const modal = document.querySelector("#announcement-modal");
+  if (!modal) return;
+
+  if (rememberForSession) {
+    writeStorageValue(
+      window.sessionStorage,
+      buildAnnouncementStorageKey(ANNOUNCEMENT_SESSION_KEY, profileId),
+      "1"
+    );
+  }
+
+  modal.hidden = true;
+  document.body.classList.remove("announcement-open");
+}
+
+function initAnnouncementExperience({ profileId }) {
+  if (!isHomePage()) return;
+
+  const root = ensureAnnouncementModalRoot();
+  const modal = root.querySelector("#announcement-modal");
+  if (!modal) return;
+
+  if (root.dataset.bound !== "1") {
+    root.addEventListener("click", (event) => {
+      const actionSource = event.target.closest("[data-announcement-action]");
+      if (!actionSource) return;
+
+      const { announcementAction } = actionSource.dataset;
+      if (announcementAction === "close") {
+        closeAnnouncementModal(root.dataset.profileId || "", true);
+        return;
+      }
+
+      if (announcementAction === "dismiss") {
+        const activeProfileId = root.dataset.profileId || "";
+        writeStorageValue(
+          window.localStorage,
+          buildAnnouncementStorageKey(ANNOUNCEMENT_DISMISSED_KEY, activeProfileId),
+          "1"
+        );
+        closeAnnouncementModal(activeProfileId, true);
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !modal.hidden) {
+        closeAnnouncementModal(root.dataset.profileId || "", false);
+      }
+    });
+
+    root.dataset.bound = "1";
+  }
+
+  root.dataset.profileId = profileId || "";
+
+  const dismissedKey = buildAnnouncementStorageKey(ANNOUNCEMENT_DISMISSED_KEY, profileId);
+  const sessionKey = buildAnnouncementStorageKey(ANNOUNCEMENT_SESSION_KEY, profileId);
+  const isDismissedForever = readStorageValue(window.localStorage, dismissedKey) === "1";
+  const isHiddenForSession = readStorageValue(window.sessionStorage, sessionKey) === "1";
+
+  if (!isDismissedForever && !isHiddenForSession) {
+    openAnnouncementModal();
+  } else {
+    closeAnnouncementModal(profileId, false);
+  }
+}
+
 function initSpoilerReveal() {
   const toggle = (target) => {
     const wrap = target.closest?.(".spoiler-wrap");
@@ -642,6 +780,7 @@ async function initCommonLayout() {
       setAdminOnlyVisibility(Boolean(profile?.is_admin));
       setAdminOrManagerVisibility(canAccessAdminPage);
       initSeasonInfoExperience({ isLoggedIn: true, profileId: profile?.id || session.user.id });
+      initAnnouncementExperience({ profileId: profile?.id || session.user.id });
     } else {
       if (navUserValueEl) navUserValueEl.textContent = "";
       if (navUserAvatarEl) {
@@ -651,6 +790,7 @@ async function initCommonLayout() {
       setAdminOnlyVisibility(false);
       setAdminOrManagerVisibility(false);
       initSeasonInfoExperience({ isLoggedIn: false, profileId: "" });
+      initAnnouncementExperience({ profileId: "" });
     }
 
     const logoutLink = document.querySelector("#logout-link");
