@@ -388,9 +388,9 @@ function ensureAnnouncementModalRoot() {
           <div id="announcement-description" class="announcement-text">
             <ul class="announcement-list">
               <li>Les pages de profil public font leur apparition : classement individuel de chaque utilisateur, consultable directement depuis Classement &gt; Classement par utilisateur gr&acirc;ce &agrave; une recherche dynamique.</li>
-              <li>Le profil s'enrichit : description libre, badge d'activit&eacute; et date de derni&egrave;re connexion.</li>
+              <li>Le profil s'enrichit : photo de profil, description libre, badge d'activit&eacute; et date de derni&egrave;re connexion.</li>
               <li>Le mode clair/sombre fait son arriv&eacute;e sur tout le site.</li>
-              <li>Les critiques peuvent d&eacute;sormais &ecirc;tre marqu&eacute;es comme contenant des spoilers.</li>
+              <li>Les critiques peuvent d&eacute;sormais &ecirc;tre marqu&eacute;es comme contenant des spoilers, auquel cas elles seront prot&eacute;g&eacute;es sur les 2 premi&egrave;res semaines suivant la sortie d'un contenu.</li>
               <li>L'interface des s&eacute;ries a &eacute;t&eacute; retravaill&eacute;e.</li>
             </ul>
           </div>
