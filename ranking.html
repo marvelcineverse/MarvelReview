@@ -136,13 +136,17 @@
               />
               <ul id="ranking-user-search-results" class="ranking-user-search-results" hidden></ul>
             </div>
-            <p id="ranking-user-search-empty" class="message">
-              Recherche un utilisateur ci-dessus pour afficher son classement.
-            </p>
           </div>
 
           <div id="ranking-user-selected" class="home-stack-chunk" style="display: none;">
-            <a id="ranking-user-selected-link" href="#" class="profile-username-display ranking-user-selected-name"></a>
+            <div class="ranking-user-selected-header">
+              <div id="ranking-user-selected-avatar"></div>
+              <h2 id="ranking-user-selected-name" class="ranking-user-selected-name"></h2>
+              <a id="ranking-user-selected-link" href="#" class="ghost-button ranking-user-selected-profile-link">
+                <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                Voir le profil
+              </a>
+            </div>
 
             <h2>Filtres</h2>
             <div class="inline-actions">

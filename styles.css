@@ -1685,7 +1685,7 @@ select:focus-visible {
 
 .ranking-user-search {
   position: relative;
-  max-width: 420px;
+  width: 100%;
 }
 
 .ranking-user-search-input {
@@ -1744,9 +1744,30 @@ select:focus-visible {
   font-weight: 400;
 }
 
+.ranking-user-selected-header {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.ranking-user-selected-avatar-img {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  font-size: 1.6rem;
+}
+
 .ranking-user-selected-name {
-  display: inline-block;
-  text-decoration: underline;
+  margin: 0;
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ranking-user-selected-profile-link {
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 textarea {

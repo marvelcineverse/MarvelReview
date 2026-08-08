@@ -611,20 +611,21 @@ async function selectRankingUser(userId) {
   const searchInputEl = document.querySelector("#ranking-user-search-input");
   const resultsEl = document.querySelector("#ranking-user-search-results");
   const selectedEl = document.querySelector("#ranking-user-selected");
+  const selectedAvatarEl = document.querySelector("#ranking-user-selected-avatar");
+  const selectedNameEl = document.querySelector("#ranking-user-selected-name");
   const selectedLinkEl = document.querySelector("#ranking-user-selected-link");
-  const emptyMessageEl = document.querySelector("#ranking-user-search-empty");
 
   if (searchInputEl) searchInputEl.value = user.username;
   if (resultsEl) {
     resultsEl.hidden = true;
     resultsEl.innerHTML = "";
   }
-  if (selectedLinkEl) {
-    selectedLinkEl.href = `/user.html?id=${encodeURIComponent(user.id)}`;
-    selectedLinkEl.textContent = user.username;
+  if (selectedAvatarEl) {
+    selectedAvatarEl.innerHTML = buildAvatarMarkup(user.avatarUrl, "avatar ranking-user-selected-avatar-img");
   }
+  if (selectedNameEl) selectedNameEl.textContent = user.username;
+  if (selectedLinkEl) selectedLinkEl.href = `/user.html?id=${encodeURIComponent(user.id)}`;
   if (selectedEl) selectedEl.style.display = "";
-  if (emptyMessageEl) emptyMessageEl.style.display = "none";
 
   try {
     await usersRankingController.load(user.id);
