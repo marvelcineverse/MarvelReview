@@ -16,6 +16,7 @@ import {
 let currentUserId = null;
 let currentUsername = "";
 let currentAvatarUrl = null;
+let currentBio = "";
 const rankingController = createRankingFilterController({ onChange: () => renderPersonalRatings() });
 
 async function loadMediaOutlets() {
@@ -210,6 +211,12 @@ function renderProfileAvatarDisplay(url) {
   renderAvatarInto("#profile-avatar-display", url, "avatar profile-avatar-large");
 }
 
+function renderProfileBioDisplay(bio) {
+  const el = document.querySelector("#profile-bio-display");
+  if (!el) return;
+  el.textContent = bio ? bio : "Aucune description pour l'instant.";
+}
+
 function renderProfileAvatarModalPreview(url) {
   renderAvatarInto("#profile-avatar-modal-preview", url, "avatar media-avatar");
 }
@@ -267,6 +274,12 @@ document.querySelector("#edit-username-button")?.addEventListener("click", () =>
   openModal("edit-username-modal");
 });
 
+document.querySelector("#edit-bio-button")?.addEventListener("click", () => {
+  setMessage("#bio-modal-message", "");
+  document.querySelector("#bio-input").value = currentBio;
+  openModal("edit-bio-modal");
+});
+
 document.querySelector("#request-media-button")?.addEventListener("click", () => {
   setMessage("#media-request-message", "");
   document.querySelector("#media_outlet_id").value = "";
@@ -300,7 +313,7 @@ async function loadProfile() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, username, is_admin, avatar_url")
+      .select("id, username, is_admin, avatar_url, bio")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -312,6 +325,8 @@ async function loadProfile() {
       document.querySelector("#admin-badge").textContent = data.is_admin ? "Oui" : "Non";
       currentAvatarUrl = data.avatar_url || null;
       renderProfileAvatarDisplay(currentAvatarUrl);
+      currentBio = data.bio || "";
+      renderProfileBioDisplay(currentBio);
     }
 
     await Promise.all([loadMemberships(user.id), loadPersonalRatings(user.id)]);
@@ -342,6 +357,26 @@ document.querySelector("#edit-username-form")?.addEventListener("submit", async 
     closeModal("edit-username-modal");
   } catch (error) {
     setMessage("#username-modal-message", error.message || "Sauvegarde impossible.", true);
+  }
+});
+
+document.querySelector("#edit-bio-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const session = await requireAuth("/login.html");
+  if (!session) return;
+
+  const bio = document.querySelector("#bio-input").value.trim();
+
+  try {
+    const { error } = await supabase.from("profiles").update({ bio: bio || null }).eq("id", session.user.id);
+    if (error) throw error;
+
+    currentBio = bio;
+    renderProfileBioDisplay(currentBio);
+    closeModal("edit-bio-modal");
+  } catch (error) {
+    setMessage("#bio-modal-message", error.message || "Sauvegarde impossible.", true);
   }
 });
 

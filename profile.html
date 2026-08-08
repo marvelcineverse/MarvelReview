@@ -36,6 +36,12 @@
 
           <p class="film-meta">Email : <strong id="profile-email"></strong></p>
 
+          <div class="profile-bio-block">
+            <p class="film-meta">Description :</p>
+            <p id="profile-bio-display" class="profile-bio-text"></p>
+            <button type="button" id="edit-bio-button" class="ghost-button">Modifier</button>
+          </div>
+
           <div class="profile-media-block">
             <p class="film-meta">Média(s) actuel(s) :</p>
             <ul id="profile-media-approved-list" class="profile-media-list"></ul>
@@ -69,6 +75,24 @@
               <button type="button" class="ghost-button" data-modal-close="edit-username-modal">Annuler</button>
             </div>
             <p id="username-modal-message" class="message" aria-live="polite"></p>
+          </form>
+        </section>
+      </div>
+
+      <div id="edit-bio-modal" class="season-adjust-modal" hidden>
+        <div class="season-adjust-backdrop" data-modal-close="edit-bio-modal"></div>
+        <section class="season-adjust-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-bio-title">
+          <h2 id="edit-bio-title">Modifier la description</h2>
+          <form id="edit-bio-form" class="form">
+            <label>
+              Description (visible par les autres utilisateurs sur ta page profil publique)
+              <textarea id="bio-input" maxlength="500" rows="5" placeholder="Présente-toi en quelques mots..."></textarea>
+            </label>
+            <div class="inline-actions">
+              <button type="submit" class="button">Enregistrer</button>
+              <button type="button" class="ghost-button" data-modal-close="edit-bio-modal">Annuler</button>
+            </div>
+            <p id="bio-modal-message" class="message" aria-live="polite"></p>
           </form>
         </section>
       </div>

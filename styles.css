@@ -824,6 +824,15 @@ select:focus-visible {
   font-size: 0.91rem;
 }
 
+.home-version-info {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.home-version-info p {
+  margin: 0;
+}
+
 .justwatch-widget-block {
   margin-top: 1.1rem;
 }
@@ -2320,6 +2329,19 @@ a.review-author {
 
 .profile-media-list .fa-hourglass-half {
   color: var(--warning);
+}
+
+.profile-bio-block {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.2rem 0;
+  justify-items: start;
+  max-width: 60ch;
+}
+
+.profile-bio-text {
+  margin: 0;
+  white-space: pre-wrap;
 }
 
 @media (min-width: 700px) {

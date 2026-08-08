@@ -104,7 +104,7 @@ async function loadUserProfile() {
   try {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, username, avatar_url")
+      .select("id, username, avatar_url, bio")
       .eq("id", userId)
       .maybeSingle();
 
@@ -118,6 +118,14 @@ async function loadUserProfile() {
     document.querySelector("#profile-username-display").textContent = username;
     document.querySelector("#user-ranking-title").textContent = `Classement de ${username}`;
     renderAvatarInto("#profile-avatar-display", data.avatar_url, "avatar profile-avatar-large");
+
+    const bioBlockEl = document.querySelector("#profile-bio-block");
+    const bioDisplayEl = document.querySelector("#profile-bio-display");
+    if (bioBlockEl && bioDisplayEl) {
+      const bio = String(data.bio || "").trim();
+      bioDisplayEl.textContent = bio;
+      bioBlockEl.style.display = bio ? "" : "none";
+    }
 
     await Promise.all([loadMemberships(data.id), rankingController.load(data.id)]);
   } catch (error) {

@@ -18,12 +18,18 @@ alter table public.profiles add column if not exists avatar_url text;
 alter table public.profiles add column if not exists moderation_status text not null default 'active';
 alter table public.profiles add column if not exists moderation_note text;
 alter table public.profiles add column if not exists accepted_rules_at timestamptz;
+alter table public.profiles add column if not exists bio text;
 alter table public.profiles drop column if exists media;
 
 alter table public.profiles drop constraint if exists profiles_moderation_status_check;
 alter table public.profiles
   add constraint profiles_moderation_status_check
   check (moderation_status in ('active', 'suspended', 'banned'));
+
+alter table public.profiles drop constraint if exists profiles_bio_length_check;
+alter table public.profiles
+  add constraint profiles_bio_length_check
+  check (bio is null or char_length(bio) <= 500);
 
 create table if not exists public.media_outlets (
   id uuid primary key default gen_random_uuid(),
