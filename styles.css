@@ -1670,17 +1670,55 @@ select:focus-visible {
 }
 
 .admin-searchable-select {
+  position: relative;
   display: grid;
   gap: 0.45rem;
 }
 
 .admin-searchable-select-input {
+  width: 100%;
   padding-block: 0.52rem;
   background: linear-gradient(180deg, var(--card-grad-end) 0%, var(--surface-alt) 100%);
 }
 
+.admin-searchable-select-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.admin-searchable-select-result {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-searchable-select-result:hover,
+.admin-searchable-select-result:focus-visible {
+  background: var(--surface-alt);
+  outline: none;
+}
+
 .admin-searchable-select-empty {
-  margin-top: -0.1rem;
+  margin-top: 0.4rem;
 }
 
 .ranking-user-search {

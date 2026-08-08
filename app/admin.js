@@ -90,48 +90,46 @@ function normalizeSearchText(value) {
     .trim();
 }
 
-function renderSearchableSelectOptions(selectId) {
+function getSelectedOptionLabel(selectId) {
   const selectEl = document.querySelector(`#${selectId}`);
   const controller = searchableSelectState.get(selectId);
-  if (!selectEl || !controller) return;
+  if (!selectEl || !controller) return "";
 
-  const query = normalizeSearchText(controller.input?.value || "");
+  const current = (controller.allOptions || []).find((option) => option.value === (selectEl.value || ""));
+  return current ? current.label : "";
+}
+
+function renderSearchableSelectResults(selectId, query) {
+  const controller = searchableSelectState.get(selectId);
+  if (!controller) return;
+
+  const normalizedQuery = normalizeSearchText(query);
   const allOptions = controller.allOptions || [];
-  const currentValue = controller.pendingValue ?? selectEl.value ?? "";
-
-  let visibleOptions = !query
+  const matches = !normalizedQuery
     ? allOptions
-    : allOptions.filter((option) => normalizeSearchText(option.label).includes(query));
+    : allOptions.filter((option) => normalizeSearchText(option.label).includes(normalizedQuery));
 
-  if (!visibleOptions.length && allOptions.length) {
-    visibleOptions = allOptions.filter((option) => option.value === "");
+  if (!matches.length) {
+    controller.resultsEl.hidden = true;
+    controller.resultsEl.innerHTML = "";
+    if (controller.emptyState) controller.emptyState.hidden = !normalizedQuery || !allOptions.length;
+    return;
   }
 
-  selectEl.innerHTML = visibleOptions
-    .map((option) => {
-      const selectedAttr = option.value === currentValue ? ` selected="selected"` : "";
-      const disabledAttr = option.disabled ? ` disabled="disabled"` : "";
-      return `<option value="${escapeHTML(option.value)}"${selectedAttr}${disabledAttr}>${escapeHTML(option.label)}</option>`;
-    })
+  if (controller.emptyState) controller.emptyState.hidden = true;
+
+  controller.resultsEl.innerHTML = matches
+    .map(
+      (option) => `
+        <li>
+          <button type="button" class="admin-searchable-select-result" data-value="${escapeHTML(option.value)}">
+            ${escapeHTML(option.label)}
+          </button>
+        </li>
+      `
+    )
     .join("");
-
-  if (visibleOptions.some((option) => option.value === currentValue)) {
-    selectEl.value = currentValue;
-  } else if (visibleOptions.length) {
-    selectEl.value = visibleOptions[0].value;
-  } else {
-    selectEl.value = "";
-  }
-
-  const hasNonEmptyChoice = allOptions.some((option) => option.value !== "");
-  if (controller.input) {
-    controller.input.disabled = !hasNonEmptyChoice;
-    controller.input.placeholder = hasNonEmptyChoice ? "Tape pour filtrer..." : "Aucune option disponible";
-  }
-
-  if (controller.emptyState) {
-    controller.emptyState.hidden = visibleOptions.length > 0 || !query;
-  }
+  controller.resultsEl.hidden = false;
 }
 
 function syncSearchableSelect(selectId) {
@@ -139,9 +137,20 @@ function syncSearchableSelect(selectId) {
   const controller = searchableSelectState.get(selectId);
   if (!selectEl || !controller) return;
 
-  controller.pendingValue = selectEl.value || "";
   controller.allOptions = getSelectOptionRecords(selectEl);
-  renderSearchableSelectOptions(selectId);
+
+  const hasNonEmptyChoice = controller.allOptions.some((option) => option.value !== "");
+  if (controller.input) {
+    controller.input.disabled = !hasNonEmptyChoice;
+    controller.input.placeholder = hasNonEmptyChoice ? "Tape pour rechercher..." : "Aucune option disponible";
+    if (document.activeElement !== controller.input) {
+      controller.input.value = getSelectedOptionLabel(selectId);
+    }
+  }
+
+  if (controller.resultsEl && !controller.resultsEl.hidden) {
+    renderSearchableSelectResults(selectId, controller.input?.value || "");
+  }
 }
 
 function initSearchableSelect(selectId) {
@@ -154,10 +163,14 @@ function initSearchableSelect(selectId) {
   const input = document.createElement("input");
   input.type = "search";
   input.className = "admin-searchable-select-input";
-  input.placeholder = "Tape pour filtrer...";
+  input.placeholder = "Tape pour rechercher...";
   input.setAttribute("autocomplete", "off");
   input.setAttribute("spellcheck", "false");
   input.setAttribute("aria-label", "Rechercher dans la liste");
+
+  const resultsEl = document.createElement("ul");
+  resultsEl.className = "admin-searchable-select-results";
+  resultsEl.hidden = true;
 
   const emptyState = document.createElement("small");
   emptyState.className = "admin-searchable-select-empty film-meta";
@@ -166,38 +179,64 @@ function initSearchableSelect(selectId) {
 
   selectEl.parentNode.insertBefore(wrapper, selectEl);
   wrapper.appendChild(input);
-  wrapper.appendChild(selectEl);
+  wrapper.appendChild(resultsEl);
   wrapper.appendChild(emptyState);
+  wrapper.appendChild(selectEl);
+  selectEl.classList.add("sr-only");
 
   searchableSelectState.set(selectId, {
     input,
+    resultsEl,
     emptyState,
-    allOptions: [],
-    pendingValue: selectEl.value || ""
+    allOptions: []
+  });
+
+  input.addEventListener("focus", () => {
+    input.select();
+    renderSearchableSelectResults(selectId, "");
   });
 
   input.addEventListener("input", () => {
-    const controller = searchableSelectState.get(selectId);
-    if (!controller) return;
-    controller.pendingValue = selectEl.value || "";
-    renderSearchableSelectOptions(selectId);
+    renderSearchableSelectResults(selectId, input.value);
   });
 
   input.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
-    input.value = "";
-    const controller = searchableSelectState.get(selectId);
-    if (!controller) return;
-    controller.pendingValue = selectEl.value || "";
-    renderSearchableSelectOptions(selectId);
+    resultsEl.hidden = true;
+    emptyState.hidden = true;
+    input.value = getSelectedOptionLabel(selectId);
+  });
+
+  input.addEventListener("blur", () => {
+    resultsEl.hidden = true;
+    emptyState.hidden = true;
+    input.value = getSelectedOptionLabel(selectId);
+  });
+
+  resultsEl.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+  });
+
+  resultsEl.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-value]");
+    if (!button) return;
+
+    selectEl.value = button.dataset.value;
+    selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+
+    resultsEl.hidden = true;
+    emptyState.hidden = true;
+    input.value = getSelectedOptionLabel(selectId);
   });
 
   selectEl.addEventListener("change", () => {
-    const controller = searchableSelectState.get(selectId);
-    if (!controller) return;
-    controller.pendingValue = selectEl.value || "";
-    input.value = "";
-    renderSearchableSelectOptions(selectId);
+    input.value = getSelectedOptionLabel(selectId);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (wrapper.contains(event.target)) return;
+    resultsEl.hidden = true;
+    emptyState.hidden = true;
   });
 
   syncSearchableSelect(selectId);
