@@ -10,6 +10,7 @@ import {
 } from "./utils.js";
 import { getSession } from "./auth.js";
 import { createRankingFilterController } from "./personal-ranking.js";
+import { renderUserActivityInto } from "./activity-status.js";
 
 const state = {
   currentUserId: null,
@@ -628,7 +629,13 @@ async function selectRankingUser(userId) {
   if (selectedEl) selectedEl.style.display = "";
 
   try {
-    await usersRankingController.load(user.id);
+    await Promise.all([
+      usersRankingController.load(user.id),
+      renderUserActivityInto(user.id, {
+        badgeSelector: "#ranking-user-selected-badge",
+        lastSeenSelector: "#ranking-user-selected-last-seen"
+      })
+    ]);
   } catch (error) {
     setMessage("#page-message", error.message || "Erreur de chargement du classement de l'utilisateur.", true);
   }

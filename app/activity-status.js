@@ -1,4 +1,5 @@
 import { supabase } from "../supabaseClient.js";
+import { escapeHTML, formatDate } from "./utils.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ACTIVE_THRESHOLD_DAYS = 30;
@@ -51,4 +52,32 @@ export function getActivityStatus(lastActivityAt) {
 export function buildActivityBadgeMarkup(status) {
   const label = ACTIVITY_STATUS_LABELS[status] || ACTIVITY_STATUS_LABELS.inactive;
   return `<span class="profile-activity-badge activity-status-${status}">${label}</span>`;
+}
+
+export async function fetchLastSignInAt(userId) {
+  const { data, error } = await supabase.rpc("api_profile_last_sign_in_at", { p_user_id: userId });
+  if (error) throw error;
+  return data || null;
+}
+
+export function buildLastSignInMarkup(lastSignInAt) {
+  const label = lastSignInAt ? `Dernière connexion : ${formatDate(lastSignInAt)}` : "Dernière connexion inconnue";
+  return `<small class="film-meta profile-last-seen">${escapeHTML(label)}</small>`;
+}
+
+export async function renderUserActivityInto(userId, { badgeSelector, lastSeenSelector } = {}) {
+  const [lastActivityAt, lastSignInAt] = await Promise.all([
+    fetchLastActivityAt(userId),
+    fetchLastSignInAt(userId)
+  ]);
+
+  if (badgeSelector) {
+    const badgeEl = document.querySelector(badgeSelector);
+    if (badgeEl) badgeEl.innerHTML = buildActivityBadgeMarkup(getActivityStatus(lastActivityAt));
+  }
+
+  if (lastSeenSelector) {
+    const lastSeenEl = document.querySelector(lastSeenSelector);
+    if (lastSeenEl) lastSeenEl.innerHTML = buildLastSignInMarkup(lastSignInAt);
+  }
 }

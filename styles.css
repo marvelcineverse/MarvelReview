@@ -1805,11 +1805,17 @@ select:focus-visible {
   font-size: 1.6rem;
 }
 
+.ranking-user-selected-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .ranking-user-selected-name {
   margin: 0;
   font-size: clamp(1.4rem, 3vw, 1.9rem);
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 .ranking-user-selected-profile-link {
@@ -2289,6 +2295,17 @@ a.review-author {
   align-items: center;
   gap: 0.65rem;
   flex-wrap: wrap;
+}
+
+.profile-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.profile-status-row:empty {
+  display: none;
 }
 
 .profile-activity-badge {

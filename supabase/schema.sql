@@ -3082,7 +3082,20 @@ as $$
   limit greatest(coalesce(p_limit, 20), 0);
 $$;
 
+create or replace function public.api_profile_last_sign_in_at(p_user_id uuid)
+returns timestamptz
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+  select u.last_sign_in_at
+  from auth.users u
+  where u.id = p_user_id;
+$$;
+
 grant execute on function public.api_film_catalog() to anon, authenticated;
+grant execute on function public.api_profile_last_sign_in_at(uuid) to anon, authenticated;
 grant execute on function public.api_latest_activity(integer) to anon, authenticated;
 grant execute on function public.api_film_score(text, text, text) to anon, authenticated;
 grant execute on function public.api_film_reviews(text, text, text, integer, integer) to anon, authenticated;

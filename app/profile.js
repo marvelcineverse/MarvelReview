@@ -1,7 +1,7 @@
 import { supabase } from "../supabaseClient.js";
 import { requireAuth } from "./auth.js";
 import { createRankingFilterController } from "./personal-ranking.js";
-import { buildActivityBadgeMarkup, fetchLastActivityAt, getActivityStatus } from "./activity-status.js";
+import { buildActivityBadgeMarkup, buildLastSignInMarkup, fetchLastActivityAt, getActivityStatus } from "./activity-status.js";
 import {
   buildDenseRankLabels,
   compressImageFile,
@@ -226,6 +226,12 @@ async function renderActivityBadge(userId) {
   el.innerHTML = buildActivityBadgeMarkup(getActivityStatus(lastActivityAt));
 }
 
+function renderLastSeen(lastSignInAt) {
+  const el = document.querySelector("#profile-last-seen");
+  if (!el) return;
+  el.innerHTML = buildLastSignInMarkup(lastSignInAt);
+}
+
 function renderProfileAvatarModalPreview(url) {
   renderAvatarInto("#profile-avatar-modal-preview", url, "avatar media-avatar");
 }
@@ -319,6 +325,7 @@ async function loadProfile() {
 
   try {
     await loadMediaOutlets();
+    renderLastSeen(user.last_sign_in_at || null);
 
     const { data, error } = await supabase
       .from("profiles")
