@@ -1,6 +1,7 @@
 import { supabase } from "../supabaseClient.js";
 import {
   escapeHTML,
+  buildAvatarMarkup,
   buildDenseRankLabels,
   formatScore,
   getScoreClass,
@@ -8,6 +9,7 @@ import {
   setMessage
 } from "./utils.js";
 import { getSession } from "./auth.js";
+import { createRankingFilterController } from "./personal-ranking.js";
 
 const state = {
   currentUserId: null,
@@ -58,6 +60,21 @@ async function fetchAllRows(table, columns) {
 
   return rows;
 }
+
+const usersTabState = {
+  directory: [],
+  directoryPromise: null,
+  selectedUser: null
+};
+
+const usersRankingController = createRankingFilterController({
+  filmsFilterSelector: "#filter-films-users",
+  seriesFilterSelector: "#filter-series-users",
+  franchiseFilterSelector: "#ranking-franchise-filter-users",
+  phaseFilterSelector: "#ranking-phase-filter-users",
+  phaseFilterWrapSelector: "#ranking-phase-filter-wrap-users",
+  onChange: () => renderUsersRanking()
+});
 
 function fillSelect(selectEl, values, allLabel) {
   if (!selectEl) return;
@@ -433,6 +450,238 @@ function renderMyRanking() {
     .join("");
 }
 
+function renderUsersRanking() {
+  const bodyEl = document.querySelector("#ranking-users-body");
+  if (!bodyEl || !usersTabState.selectedUser) return;
+
+  const filteredRows = usersRankingController.getFilteredRows();
+
+  if (!filteredRows.length) {
+    bodyEl.innerHTML = `<tr><td colspan="3">Aucun élément pour ce filtre.</td></tr>`;
+    return;
+  }
+
+  const sortedRows = [...filteredRows].sort((a, b) => {
+    const aRated = a.score !== null;
+    const bRated = b.score !== null;
+
+    if (aRated && bRated) {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.title.localeCompare(b.title, "fr");
+    }
+    if (aRated) return -1;
+    if (bRated) return 1;
+
+    const aTs = a.sort_date ? new Date(a.sort_date).getTime() : Number.POSITIVE_INFINITY;
+    const bTs = b.sort_date ? new Date(b.sort_date).getTime() : Number.POSITIVE_INFINITY;
+    if (aTs !== bTs) return aTs - bTs;
+    return a.title.localeCompare(b.title, "fr");
+  });
+
+  const rankLabels = buildDenseRankLabels(sortedRows, (row) => row.score, 2);
+
+  bodyEl.innerHTML = sortedRows
+    .map((row, index) => {
+      const rank = row.score === null ? "-" : rankLabels[index];
+      const badge = row.score === null
+        ? `<span class="score-badge stade-neutre">Pas not&eacute;</span>`
+        : `<span class="score-with-suffix"><span class="score-badge ${getScoreClass(row.score)}">${formatScore(row.score)}</span> <span class="score-suffix">/ 10</span></span>`;
+      const typeLabel = row.type === "film" ? "Film" : "Série";
+      const href = row.type === "film"
+        ? `/film.html?id=${row.film_id}`
+        : row.type === "season_phase"
+          ? `/season.html?id=${row.season_id}`
+          : `/series.html?id=${row.series_id}`;
+
+      return `
+        <tr>
+          <td>${rank}</td>
+          <td>
+            <a href="${href}" class="film-link">${escapeHTML(row.title)}</a>
+            <small>(${escapeHTML(row.type === "season_phase" ? "Saison" : typeLabel)}${row.phase ? ` - ${escapeHTML(row.phase)}` : ""})</small>
+          </td>
+          <td>${badge}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+async function fetchApprovedMediaMemberships() {
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from("profile_media_memberships")
+      .select("profile_id, media_outlets(name)")
+      .eq("status", "approved")
+      .order("id", { ascending: true })
+      .range(from, to);
+
+    if (error) throw error;
+    const chunk = data || [];
+    rows.push(...chunk);
+    if (chunk.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
+function normalizeSearchText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(new RegExp("[\\u0300-\\u036f]", "g"), "")
+    .toLowerCase()
+    .trim();
+}
+
+async function ensureUserDirectoryLoaded() {
+  if (!usersTabState.directoryPromise) {
+    usersTabState.directoryPromise = (async () => {
+      const [profiles, memberships] = await Promise.all([
+        fetchAllRows("profiles", "id, username, avatar_url"),
+        fetchApprovedMediaMemberships()
+      ]);
+
+      const mediaNamesByProfileId = new Map();
+      for (const row of memberships || []) {
+        const name = row.media_outlets?.name;
+        if (!name) continue;
+        const names = mediaNamesByProfileId.get(row.profile_id) || [];
+        names.push(name);
+        mediaNamesByProfileId.set(row.profile_id, names);
+      }
+
+      usersTabState.directory = (profiles || [])
+        .map((profile) => {
+          const username = profile.username || "Utilisateur";
+          const mediaLabel = (mediaNamesByProfileId.get(profile.id) || []).join(", ");
+          return {
+            id: profile.id,
+            username,
+            avatarUrl: profile.avatar_url || "",
+            mediaLabel,
+            searchText: normalizeSearchText(`${username} ${mediaLabel}`)
+          };
+        })
+        .sort((a, b) => a.username.localeCompare(b.username, "fr"));
+    })().catch((error) => {
+      usersTabState.directoryPromise = null;
+      throw error;
+    });
+  }
+
+  return usersTabState.directoryPromise;
+}
+
+function renderUserSearchResults(users) {
+  const resultsEl = document.querySelector("#ranking-user-search-results");
+  if (!resultsEl) return;
+
+  if (!users.length) {
+    resultsEl.hidden = true;
+    resultsEl.innerHTML = "";
+    return;
+  }
+
+  resultsEl.innerHTML = users
+    .map(
+      (user) => `
+        <li>
+          <button type="button" class="ranking-user-search-result" data-user-id="${escapeHTML(user.id)}">
+            ${buildAvatarMarkup(user.avatarUrl, "avatar")}
+            <span>${escapeHTML(user.username)}${user.mediaLabel ? ` <span class="ranking-user-search-result-media">(${escapeHTML(user.mediaLabel)})</span>` : ""}</span>
+          </button>
+        </li>
+      `
+    )
+    .join("");
+  resultsEl.hidden = false;
+}
+
+async function selectRankingUser(userId) {
+  const user = usersTabState.directory.find((entry) => entry.id === userId);
+  if (!user) return;
+
+  usersTabState.selectedUser = user;
+
+  const searchInputEl = document.querySelector("#ranking-user-search-input");
+  const resultsEl = document.querySelector("#ranking-user-search-results");
+  const selectedEl = document.querySelector("#ranking-user-selected");
+  const selectedLinkEl = document.querySelector("#ranking-user-selected-link");
+  const emptyMessageEl = document.querySelector("#ranking-user-search-empty");
+
+  if (searchInputEl) searchInputEl.value = user.username;
+  if (resultsEl) {
+    resultsEl.hidden = true;
+    resultsEl.innerHTML = "";
+  }
+  if (selectedLinkEl) {
+    selectedLinkEl.href = `/user.html?id=${encodeURIComponent(user.id)}`;
+    selectedLinkEl.textContent = user.username;
+  }
+  if (selectedEl) selectedEl.style.display = "";
+  if (emptyMessageEl) emptyMessageEl.style.display = "none";
+
+  try {
+    await usersRankingController.load(user.id);
+  } catch (error) {
+    setMessage("#page-message", error.message || "Erreur de chargement du classement de l'utilisateur.", true);
+  }
+}
+
+function bindUserSearch() {
+  const searchInputEl = document.querySelector("#ranking-user-search-input");
+  const resultsEl = document.querySelector("#ranking-user-search-results");
+  if (!searchInputEl || !resultsEl) return;
+
+  searchInputEl.addEventListener("focus", () => {
+    ensureUserDirectoryLoaded().catch((error) => {
+      setMessage("#page-message", error.message || "Erreur de chargement des utilisateurs.", true);
+    });
+  });
+
+  searchInputEl.addEventListener("input", async () => {
+    try {
+      await ensureUserDirectoryLoaded();
+    } catch (error) {
+      setMessage("#page-message", error.message || "Erreur de chargement des utilisateurs.", true);
+      return;
+    }
+
+    const query = normalizeSearchText(searchInputEl.value);
+    if (!query) {
+      renderUserSearchResults([]);
+      return;
+    }
+
+    const matches = usersTabState.directory
+      .filter((user) => user.searchText.includes(query))
+      .slice(0, 20);
+    renderUserSearchResults(matches);
+  });
+
+  resultsEl.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-user-id]");
+    if (!button) return;
+    selectRankingUser(button.dataset.userId);
+  });
+
+  searchInputEl.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    searchInputEl.value = "";
+    renderUserSearchResults([]);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (event.target === searchInputEl || resultsEl.contains(event.target)) return;
+    resultsEl.hidden = true;
+  });
+}
+
 function setupFilterOptions() {
   const franchises = Array.from(
     new Set(
@@ -502,7 +751,13 @@ function bindRankingTabs() {
 
   tabButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      activate(button.dataset.tabTarget || "mine");
+      const target = button.dataset.tabTarget || "mine";
+      activate(target);
+      if (target === "users") {
+        ensureUserDirectoryLoaded().catch((error) => {
+          setMessage("#page-message", error.message || "Erreur de chargement des utilisateurs.", true);
+        });
+      }
     });
   });
 
@@ -554,5 +809,6 @@ async function loadRanking() {
 
 bindFilters();
 bindMyFilters();
+bindUserSearch();
 bindRankingTabs();
 loadRanking();

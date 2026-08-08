@@ -1683,6 +1683,72 @@ select:focus-visible {
   margin-top: -0.1rem;
 }
 
+.ranking-user-search {
+  position: relative;
+  max-width: 420px;
+}
+
+.ranking-user-search-input {
+  width: 100%;
+  padding-block: 0.58rem;
+  background: linear-gradient(180deg, var(--card-grad-end) 0%, var(--surface-alt) 100%);
+}
+
+.ranking-user-search-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.ranking-user-search-result {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ranking-user-search-result:hover,
+.ranking-user-search-result:focus-visible {
+  background: var(--surface-alt);
+  outline: none;
+}
+
+.ranking-user-search-result .avatar {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  font-size: 0.95rem;
+}
+
+.ranking-user-search-result-media {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.ranking-user-selected-name {
+  display: inline-block;
+  text-decoration: underline;
+}
+
 textarea {
   width: 100%;
   min-height: 170px;

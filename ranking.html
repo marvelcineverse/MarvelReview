@@ -122,9 +122,67 @@
         </section>
 
         <section class="creation-panel" data-tab-panel="users">
-          <div class="ranking-under-construction">
-            <p class="ranking-under-construction-emoji" aria-hidden="true">&#x1F6A7; &#x1F477; &#x1F3D7;&#xFE0F;</p>
-            <p>Page en cours de construction.</p>
+          <div class="home-stack-chunk">
+            <h2>Rechercher un utilisateur</h2>
+            <div class="ranking-user-search">
+              <input
+                id="ranking-user-search-input"
+                type="search"
+                class="ranking-user-search-input"
+                placeholder="Tape le pseudo d'un utilisateur..."
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="Rechercher un utilisateur"
+              />
+              <ul id="ranking-user-search-results" class="ranking-user-search-results" hidden></ul>
+            </div>
+            <p id="ranking-user-search-empty" class="message">
+              Recherche un utilisateur ci-dessus pour afficher son classement.
+            </p>
+          </div>
+
+          <div id="ranking-user-selected" class="home-stack-chunk" style="display: none;">
+            <a id="ranking-user-selected-link" href="#" class="profile-username-display ranking-user-selected-name"></a>
+
+            <h2>Filtres</h2>
+            <div class="inline-actions">
+              <label class="checkbox-inline">
+                <input id="filter-films-users" type="checkbox" checked />
+                Films
+              </label>
+              <label class="checkbox-inline">
+                <input id="filter-series-users" type="checkbox" checked />
+                S&eacute;ries
+              </label>
+            </div>
+            <div class="filters-grid ranking-filters-grid">
+              <label>
+                Franchise
+                <select id="ranking-franchise-filter-users">
+                  <option value="">Toutes les franchises</option>
+                </select>
+              </label>
+              <label id="ranking-phase-filter-wrap-users">
+                Phase
+                <select id="ranking-phase-filter-users">
+                  <option value="">Toutes les phases</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="ranking-section-divider" aria-hidden="true"></div>
+            <div class="table-wrapper ranking-table-shell">
+              <table class="ranking-table compact">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Titre</th>
+                    <th>Note</th>
+                  </tr>
+                </thead>
+                <tbody id="ranking-users-body"></tbody>
+              </table>
+            </div>
           </div>
         </section>
       </section>
