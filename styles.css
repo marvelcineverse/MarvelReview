@@ -2284,6 +2284,53 @@ a.review-author {
   font-size: clamp(1.5rem, 3vw, 2.1rem);
 }
 
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.profile-activity-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.profile-activity-badge:empty {
+  display: none;
+}
+
+.profile-activity-badge.activity-status-active {
+  background: #e8f7ea;
+  border-color: #b7e0bc;
+  color: #216c2f;
+}
+
+.profile-activity-badge.activity-status-recent {
+  background: #e7f1fc;
+  border-color: #b7d3f2;
+  color: #1c5892;
+}
+
+.profile-activity-badge.activity-status-occasional {
+  background: #fff5e6;
+  border-color: #efcf9c;
+  color: #8c5b00;
+}
+
+.profile-activity-badge.activity-status-inactive {
+  background: var(--surface-alt);
+  border-color: var(--border);
+  color: var(--muted);
+}
+
 .profile-header-photo {
   display: grid;
   justify-items: center;

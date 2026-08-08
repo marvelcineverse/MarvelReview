@@ -1,6 +1,7 @@
 import { supabase } from "../supabaseClient.js";
 import { requireAuth } from "./auth.js";
 import { createRankingFilterController } from "./personal-ranking.js";
+import { buildActivityBadgeMarkup, fetchLastActivityAt, getActivityStatus } from "./activity-status.js";
 import {
   buildDenseRankLabels,
   compressImageFile,
@@ -217,6 +218,14 @@ function renderProfileBioDisplay(bio) {
   el.textContent = bio ? bio : "Aucune description pour l'instant.";
 }
 
+async function renderActivityBadge(userId) {
+  const el = document.querySelector("#profile-activity-badge");
+  if (!el) return;
+
+  const lastActivityAt = await fetchLastActivityAt(userId);
+  el.innerHTML = buildActivityBadgeMarkup(getActivityStatus(lastActivityAt));
+}
+
 function renderProfileAvatarModalPreview(url) {
   renderAvatarInto("#profile-avatar-modal-preview", url, "avatar media-avatar");
 }
@@ -329,7 +338,7 @@ async function loadProfile() {
       renderProfileBioDisplay(currentBio);
     }
 
-    await Promise.all([loadMemberships(user.id), loadPersonalRatings(user.id)]);
+    await Promise.all([loadMemberships(user.id), loadPersonalRatings(user.id), renderActivityBadge(user.id)]);
     document.querySelector("#profile-email").textContent = user.email || "";
   } catch (error) {
     setMessage("#form-message", error.message || "Erreur de chargement profil.", true);

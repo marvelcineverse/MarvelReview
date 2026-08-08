@@ -9,6 +9,7 @@ import {
   setMessage
 } from "./utils.js";
 import { createRankingFilterController } from "./personal-ranking.js";
+import { buildActivityBadgeMarkup, fetchLastActivityAt, getActivityStatus } from "./activity-status.js";
 
 const rankingController = createRankingFilterController({ onChange: () => renderRanking() });
 
@@ -127,7 +128,14 @@ async function loadUserProfile() {
       bioBlockEl.style.display = bio ? "" : "none";
     }
 
-    await Promise.all([loadMemberships(data.id), rankingController.load(data.id)]);
+    const renderActivityBadge = (async () => {
+      const badgeEl = document.querySelector("#profile-activity-badge");
+      if (!badgeEl) return;
+      const lastActivityAt = await fetchLastActivityAt(data.id);
+      badgeEl.innerHTML = buildActivityBadgeMarkup(getActivityStatus(lastActivityAt));
+    })();
+
+    await Promise.all([loadMemberships(data.id), rankingController.load(data.id), renderActivityBadge]);
   } catch (error) {
     setMessage("#page-message", error.message || "Erreur de chargement du profil.", true);
   }
