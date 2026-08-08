@@ -633,18 +633,17 @@ async function selectRankingUser(userId) {
   }
 }
 
+function getUserSearchMatches(query) {
+  if (!query) return usersTabState.directory;
+  return usersTabState.directory.filter((user) => user.searchText.includes(query)).slice(0, 20);
+}
+
 function bindUserSearch() {
   const searchInputEl = document.querySelector("#ranking-user-search-input");
   const resultsEl = document.querySelector("#ranking-user-search-results");
   if (!searchInputEl || !resultsEl) return;
 
-  searchInputEl.addEventListener("focus", () => {
-    ensureUserDirectoryLoaded().catch((error) => {
-      setMessage("#page-message", error.message || "Erreur de chargement des utilisateurs.", true);
-    });
-  });
-
-  searchInputEl.addEventListener("input", async () => {
+  async function refreshUserSearchResults() {
     try {
       await ensureUserDirectoryLoaded();
     } catch (error) {
@@ -653,16 +652,11 @@ function bindUserSearch() {
     }
 
     const query = normalizeSearchText(searchInputEl.value);
-    if (!query) {
-      renderUserSearchResults([]);
-      return;
-    }
+    renderUserSearchResults(getUserSearchMatches(query));
+  }
 
-    const matches = usersTabState.directory
-      .filter((user) => user.searchText.includes(query))
-      .slice(0, 20);
-    renderUserSearchResults(matches);
-  });
+  searchInputEl.addEventListener("focus", refreshUserSearchResults);
+  searchInputEl.addEventListener("input", refreshUserSearchResults);
 
   resultsEl.addEventListener("click", (event) => {
     const button = event.target.closest("[data-user-id]");
@@ -673,7 +667,7 @@ function bindUserSearch() {
   searchInputEl.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
     searchInputEl.value = "";
-    renderUserSearchResults([]);
+    resultsEl.hidden = true;
   });
 
   document.addEventListener("click", (event) => {
